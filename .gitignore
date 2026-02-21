@@ -35,4 +35,8 @@ subagents_outputs/
 # Secrets
 .env
 *.env
+.env.*
+!.env.example
 credentials.json
+*.pem
+*.key
