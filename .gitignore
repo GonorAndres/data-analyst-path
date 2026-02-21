@@ -1,0 +1,38 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+
+# Data files (large)
+*.csv
+*.xlsx
+*.parquet
+*.json
+!**/data/raw/.gitkeep
+!**/data/processed/.gitkeep
+
+# Power BI temp files
+*.pbix.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Subagent outputs
+subagents_outputs/
+
+# Secrets
+.env
+*.env
+credentials.json

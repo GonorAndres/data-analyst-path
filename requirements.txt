@@ -1,0 +1,23 @@
+# Core analysis
+pandas>=2.0
+numpy>=1.24
+scipy>=1.11
+
+# Visualization
+plotly>=5.18
+seaborn>=0.13
+matplotlib>=3.8
+
+# Interactive apps
+streamlit>=1.30
+jupyter>=1.0
+notebook>=7.0
+
+# Database
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+
+# Utilities
+openpyxl>=3.1
+xlsxwriter>=3.1
+python-dotenv>=1.0
