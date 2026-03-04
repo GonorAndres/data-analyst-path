@@ -17,6 +17,12 @@ __pycache__/
 *.json
 !**/data/raw/.gitkeep
 !**/data/processed/.gitkeep
+# Next.js project files — always track
+!package.json
+!package-lock.json
+!tsconfig.json
+# Static JSON data for portfolio dashboards
+!projects/00-demo-aestehtics/public/data/**/*.json
 
 # Power BI temp files
 *.pbix.tmp

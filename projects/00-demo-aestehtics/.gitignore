@@ -1,0 +1,13 @@
+# Next.js
+.next/
+out/
+node_modules/
+
+# Raw data (too large)
+data-pipeline/raw-data/
+
+# Subagent outputs
+subagents_outputs/
+
+# Environment
+.env*.local

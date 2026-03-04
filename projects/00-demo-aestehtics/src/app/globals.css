@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #FAFAF8;
+  --foreground: #1A1A1A;
+  --chart-tick:   #6B6B6B;
+  --chart-label:  #1A1A1A;
+  --chart-grid:   #E5E4DF;
+  --bar-rank-1:   #1E3A5F;
+  --bar-rank-2:   #2B527F;
+  --bar-rank-3:   #9AB0C8;
+  --heatmap-zero:     #F0EFEB;
+  --heatmap-low:      #B8D4E3;
+  --heatmap-low-mid:  #8DC0D8;
+  --heatmap-mid:      #4A7FA8;
+  --heatmap-mid-high: #2D6899;
+  --heatmap-high:     #1E3A5F;
+  --chart-bg:         #FAFAF8;
+  --rfm-champions:  #1E3A5F;
+  --rfm-loyal:      #4A7FA8;
+  --rfm-potential:  #6BA3C8;
+  --rfm-new:        #9AB0C8;
+  --rfm-at-risk:    #C4841D;
+  --rfm-hibernating:#9CA3AF;
+}
+
+.dark {
+  --background: #141414;
+  --foreground: #F0EFEB;
+  --chart-tick:   #9A9A9A;
+  --chart-label:  #F0EFEB;
+  --chart-grid:   #2a2a2a;
+  --bar-rank-1:   #6BA3C8;
+  --bar-rank-2:   #4A7FA8;
+  --bar-rank-3:   #9AB0C8;
+  --heatmap-zero:     #1a1a1a;
+  --heatmap-low:      #1E3A5F;
+  --heatmap-low-mid:  #2A5070;
+  --heatmap-mid:      #4A7FA8;
+  --heatmap-mid-high: #3A6A94;
+  --heatmap-high:     #6BA3C8;
+  --chart-bg:         #1A1A1A;
+  --rfm-at-risk:    #E8A84C;
+  --rfm-hibernating:#6B6B6B;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-lora), Georgia, serif;
+}
+
+/* Editorial rule lines */
+.rule-line {
+  border-top: 2px solid #1A1A1A;
+}
+
+.dark .rule-line {
+  border-top-color: #F0EFEB;
+}
+
+/* Muted text in dark mode: #6B6B6B is 3.45:1 on #141414 (fails AA for small text).
+   Override to #9A9A9A which gives 6.6:1. */
+.dark .text-muted {
+  color: #9A9A9A;
+}
