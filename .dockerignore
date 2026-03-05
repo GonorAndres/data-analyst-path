@@ -1,0 +1,37 @@
+# Git
+.git
+.gitignore
+
+# Node / Frontend
+**/node_modules
+**/.next
+**/out
+
+# Python
+.venv
+**/__pycache__
+**/*.pyc
+*.egg-info
+
+# Notebooks & docs (not needed in API image)
+**/notebooks
+**/dashboards
+docs/
+subagents_outputs/
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+**/.env
+**/.env.local
+
+# Large / unnecessary project files
+**/reports
+**/screenshots
+**/*.pbix

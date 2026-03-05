@@ -155,6 +155,66 @@ Every project README must follow `docs/templates/project-readme-template.md`:
 | 05 | Financial Portfolio Tracker | Financial | Python, Streamlit | Streamlit app + notebook |
 | 06 | Operational Efficiency | Business/General | SQL, Power BI | Power BI dashboard + exec summary slides |
 
+## CI/CD & Cloud Run Deployment
+
+### How It Works
+
+Two GitHub Actions workflows auto-deploy on push to `main`, each with **path filters** so they only run when relevant files change:
+
+| Workflow | File | Triggers on | Deploys | Cloud Run Service |
+|----------|------|-------------|---------|-------------------|
+| API | `.github/workflows/deploy-api.yml` | `backend/**`, project 00/01 backends + data | Consolidated FastAPI (insurance + olist) | `da-portfolio-api` (port 8080) |
+| Streamlit | `.github/workflows/deploy-streamlit.yml` | `projects/02-*/streamlit/**`, data, requirements, Dockerfile | Cohort Analysis dashboard | `da-cohort-streamlit` (port 8501) |
+
+**Merge behavior**: When a branch merges into `main`, GitHub evaluates path filters against *all changed files* in that push. If the merge touches both `backend/` and `projects/02-*/streamlit/`, both workflows fire in parallel. Each workflow is independent.
+
+### Architecture
+
+```
+Push to main
+    |
+    v
+GitHub Actions (Workload Identity Federation -- no SA keys)
+    |
+    +--> deploy-api.yml -----> Artifact Registry --> Cloud Run (da-portfolio-api)
+    |                                                  /insurance/*  /olist/*
+    |
+    +--> deploy-streamlit.yml -> Artifact Registry --> Cloud Run (da-cohort-streamlit)
+                                                       Streamlit app on :8501
+```
+
+### GCP Resources
+
+- **Project**: `project-ad7a5be2-a1c7-4510-82d` (number: `451451662791`)
+- **Region**: `us-central1`
+- **Artifact Registry**: `us-central1-docker.pkg.dev/<PROJECT_ID>/da-portfolio-api/`
+- **WIF Pool/Provider**: `github-pool` / `github-provider` (scoped to `GonorAndres/data-analyst-path`)
+- **Service Account**: `github-deployer@<PROJECT_ID>.iam.gserviceaccount.com` (roles: `run.admin`, `artifactregistry.writer`, `iam.serviceAccountUser`)
+
+### GitHub Secrets (already configured)
+
+| Secret | Value |
+|--------|-------|
+| `GCP_PROJECT_ID` | `project-ad7a5be2-a1c7-4510-82d` |
+| `GCP_WIF_PROVIDER` | `projects/451451662791/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+| `GCP_SERVICE_ACCOUNT` | `github-deployer@project-ad7a5be2-a1c7-4510-82d.iam.gserviceaccount.com` |
+
+### Adding a New Service
+
+To deploy a new project to Cloud Run:
+1. Create a `Dockerfile` in the project folder (build context is repo root)
+2. Copy `deploy-streamlit.yml`, change `SERVICE_NAME`, `paths`, Dockerfile path, and port
+3. Push to the same Artifact Registry repo (`da-portfolio-api`) -- no new GCP setup needed
+
+### Dockerfiles
+
+| Service | Dockerfile | Build context | Port |
+|---------|-----------|---------------|------|
+| Consolidated API | `backend/Dockerfile` | repo root | 8080 |
+| Cohort Streamlit | `projects/02-ecommerce-cohort-analysis/Dockerfile` | repo root | 8501 |
+
+Both Dockerfiles use repo root as build context (run `docker build -f <path> .` from root).
+
 ## Cross-Project Integration
 
 This repo links to but does not duplicate work from:

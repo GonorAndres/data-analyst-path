@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+**/node_modules
+**/.next
+**/out
+**/__pycache__
+**/notebooks
+**/dashboards
+docs/
+subagents_outputs/
+**/.env
+**/.env.local
+**/reports
+**/*.pbix
