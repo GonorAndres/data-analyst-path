@@ -10,7 +10,7 @@ A collection of end-to-end data analysis projects demonstrating business storyte
 
 | # | Project | Domain | Tools | Output | Status |
 |---|---------|--------|-------|--------|--------|
-| 01 | [Insurance Claims Dashboard](projects/01-insurance-claims-dashboard/) | Insurance | Power BI, SQL, Python | Interactive dashboard + executive summary | Planned |
+| 01 | [Insurance Claims Dashboard](projects/01-insurance-claims-dashboard/) | Insurance | Next.js, SQL, Python | Next.js dashboard + executive summary | Complete |
 | 02 | [E-Commerce Cohort Analysis](projects/02-ecommerce-cohort-analysis/) | E-Commerce | SQL, Python, Streamlit | Jupyter notebook + Streamlit app | Planned |
 | 03 | [A/B Test Analysis](projects/03-ab-test-analysis/) | Product | R, Python | Statistical report + recommendation memo | Planned |
 | 04 | [Executive KPI Report](projects/04-executive-kpi-report/) | Operations | Python, Power BI | Automated PDF report + dashboard | Planned |
