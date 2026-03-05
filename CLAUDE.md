@@ -189,7 +189,20 @@ GitHub Actions (Workload Identity Federation -- no SA keys)
 - **Region**: `us-central1`
 - **Artifact Registry**: `us-central1-docker.pkg.dev/<PROJECT_ID>/da-portfolio-api/`
 - **WIF Pool/Provider**: `github-pool` / `github-provider` (scoped to `GonorAndres/data-analyst-path`)
-- **Service Account**: `github-deployer@<PROJECT_ID>.iam.gserviceaccount.com` (roles: `run.admin`, `artifactregistry.writer`, `iam.serviceAccountUser`)
+- **Data Bucket**: `gs://da-portfolio-data-assets` -- parquet files downloaded at build time (not committed to git)
+- **Service Account**: `github-deployer@<PROJECT_ID>.iam.gserviceaccount.com` (roles: `run.admin`, `artifactregistry.writer`, `iam.serviceAccountUser`, `storage.objectViewer` on data bucket)
+
+### Data in GCS (not in git)
+
+Parquet data files live in `gs://da-portfolio-data-assets` and are downloaded during CI builds. Workflows pull data before `docker build` so existing Dockerfile `COPY` commands work unchanged.
+
+| GCS path | Local destination | Used by |
+|----------|-------------------|---------|
+| `olist-backend/*` | `projects/00-demo-aestehtics/backend/data/` | API (olist) |
+| `insurance-processed/*` | `projects/01-insurance-claims-dashboard/data/processed/` | API (insurance) |
+| `cohort-processed/*` | `projects/02-ecommerce-cohort-analysis/data/processed/` | Streamlit |
+
+To update data: `gcloud storage cp <local-file> gs://da-portfolio-data-assets/<prefix>/` then re-trigger the workflow.
 
 ### GitHub Secrets (already configured)
 
