@@ -1,0 +1,5 @@
+pandas>=2.0
+numpy>=1.24
+scipy>=1.10
+chainladder>=0.9
+pyarrow>=12.0

@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #FAFAF8;
+  --foreground: #1A1A1A;
+  --chart-tick:   #6B6B6B;
+  --chart-label:  #1A1A1A;
+  --chart-grid:   #E5E4DF;
+  --bar-rank-1:   #1E3A5F;
+  --bar-rank-2:   #2B527F;
+  --bar-rank-3:   #9AB0C8;
+  --chart-bg:     #FAFAF8;
+
+  /* Insurance LOB colors */
+  --lob-auto:      #1E3A5F;
+  --lob-workers:   #2B6B4F;
+  --lob-medmal:    #8B2E3B;
+  --lob-liability: #C4841D;
+  --lob-product:   #5B4A8A;
+  --lob-comauto:   #4A7FA8;
+
+  /* Ratio zone colors */
+  --ratio-profitable: #2B6B4F;
+  --ratio-breakeven:  #C4841D;
+  --ratio-loss:       #8B2E3B;
+
+  /* Loss triangle heatmap */
+  --triangle-zero: #F0EFEB;
+  --triangle-low:  #B8D4E3;
+  --triangle-mid:  #4A7FA8;
+  --triangle-high: #1E3A5F;
+}
+
+.dark {
+  --background: #141414;
+  --foreground: #F0EFEB;
+  --chart-tick:   #9A9A9A;
+  --chart-label:  #F0EFEB;
+  --chart-grid:   #2a2a2a;
+  --bar-rank-1:   #6BA3C8;
+  --bar-rank-2:   #4A7FA8;
+  --bar-rank-3:   #9AB0C8;
+  --chart-bg:     #1A1A1A;
+
+  /* Insurance LOB colors — dark mode */
+  --lob-auto:      #6BA3C8;
+  --lob-workers:   #5BBF8E;
+  --lob-medmal:    #D4667A;
+  --lob-liability: #E8A84C;
+  --lob-product:   #9B8ACA;
+  --lob-comauto:   #7BB8D8;
+
+  /* Ratio zone colors — dark mode */
+  --ratio-profitable: #5BBF8E;
+  --ratio-breakeven:  #E8A84C;
+  --ratio-loss:       #D4667A;
+
+  /* Loss triangle heatmap — dark mode */
+  --triangle-zero: #1a1a1a;
+  --triangle-low:  #1E3A5F;
+  --triangle-mid:  #4A7FA8;
+  --triangle-high: #6BA3C8;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-lora), Georgia, serif;
+}
+
+/* Editorial rule lines */
+.rule-line {
+  border-top: 2px solid #1A1A1A;
+}
+
+.dark .rule-line {
+  border-top-color: #F0EFEB;
+}
+
+/* Muted text in dark mode: #6B6B6B is 3.45:1 on #141414 (fails AA for small text).
+   Override to #9A9A9A which gives 6.6:1. */
+.dark .text-muted {
+  color: #9A9A9A;
+}
