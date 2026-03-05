@@ -3,8 +3,8 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, Query
 
-from app import data_loader
-from app.filters import apply_filters
+from olist_backend import data_loader
+from olist_backend.filters import apply_filters
 
 router = APIRouter()
 

@@ -7,7 +7,7 @@ Project-level instructions for the Airbnb CDMX Next.js dashboard.
 - **Next.js frontend**: `PORT=3050 npm run dev` → `http://localhost:3050` (port 3000 is taken)
 - **Olist FastAPI backend**: always run on port **2050**
   ```bash
-  cd backend && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 2050
+  cd backend && python3 -m uvicorn olist_backend.main:app --host 0.0.0.0 --port 2050
   ```
 - Only **port 3050** needs to be forwarded to your local machine. Port 2050 is internal — the browser never calls it directly.
 
@@ -33,6 +33,10 @@ OLIST_BACKEND_URL=http://localhost:2050
 3. Do NOT set `NEXT_PUBLIC_OLIST_API_URL` in production — the proxy handles routing and keeps the Cloud Run URL private from the client bundle.
 4. Ensure Cloud Run allows unauthenticated requests OR add an `Authorization` header in the `olistFetcher` via a server-side secret.
 5. The `BackendWarmup` component on the homepage fires `GET /api/olist/health` on first load — this wakes the Cloud Run container before the user navigates to `/olist`.
+
+## Consolidated Backend
+
+This backend can also run as part of the unified portfolio API at `backend/main.py` (repo root). In that mode, all routes are prefixed with `/olist` (e.g., `/olist/api/v1/filters`). Set `OLIST_BACKEND_URL=http://localhost:8080/olist` in `.env.local` to use the consolidated backend.
 
 ## Dark / Light Mode Contrast Rule
 

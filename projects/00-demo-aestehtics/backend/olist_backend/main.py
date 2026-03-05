@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import data_loader
-from app.routers import categories, cohort, delivery, geo, ltv, revenue, rfm
+from olist_backend import data_loader
+from olist_backend.routers import categories, cohort, delivery, geo, ltv, revenue, rfm
 
 app = FastAPI(title="Olist API", version="1.0.0")
 
@@ -44,7 +44,7 @@ def kpis(
     year_start: int = None,
     year_end: int = None,
 ):
-    from app.filters import apply_filters
+    from olist_backend.filters import apply_filters
 
     df = apply_filters(data_loader.orders, category, state, payment_type, year_start, year_end)
     return {

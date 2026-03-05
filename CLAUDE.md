@@ -73,7 +73,32 @@ Rscript projects/<project>/analysis.R
 
 # Execute SQL against local PostgreSQL
 psql -d <database> -f projects/<project>/sql/queries.sql
+
+# Consolidated backend (insurance + olist on single port)
+cd backend && bash dev.sh   # serves on port 8080
+# /insurance/api/v1/* and /olist/api/v1/*
 ```
+
+## Consolidated Backend
+
+A unified FastAPI entry point at `backend/main.py` mounts both project backends under path prefixes:
+
+| Path prefix | Sub-app | Standalone port |
+|-------------|---------|-----------------|
+| `/insurance` | `insurance_backend` (project 01) | 2051 |
+| `/olist` | `olist_backend` (project 00) | 2050 |
+
+**Dev modes:**
+- **Standalone**: `cd projects/01-.../backend && uvicorn insurance_backend.main:app --port 2051`
+- **Consolidated**: `cd backend && bash dev.sh` (port 8080)
+- **Docker**: `docker build -f backend/Dockerfile -t da-portfolio-api . && docker run -p 8080:8080 da-portfolio-api`
+
+**Frontend env var adjustment** (no code changes needed):
+| Mode | `INSURANCE_BACKEND_URL` | `OLIST_BACKEND_URL` |
+|------|-------------------------|---------------------|
+| Standalone | `http://localhost:2051` | `http://localhost:2050` |
+| Consolidated | `http://localhost:8080/insurance` | `http://localhost:8080/olist` |
+| Production | `https://da-api-xxx.run.app/insurance` | `https://da-api-xxx.run.app/olist` |
 
 ## Conventions
 
@@ -123,7 +148,7 @@ Every project README must follow `docs/templates/project-readme-template.md`:
 
 | # | Project | Analyst Flavor | Primary Tools | Output Format |
 |---|---------|---------------|---------------|---------------|
-| 01 | Insurance Claims Dashboard | Financial/Insurance | Power BI, SQL, Python | .pbix + PBI Service + screenshots |
+| 01 | Insurance Claims Dashboard | Financial/Insurance | Next.js, SQL, Python | Next.js dashboard + executive summary |
 | 02 | E-Commerce Cohort Analysis | Product/Growth | SQL, Python, Streamlit | Jupyter notebook + Streamlit app |
 | 03 | A/B Test Analysis | Product/Growth | R, Python | R Markdown + Jupyter notebook |
 | 04 | Executive KPI Report | Business/General | Python, Power BI | Automated PDF + Power BI dashboard |
