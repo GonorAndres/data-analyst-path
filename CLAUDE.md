@@ -144,6 +144,17 @@ Every project README must follow `docs/templates/project-readme-template.md`:
 - Notebooks: Renderable via nbviewer/GitHub. Include "View on nbviewer" badge in project README
 - Reports: PDF exports in `reports/`, source files (if editable) alongside them
 
+### Technical Process Page (Notebook-in-Streamlit Pattern)
+For Streamlit projects with supporting Jupyter notebooks, embed the full analytical pipeline as a browsable page inside the dashboard:
+1. Convert notebooks to HTML: `jupyter nbconvert --to html --output-dir=streamlit/notebooks_html notebooks/*.ipynb`
+2. Store HTML files in `streamlit/notebooks_html/` (committed to git, included in Docker image)
+3. Create a "Proceso Técnico" page that renders each notebook in a scrollable `streamlit.components.v1.html()` iframe
+4. Each tab shows one notebook with a description card explaining inputs/outputs
+5. Re-export HTML whenever notebooks are re-run to keep outputs fresh
+6. Update `.dockerignore` with `!**/notebooks_html` if `**/notebooks` is ignored
+
+This pattern adds significant portfolio value -- viewers see the full code, transformations, and intermediate results behind every dashboard visualization without leaving the app.
+
 ## Portfolio Project Summaries
 
 | # | Project | Analyst Flavor | Primary Tools | Output Format |

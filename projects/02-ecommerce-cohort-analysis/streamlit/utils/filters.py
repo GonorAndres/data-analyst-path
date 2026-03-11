@@ -61,25 +61,49 @@ def apply_date_filter_cohorts(retention_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def render_active_filter_badges() -> None:
-    """Render badges for all active sidebar filters."""
-    parts = []
+    """Render a compact filter bar showing all active sidebar filters."""
+    badges: list[str] = []
+
     date_start = st.session_state.get("date_start")
     date_end = st.session_state.get("date_end")
     if date_start and date_end:
-        parts.append(
-            f'<span class="filter-badge">Período: {date_start} &rarr; {date_end}</span>'
+        badges.append(
+            f'<span class="filter-badge">'
+            f'<span class="filter-badge-icon">&#128197;</span> '
+            f"{date_start.strftime('%b %Y')} &rarr; {date_end.strftime('%b %Y')}"
+            f"</span>"
         )
+
     min_cohort = st.session_state.get("min_cohort_size", 50)
     if min_cohort != 50:
-        parts.append(
-            f'<span class="filter-badge">Cohorte mín: {min_cohort}</span>'
+        badges.append(
+            f'<span class="filter-badge">'
+            f'<span class="filter-badge-icon">&#9998;</span> '
+            f"Cohorte &ge; {min_cohort}"
+            f"</span>"
         )
+
     selected_segs = st.session_state.get("selected_segments", [])
     if selected_segs:
         for s in selected_segs:
-            parts.append(f'<span class="filter-badge">{s}</span>')
-    if parts:
-        st.markdown(" ".join(parts), unsafe_allow_html=True)
+            badges.append(
+                f'<span class="filter-badge">'
+                f'<span class="filter-badge-icon">&#9679;</span> {s}'
+                f"</span>"
+            )
+
+    if badges:
+        inner = "".join(badges)
+    else:
+        inner = '<span class="filter-bar-empty">Sin filtros activos -- mostrando todos los datos</span>'
+
+    st.markdown(
+        f'<div class="filter-bar">'
+        f'<span class="filter-bar-label">Filtros</span>'
+        f"{inner}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def render_dynamic_footer(n_orders: int | None = None) -> None:

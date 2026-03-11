@@ -307,17 +307,47 @@ def inject_styles():
             padding-top: 8px !important;
         }
 
-        /* Filter badge pill */
+        /* Filter bar */
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding: 6px 12px;
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .filter-bar-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-right: 4px;
+        }
         .filter-badge {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
             background: #EFF6FF;
-            color: #1D4ED8;
+            color: #1E40AF;
             border: 1px solid #BFDBFE;
-            border-radius: 12px;
-            padding: 2px 10px;
-            font-size: 12px;
+            border-radius: 16px;
+            padding: 3px 10px;
+            font-size: 11px;
             font-weight: 500;
-            margin: 2px 3px;
+            line-height: 1.4;
+        }
+        .filter-badge-icon {
+            font-size: 10px;
+            opacity: 0.7;
+        }
+        .filter-bar-empty {
+            font-size: 11px;
+            color: #94A3B8;
+            font-style: italic;
         }
 
         /* Streamlit overrides */
