@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 
 from utils.styles import inject_styles
-from utils.data_loader import load_orders, load_customers
+from utils.data_loader import load_orders, load_customers, validate_columns
 from utils.filters import apply_date_filter, apply_date_filter_customers, render_active_filter_badges, render_dynamic_footer
 from utils import charts
 from components.metric_row import render_metric_row
@@ -25,6 +25,14 @@ customers = load_customers()
 if orders_raw is None or customers is None:
     st.error("No se pudieron cargar los datos. Verifica que existan los archivos parquet.")
     st.stop()
+
+validate_columns(orders_raw, [
+    "order_id", "order_purchase_timestamp", "total_order_value", "order_month",
+], "orders_enriched")
+validate_columns(customers, [
+    "customer_unique_id", "total_revenue", "is_repeat_customer",
+    "avg_order_value", "total_orders", "cohort_month",
+], "customers_summary")
 
 # Apply global date filter
 orders = apply_date_filter(orders_raw)

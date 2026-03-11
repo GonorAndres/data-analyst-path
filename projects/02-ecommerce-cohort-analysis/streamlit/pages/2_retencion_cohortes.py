@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from utils.styles import inject_styles
 from utils.data_loader import (
     load_cohort_retention, load_cohort_revenue, load_survival, load_customers,
+    validate_columns,
 )
 from utils.filters import apply_cohort_size_filter, apply_date_filter_cohorts, render_active_filter_badges, render_dynamic_footer
 from utils import charts
@@ -29,6 +30,9 @@ customers = load_customers()
 if retention is None:
     st.error("No se pudo cargar cohort_retention_matrix.parquet.")
     st.stop()
+
+if survival is not None:
+    validate_columns(survival, ["duration_days", "event_observed"], "survival_data")
 
 # -- Header --
 st.markdown('<div class="page-header">Retención por Cohortes</div>', unsafe_allow_html=True)
@@ -308,10 +312,11 @@ with tab_km:
 
         if km_seg == "Ninguno":
             kmf = KaplanMeierFitter()
-            kmf.fit(
-                durations=survival_clean["duration_days"],
-                event_observed=survival_clean["event_observed"],
-            )
+            with st.spinner("Calculando curva de supervivencia..."):
+                kmf.fit(
+                    durations=survival_clean["duration_days"],
+                    event_observed=survival_clean["event_observed"],
+                )
             km_df = kmf.survival_function_.reset_index()
             km_df.columns = ["Días", "Supervivencia"]
             ci = kmf.confidence_interval_survival_function_.reset_index()

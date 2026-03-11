@@ -15,6 +15,7 @@
 
 # Notebooks & docs (not needed in API image)
 **/notebooks
+!**/notebooks_html
 **/dashboards
 docs/
 subagents_outputs/

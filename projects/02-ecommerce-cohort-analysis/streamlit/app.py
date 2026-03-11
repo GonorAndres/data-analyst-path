@@ -149,6 +149,7 @@ st.markdown(
     | **Segmentos de Clientes** | Análisis RFM, LTV por segmento, factores de activación |
     | **Análisis Geográfico** | Comparación por estados, correlación entrega-retención |
     | **Metodología** | Definiciones, lógica de cálculo, fuente de datos |
+    | **Proceso Técnico** | Notebooks completos: código, transformaciones y resultados intermedios |
     """
 )
 

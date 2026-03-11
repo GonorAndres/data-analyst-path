@@ -10,7 +10,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from utils.styles import inject_styles
-from utils.data_loader import load_orders, load_customers
+from utils.data_loader import load_orders, load_customers, validate_columns
 from utils.filters import apply_date_filter, apply_date_filter_customers, render_active_filter_badges, render_dynamic_footer
 from utils import charts
 from components.chart_container import render_chart_container
@@ -25,6 +25,15 @@ customers_raw = load_customers()
 if orders_raw is None or customers_raw is None:
     st.error("No se pudieron cargar los datos.")
     st.stop()
+
+validate_columns(orders_raw, [
+    "order_id", "customer_state", "review_score", "delivery_days",
+    "customer_unique_id", "months_since_cohort",
+], "orders_enriched")
+validate_columns(customers_raw, [
+    "customer_state", "total_revenue", "avg_order_value",
+    "is_repeat_customer", "recency_days",
+], "customers_summary")
 
 # Apply global date filter
 orders = apply_date_filter(orders_raw)

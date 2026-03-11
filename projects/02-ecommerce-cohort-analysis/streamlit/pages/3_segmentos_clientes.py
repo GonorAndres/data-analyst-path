@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 from utils.styles import inject_styles
-from utils.data_loader import load_rfm, load_ltv_curves, load_activation
+from utils.data_loader import load_rfm, load_ltv_curves, load_activation, validate_columns
 from utils.filters import apply_segment_filter, render_active_filter_badges, render_dynamic_footer
 from utils import charts
 from components.metric_row import render_metric_row
@@ -28,6 +28,16 @@ activation = load_activation()
 if rfm_raw is None:
     st.error("No se pudo cargar rfm_segments.parquet.")
     st.stop()
+
+validate_columns(rfm_raw, [
+    "segment", "recency_days", "total_orders", "total_revenue",
+], "rfm_segments")
+
+if activation is not None:
+    validate_columns(activation, ["feature", "odds_ratio", "p_value", "ci_lower", "ci_upper"], "activation_coefficients")
+
+if ltv is not None:
+    validate_columns(ltv, ["months_since_cohort", "cumulative_revenue_per_customer", "segment"], "ltv_curves")
 
 # Apply segment filter
 rfm = apply_segment_filter(rfm_raw)
