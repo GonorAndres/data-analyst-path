@@ -41,8 +41,7 @@ st.markdown(
     <p>
     Brasil es un país de dimensiones continentales con enormes diferencias logísticas entre
     estados. Este análisis explora como la ubicación geográfica del cliente impacta la
-    retención, los tiempos de entrega y la satisfacción, para identificar oportunidades
-    de mejora regional.
+    retención, los tiempos de entrega y la satisfacción.
     </p>
     </div>
     """,
@@ -87,7 +86,7 @@ state_df = state_metrics.merge(state_orders, on="customer_state", how="left")
 state_df["retencion_pct"] = state_df["retencion"] * 100
 state_df = state_df.sort_values("clientes", ascending=False)
 
-# -- State filter --
+# -- State filter (with session_state persistence) --
 top_5 = state_df.head(5)["customer_state"].tolist()
 all_states = state_df["customer_state"].tolist()
 
@@ -95,6 +94,7 @@ selected_states = st.multiselect(
     "Seleccionar estados para comparar",
     options=all_states,
     default=top_5,
+    key="selected_states",
 )
 
 if not selected_states:
@@ -103,10 +103,24 @@ if not selected_states:
 
 filtered = state_df[state_df["customer_state"].isin(selected_states)].copy()
 
+# -- Summary metrics row --
+avg_ret = filtered["retencion_pct"].mean()
+avg_del = filtered["entrega_prom"].mean()
+total_orders_sel = filtered["pedidos"].sum()
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Pedidos totales", f"{total_orders_sel:,}")
+with col2:
+    st.metric("Retención promedio", f"{avg_ret:.1f}%")
+with col3:
+    st.metric("Entrega promedio", f"{avg_del:.1f} días" if not np.isnan(avg_del) else "N/D")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
 # -- Chart 1: State ranking by retention rate --
 ret_sorted = filtered.sort_values("retencion_pct", ascending=True)
 
-# Color tiers
 ret_median = state_df["retencion_pct"].median()
 tier_colors = [
     charts.SUCCESS if v > ret_median * 1.2 else
@@ -119,10 +133,7 @@ fig_ret = charts.colored_bar_chart(
     ret_sorted, "customer_state", "retencion_pct", tier_colors,
     horizontal=True, height=max(300, len(filtered) * 35),
 )
-fig_ret.update_layout(
-    xaxis_title="Tasa de Retención (%)",
-    yaxis_title="",
-)
+fig_ret.update_layout(xaxis_title="Tasa de Retención (%)", yaxis_title="")
 fig_ret.add_vline(
     x=ret_median, line_dash="dash", line_color=charts.TEXT_MUTED,
     annotation_text=f"Mediana nacional: {ret_median:.1f}%",
@@ -139,13 +150,12 @@ render_chart_container(
     fig_ret,
     interpretation=(
         f"'{best_state['customer_state']}' lidera con {best_state['retencion_pct']:.1f}% de retención, "
-        f"mientras que '{worst_state['customer_state']}' tiene la más baja con {worst_state['retencion_pct']:.1f}%. "
-        f"La mediana nacional es {ret_median:.1f}%."
+        f"mientras que '{worst_state['customer_state']}' tiene la más baja con {worst_state['retencion_pct']:.1f}%."
     ),
     source_text="Fuente: Olist E-Commerce Dataset | Clientes con >= 1 pedido entregado",
 )
 
-# -- Chart 2: State KPI comparison table --
+# -- Chart 2: State KPI comparison table with download --
 table_df = filtered[
     ["customer_state", "pedidos", "ingresos", "aov", "retencion_pct",
      "review_prom", "entrega_prom"]
@@ -182,8 +192,14 @@ st.dataframe(
     hide_index=True,
 )
 
+st.download_button(
+    "Descargar tabla de KPIs por estado",
+    table_df.to_csv(index=False).encode("utf-8"),
+    "kpis_por_estado.csv",
+    "text/csv",
+)
+
 # -- Chart 3: Retention curves by selected states --
-# Compute monthly retention per state
 orders_with_state = orders[orders["customer_state"].isin(selected_states)].copy()
 
 state_cohort = (
@@ -192,13 +208,10 @@ state_cohort = (
     .reset_index(name="clientes")
 )
 
-# Normalize by month 0
 month0 = state_cohort[state_cohort["months_since_cohort"] == 0][["customer_state", "clientes"]].copy()
 month0.rename(columns={"clientes": "base"}, inplace=True)
 state_cohort = state_cohort.merge(month0, on="customer_state")
 state_cohort["retencion"] = state_cohort["clientes"] / state_cohort["base"] * 100
-
-# Filter to first 12 months
 state_cohort = state_cohort[state_cohort["months_since_cohort"] <= 12]
 
 fig_state_ret = go.Figure()
@@ -225,13 +238,12 @@ render_chart_container(
     fig_state_ret,
     interpretation=(
         "Las curvas muestran como varía la retención entre estados. "
-        "Estados con mejor infraestructura logística tienden a mostrar "
-        "curvas de retención ligeramente superiores."
+        "Estados con mejor infraestructura logística tienden a mostrar curvas superiores."
     ),
     source_text="Fuente: Olist E-Commerce Dataset | Retención mensual por estado",
 )
 
-# -- Chart 4: Delivery days vs retention scatter by state --
+# -- Chart 4: Delivery days vs retention scatter --
 scatter_df = state_df[state_df["clientes"] >= 100].copy()
 
 fig_delivery = go.Figure()
@@ -256,7 +268,6 @@ fig_delivery.add_trace(go.Scatter(
     ),
 ))
 
-# Trend line
 fit_df = scatter_df[["entrega_prom", "retencion_pct"]].dropna()
 if len(fit_df) >= 3:
     z = np.polyfit(fit_df["entrega_prom"], fit_df["retencion_pct"], 1)
@@ -265,8 +276,7 @@ if len(fit_df) >= 3:
     fig_delivery.add_trace(go.Scatter(
         x=x_line, y=p(x_line),
         mode="lines", line=dict(color=charts.DANGER, dash="dash", width=1.5),
-        name="Tendencia",
-        showlegend=True,
+        name="Tendencia", showlegend=True,
     ))
     correlation = fit_df["entrega_prom"].corr(fit_df["retencion_pct"])
 else:
@@ -289,11 +299,8 @@ render_chart_container(
             "La relación negativa sugiere que estados con entregas más rápidas "
             "tienden a tener mejor retención. "
             if correlation < -0.1 else
-            "La relación es débil, sugiriendo que otros factores además de la logística "
-            "influyen en la retención. "
+            "La relación es débil, sugiriendo que otros factores influyen en la retención. "
         )
-        + "Los estados del sureste (SP, RJ, MG) suelen combinar entregas rápidas con "
-        "mejores tasas de retención."
     ),
     source_text=f"Fuente: Olist E-Commerce Dataset | Estados con >= 100 clientes (N = {len(scatter_df)})",
 )
@@ -311,8 +318,7 @@ render_insight_box(
     recommendation=(
         "Priorizar la expansión de centros de distribución en estados con altos tiempos "
         "de entrega pero buena demanda. Paralelamente, establecer expectativas de entrega "
-        "más transparentes para estados lejanos y compensar con programas de fidelización "
-        "diferenciados por region."
+        "más transparentes para estados lejanos."
     ),
     box_type="insight",
 )

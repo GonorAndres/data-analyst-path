@@ -244,6 +244,39 @@ def inject_styles():
             .dashboard-footer { page-break-before: avoid; }
         }
 
+        /* Download button styling */
+        .stDownloadButton button {
+            background-color: #1B2A4A !important;
+            color: #F8FAFC !important;
+            border: 1px solid rgba(255,255,255,0.2) !important;
+            border-radius: 6px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            padding: 4px 12px !important;
+        }
+        .stDownloadButton button:hover {
+            background-color: #2563EB !important;
+            border-color: #2563EB !important;
+        }
+
+        /* Tab panel padding */
+        .stTabs [data-baseweb="tab-panel"] {
+            padding-top: 8px !important;
+        }
+
+        /* Filter badge pill */
+        .filter-badge {
+            display: inline-block;
+            background: #EFF6FF;
+            color: #1D4ED8;
+            border: 1px solid #BFDBFE;
+            border-radius: 12px;
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: 500;
+            margin: 2px 3px;
+        }
+
         /* Streamlit overrides */
         .stTabs [data-baseweb="tab-list"] {
             gap: 8px;

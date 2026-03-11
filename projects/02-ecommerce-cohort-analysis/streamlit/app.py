@@ -3,12 +3,12 @@
 import sys
 import os
 
-# Add streamlit dir to path for component imports
 sys.path.insert(0, os.path.dirname(__file__))
 
 import streamlit as st
 from utils.styles import inject_styles
 from utils.data_loader import load_orders, load_customers
+from utils.filters import apply_date_filter
 
 st.set_page_config(
     page_title="Análisis de Cohortes -- Olist",
@@ -25,25 +25,72 @@ with st.sidebar:
     st.markdown("**Olist E-Commerce**")
     st.markdown("---")
 
-    orders = load_orders()
-    customers = load_customers()
+    with st.spinner("Cargando datos..."):
+        orders = load_orders()
+        customers = load_customers()
 
-    if orders is not None and customers is not None:
-        st.markdown("##### Resumen de Datos")
-        st.markdown(f"- **Pedidos:** {len(orders):,}")
-        st.markdown(f"- **Clientes únicos:** {len(customers):,}")
-        st.markdown(
-            f"- **Período:** {orders['order_purchase_timestamp'].min().strftime('%b %Y')} "
-            f"-- {orders['order_purchase_timestamp'].max().strftime('%b %Y')}"
+    if orders is not None:
+        min_date = orders["order_purchase_timestamp"].dt.date.min()
+        max_date = orders["order_purchase_timestamp"].dt.date.max()
+
+        # Global date filter
+        st.markdown("##### Filtros Globales")
+        date_range = st.date_input(
+            "Período de análisis",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date,
+            key="_date_range_input",
         )
-        repeat_rate = customers["is_repeat_customer"].mean() * 100
-        st.markdown(f"- **Tasa de recompra:** {repeat_rate:.1f}%")
+        if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
+            st.session_state["date_start"] = date_range[0]
+            st.session_state["date_end"] = date_range[1]
+        else:
+            st.session_state["date_start"] = min_date
+            st.session_state["date_end"] = max_date
+
+        # Cohort size slider
+        st.slider(
+            "Tamaño mínimo de cohorte",
+            min_value=10,
+            max_value=500,
+            value=st.session_state.get("min_cohort_size", 50),
+            step=10,
+            key="min_cohort_size",
+        )
+
+        # Segment multiselect
+        if customers is not None:
+            from utils.data_loader import load_rfm
+            rfm_sidebar = load_rfm()
+            if rfm_sidebar is not None:
+                all_segments = sorted(rfm_sidebar["segment"].unique().tolist())
+                st.multiselect(
+                    "Segmentos RFM",
+                    options=all_segments,
+                    default=st.session_state.get("selected_segments", []),
+                    key="selected_segments",
+                    help="Vacío = todos los segmentos",
+                )
+
+        st.markdown("---")
+
+        # Stats after filter
+        orders_filtered = apply_date_filter(orders)
+        st.markdown("##### Resumen de Datos")
+        st.markdown(f"- **Pedidos:** {len(orders_filtered):,}")
+        if customers is not None:
+            st.markdown(f"- **Clientes únicos:** {len(customers):,}")
+        period_start = orders_filtered["order_purchase_timestamp"].min().strftime("%b %Y")
+        period_end = orders_filtered["order_purchase_timestamp"].max().strftime("%b %Y")
+        st.markdown(f"- **Período filtrado:** {period_start} -- {period_end}")
+        if customers is not None:
+            repeat_rate = customers["is_repeat_customer"].mean() * 100
+            st.markdown(f"- **Tasa de recompra:** {repeat_rate:.1f}%")
 
     st.markdown("---")
     st.markdown("##### Navegacion")
-    st.markdown(
-        "Usa el menú lateral para navegar entre las páginas del dashboard."
-    )
+    st.markdown("Usa el menú lateral para navegar entre las páginas del dashboard.")
     st.markdown("---")
     st.markdown(
         '<div style="font-size:12px; color:#94A3B8;">'
@@ -54,7 +101,10 @@ with st.sidebar:
     )
 
 # -- Main content --
-st.markdown('<div class="page-header">Análisis de Cohortes -- Olist E-Commerce</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="page-header">Análisis de Cohortes -- Olist E-Commerce</div>',
+    unsafe_allow_html=True,
+)
 st.markdown(
     '<div class="page-subheader">'
     "Dashboard ejecutivo de retención, segmentación y valor de vida del cliente"
@@ -86,6 +136,7 @@ st.markdown(
     | **Retención por Cohortes** | Heatmaps de retención, curvas de supervivencia |
     | **Segmentos de Clientes** | Análisis RFM, LTV por segmento, factores de activación |
     | **Análisis Geográfico** | Comparación por estados, correlación entrega-retención |
+    | **Metodología** | Definiciones, lógica de cálculo, fuente de datos |
     """
 )
 
