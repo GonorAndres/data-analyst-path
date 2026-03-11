@@ -143,11 +143,11 @@ rfm["RFM_score"] = rfm["R_score"].astype(str) + rfm["F_score"].astype(str) + rfm
 
     seg_rules = pd.DataFrame({
         "Segmento": [
-            "Champions", "Loyal Customers", "Potential Loyalists",
-            "New Customers", "Promising", "Need Attention",
-            "At Risk", "Hibernating", "Lost",
+            "Campeones", "Leales", "Potencial Leal",
+            "Nuevos", "Prometedores", "Requieren Atencion",
+            "En Riesgo", "Inactivos", "Perdidos",
         ],
-        "Criterio R": ["5", "2-5", "3-5", "4-5", "3-4", "2-3", "≤2", "1-2", "1"],
+        "Criterio R": ["5", "2-5", "3-5", "4-5", "3-4", "2-3", "<=2", "1-2", "1"],
         "Criterio F": ["4-5", "3-5", "1-3", "1", "1", "2-3", "2-5", "1-2", "1-2"],
         "Criterio M": ["4-5", "3-5", "1-3", "1", "1-2", "2-3", "1-5", "1-2", "1-2"],
     })

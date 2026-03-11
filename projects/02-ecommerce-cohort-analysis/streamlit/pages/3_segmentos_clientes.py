@@ -379,13 +379,13 @@ with tab_lorenz:
     )
 
 # -- Insight box --
-champion_seg = rfm_raw[rfm_raw["segment"].str.contains("Champion", case=False, na=False)]
+champion_seg = rfm_raw[rfm_raw["segment"].str.contains("Campeon", case=False, na=False)]
 if len(champion_seg) > 0:
     champ_pct = len(champion_seg) / len(rfm_raw) * 100
     champ_rev_pct = champion_seg["total_revenue"].sum() / rfm_raw["total_revenue"].sum() * 100
     finding = (
         f"<ul>"
-        f"<li>Los 'Champions' representan solo el <strong>{champ_pct:.1f}%</strong> de la base "
+        f"<li>Los 'Campeones' representan solo el <strong>{champ_pct:.1f}%</strong> de la base "
         f"pero generan el <strong>{champ_rev_pct:.1f}%</strong> de los ingresos</li>"
         f"<li>Gini de {gini:.3f} confirma alta concentración</li>"
         f"</ul>"

@@ -9,6 +9,27 @@ logger = logging.getLogger(__name__)
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "processed")
 
+# English -> natural Spanish mapping for RFM segments
+SEGMENT_ES: dict[str, str] = {
+    "Champions": "Campeones",
+    "Loyal": "Leales",
+    "Potential Loyalist": "Potencial Leal",
+    "New": "Nuevos",
+    "Promising": "Prometedores",
+    "Need Attention": "Requieren Atencion",
+    "At Risk": "En Riesgo",
+    "Hibernating": "Inactivos",
+    "Lost": "Perdidos",
+    "Other": "Otros",
+}
+
+
+def _translate_segments(df: pd.DataFrame) -> pd.DataFrame:
+    """Replace English segment names with Spanish equivalents."""
+    if "segment" in df.columns:
+        df["segment"] = df["segment"].map(SEGMENT_ES).fillna(df["segment"])
+    return df
+
 
 def _load(filename: str) -> pd.DataFrame | None:
     path = os.path.join(_DATA_DIR, filename)
@@ -63,12 +84,14 @@ def load_survival() -> pd.DataFrame | None:
 
 @st.cache_data
 def load_rfm() -> pd.DataFrame | None:
-    return _load("rfm_segments.parquet")
+    df = _load("rfm_segments.parquet")
+    return _translate_segments(df) if df is not None else None
 
 
 @st.cache_data
 def load_ltv_curves() -> pd.DataFrame | None:
-    return _load("ltv_curves.parquet")
+    df = _load("ltv_curves.parquet")
+    return _translate_segments(df) if df is not None else None
 
 
 @st.cache_data
