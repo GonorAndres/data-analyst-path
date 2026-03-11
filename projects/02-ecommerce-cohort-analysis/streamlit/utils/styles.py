@@ -302,9 +302,10 @@ def inject_styles():
             border-color: #2563EB !important;
         }
 
-        /* Tab panel padding */
+        /* Tab panel */
         .stTabs [data-baseweb="tab-panel"] {
-            padding-top: 8px !important;
+            padding-top: 20px !important;
+            border-top: 2px solid #E2E8F0;
         }
 
         /* Filter bar */
@@ -350,13 +351,48 @@ def inject_styles():
             font-style: italic;
         }
 
-        /* Streamlit overrides */
+        /* Tabs as section navigation */
         .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
+            gap: 4px;
+            background: #F1F5F9;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 4px;
         }
         .stTabs [data-baseweb="tab"] {
             font-family: 'Inter', sans-serif;
-            font-weight: 600;
+            font-weight: 500;
+            font-size: 13px;
+            color: #64748B;
+            border-radius: 6px;
+            padding: 8px 16px !important;
+            transition: all 0.15s ease;
+        }
+        .stTabs [data-baseweb="tab"]:hover {
+            background: rgba(37, 99, 235, 0.06);
+            color: #1E40AF;
+        }
+        .stTabs [aria-selected="true"] {
+            background: #FFFFFF !important;
+            color: #1B2A4A !important;
+            font-weight: 600 !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .stTabs [data-baseweb="tab-highlight"] {
+            display: none !important;
+        }
+        .stTabs [data-baseweb="tab-border"] {
+            display: none !important;
+        }
+
+        /* Section spacing inside tabs */
+        .chart-container {
+            margin-top: 16px;
+            margin-bottom: 24px;
+        }
+        .insight-box {
+            margin-top: 20px;
+            margin-bottom: 24px;
         }
         </style>
         """,
