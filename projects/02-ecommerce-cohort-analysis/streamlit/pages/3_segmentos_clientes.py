@@ -12,7 +12,7 @@ import plotly.express as px
 
 from utils.styles import inject_styles
 from utils.data_loader import load_rfm, load_ltv_curves, load_activation, validate_columns
-from utils.filters import apply_segment_filter, render_active_filter_badges, render_dynamic_footer
+from utils.filters import apply_segment_filter, render_global_filters, render_active_filter_badges, render_dynamic_footer
 from utils import charts
 from components.metric_row import render_metric_row
 from components.chart_container import render_chart_container
@@ -51,6 +51,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+render_global_filters()
 render_active_filter_badges()
 
 # -- Contexto --

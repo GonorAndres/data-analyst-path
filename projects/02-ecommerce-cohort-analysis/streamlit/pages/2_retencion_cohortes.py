@@ -14,7 +14,7 @@ from utils.data_loader import (
     load_cohort_retention, load_cohort_revenue, load_survival, load_customers,
     validate_columns,
 )
-from utils.filters import apply_cohort_size_filter, apply_date_filter_cohorts, render_active_filter_badges, render_dynamic_footer
+from utils.filters import apply_cohort_size_filter, apply_date_filter_cohorts, render_global_filters, render_active_filter_badges, render_dynamic_footer
 from utils import charts
 from components.chart_container import render_chart_container
 from components.insight_box import render_insight_box
@@ -43,6 +43,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+render_global_filters()
 render_active_filter_badges()
 
 # -- Contexto --

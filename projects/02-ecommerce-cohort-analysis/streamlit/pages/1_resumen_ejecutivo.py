@@ -10,7 +10,7 @@ import numpy as np
 
 from utils.styles import inject_styles
 from utils.data_loader import load_orders, load_customers, validate_columns
-from utils.filters import apply_date_filter, apply_date_filter_customers, render_active_filter_badges, render_dynamic_footer
+from utils.filters import apply_date_filter, apply_date_filter_customers, render_global_filters, render_active_filter_badges, render_dynamic_footer
 from utils import charts
 from components.metric_row import render_metric_row
 from components.chart_container import render_chart_container
@@ -47,6 +47,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+render_global_filters()
 render_active_filter_badges()
 
 # -- Contexto --

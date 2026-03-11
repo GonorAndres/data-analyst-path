@@ -6,6 +6,72 @@ import pandas as pd
 import streamlit as st
 
 
+def render_global_filters() -> None:
+    """Render the global filter controls at the top of every page.
+
+    Loads orders/customers/rfm once (cached), renders a compact row of
+    filter widgets, and writes selected values into ``st.session_state``
+    so downstream helpers can read them.
+    """
+    from utils.data_loader import load_orders, load_customers, load_rfm
+
+    orders = load_orders()
+    customers = load_customers()
+    rfm = load_rfm()
+
+    if orders is None:
+        return
+
+    min_date = orders["order_purchase_timestamp"].dt.date.min()
+    max_date = orders["order_purchase_timestamp"].dt.date.max()
+
+    # Determine how many columns we need
+    has_segments = rfm is not None and "segment" in rfm.columns
+    cols = st.columns([3, 2, 3] if has_segments else [3, 2])
+
+    # -- Date range --
+    with cols[0]:
+        date_range = st.date_input(
+            "Periodo de analisis",
+            value=(
+                st.session_state.get("date_start", min_date),
+                st.session_state.get("date_end", max_date),
+            ),
+            min_value=min_date,
+            max_value=max_date,
+            key="_date_range_input",
+        )
+        if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
+            st.session_state["date_start"] = date_range[0]
+            st.session_state["date_end"] = date_range[1]
+        else:
+            st.session_state["date_start"] = min_date
+            st.session_state["date_end"] = max_date
+
+    # -- Cohort size --
+    with cols[1]:
+        st.slider(
+            "Cohorte minima",
+            min_value=10,
+            max_value=500,
+            value=st.session_state.get("min_cohort_size", 50),
+            step=10,
+            key="min_cohort_size",
+        )
+
+    # -- Segment filter --
+    if has_segments:
+        with cols[2]:
+            all_segments = sorted(rfm["segment"].unique().tolist())
+            st.multiselect(
+                "Segmentos RFM",
+                options=all_segments,
+                default=st.session_state.get("selected_segments", []),
+                key="selected_segments",
+                placeholder="Todos los segmentos",
+            )
+
+
 def apply_date_filter(orders_df: pd.DataFrame) -> pd.DataFrame:
     """Filter orders_df by session_state date range."""
     start = st.session_state.get("date_start")

@@ -8,7 +8,7 @@ import streamlit as st
 import pandas as pd
 
 from utils.styles import inject_styles
-from utils.filters import render_active_filter_badges, render_dynamic_footer
+from utils.filters import render_global_filters, render_active_filter_badges, render_dynamic_footer
 
 inject_styles()
 
@@ -21,6 +21,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+render_global_filters()
 render_active_filter_badges()
 
 st.markdown(
