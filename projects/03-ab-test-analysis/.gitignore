@@ -1,0 +1,21 @@
+# Data files (downloaded / generated)
+data/raw/
+data/processed/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/
+.next/
+
+# PDFs (compiled from LaTeX, not source)
+*.pdf
+
+# Subagent working files
+subagents_outputs/
+
+# OS
+.DS_Store

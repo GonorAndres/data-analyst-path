@@ -1,0 +1,1039 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=2cm, top=2.5cm, bottom=2.5cm]{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage[most]{tcolorbox}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+% ------------------------------------------------------------------
+% Palette
+% ------------------------------------------------------------------
+\definecolor{royalblue}{RGB}{28, 58, 185}
+\definecolor{darkred}{RGB}{175, 22, 22}
+\definecolor{burgundy}{RGB}{115, 8, 38}
+\definecolor{bgblue}{RGB}{232, 238, 255}
+\definecolor{bgred}{RGB}{255, 232, 232}
+\definecolor{bgburgundy}{RGB}{255, 236, 242}
+\definecolor{bggray}{RGB}{245, 245, 245}
+\definecolor{framegray}{RGB}{190, 190, 190}
+
+% Experiment colors (matching the dashboard CSS variables)
+\definecolor{controlblue}{RGB}{100, 116, 139}
+\definecolor{treatmentgreen}{RGB}{5, 150, 105}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=royalblue,
+  urlcolor=royalblue,
+  pdfauthor={Andr\'{e}s Ortega},
+  pdftitle={A/B Testing: From Theory to Practice},
+}
+
+% ------------------------------------------------------------------
+% Box environments
+% ------------------------------------------------------------------
+\newtcolorbox{formaldef}[1][Formal Definition]{
+  enhanced, breakable,
+  colback=bgblue,
+  colframe=royalblue,
+  fonttitle=\bfseries\color{royalblue},
+  title={#1},
+  titlerule=0.6pt,
+  titlerule style={royalblue},
+  sharp corners,
+  boxrule=1.2pt,
+  top=6pt, bottom=6pt, left=8pt, right=8pt,
+}
+
+\newtcolorbox{intuition}[1][Intuition]{
+  enhanced, breakable,
+  colback=bgred,
+  colframe=darkred,
+  fonttitle=\bfseries\color{darkred},
+  title={#1},
+  titlerule=0.6pt,
+  titlerule style={darkred},
+  sharp corners,
+  boxrule=1.2pt,
+  top=6pt, bottom=6pt, left=8pt, right=8pt,
+}
+
+\newtcolorbox{application}[1][Application]{
+  enhanced, breakable,
+  colback=bgburgundy,
+  colframe=burgundy,
+  fonttitle=\bfseries\color{burgundy},
+  title={#1},
+  titlerule=0.6pt,
+  titlerule style={burgundy},
+  sharp corners,
+  boxrule=1.2pt,
+  top=6pt, bottom=6pt, left=8pt, right=8pt,
+}
+
+\newtcolorbox{dimcheck}{
+  enhanced, breakable,
+  colback=bggray,
+  colframe=framegray,
+  fonttitle=\bfseries\color{black},
+  title={Dimension Check},
+  titlerule=0.6pt,
+  sharp corners,
+  boxrule=0.8pt,
+  top=6pt, bottom=6pt, left=8pt, right=8pt,
+}
+
+% Dashboard link box
+\newtcolorbox{dashlink}[1][Dashboard Connection]{
+  enhanced, breakable,
+  colback=bggray,
+  colframe=framegray,
+  fonttitle=\bfseries\color{black},
+  title={#1},
+  titlerule=0.6pt,
+  sharp corners,
+  boxrule=0.8pt,
+  top=6pt, bottom=6pt, left=8pt, right=8pt,
+}
+
+% ------------------------------------------------------------------
+% Section titles
+% ------------------------------------------------------------------
+\titleformat{\section}
+  {\large\bfseries\color{darkred}}
+  {\thesection.}{0.6em}{}
+  [{\color{royalblue}\titlerule[0.8pt]}]
+
+\titleformat{\subsection}
+  {\normalsize\bfseries\color{royalblue}}
+  {\thesubsection.}{0.5em}{}
+
+% ------------------------------------------------------------------
+% Header / Footer
+% ------------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{darkred}\textbf{A/B Testing: From Theory to Practice}}
+\fancyhead[R]{\small\color{royalblue}\thepage}
+\renewcommand{\headrulewidth}{0.6pt}
+\renewcommand{\headrule}{\color{royalblue}\hrule width\headwidth height\headrulewidth}
+
+% ------------------------------------------------------------------
+% Custom commands
+% ------------------------------------------------------------------
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\scipy}[1]{\texttt{scipy.stats.#1}}
+\newcommand{\numpy}[1]{\texttt{np.#1}}
+
+\begin{document}
+
+% ------------------------------------------------------------------
+% Title block
+% ------------------------------------------------------------------
+\begin{center}
+  {\LARGE\bfseries\color{darkred} A/B Testing: From Theory to Practice}\\[6pt]
+  {\large\color{royalblue} A Bridge Document for the E-Commerce Landing Page Experiment}\\[8pt]
+  {\small Andr\'{e}s Ortega \quad\textbullet\quad \today}
+\end{center}
+\vspace{4pt}
+{\color{royalblue}\hrule height 1pt}
+\vspace{10pt}
+
+% ------------------------------------------------------------------
+% Abstract
+% ------------------------------------------------------------------
+\begin{tcolorbox}[
+  enhanced,
+  colback=white,
+  colframe=royalblue,
+  boxrule=0.8pt,
+  sharp corners,
+  title={\bfseries\color{royalblue} Abstract},
+  fonttitle=\bfseries,
+  top=4pt, bottom=4pt
+]
+This document is a comprehensive guide to every statistical concept behind the A/B Test Lab dashboard.
+It covers the full pipeline: from experimental design and randomization, through frequentist and Bayesian hypothesis testing,
+to power analysis, sequential monitoring, and common pitfalls like Simpson's Paradox and multiple testing.
+Each concept is presented in three layers: a formal mathematical definition, a geometric or analogy-based intuition,
+and a concrete application grounded in the dashboard's actual backend code (\code{stats\_engine.py}).
+
+\medskip
+\textbf{Notation.}
+$p_A, p_B$: true conversion rates for {\color{controlblue}control} and {\color{treatmentgreen}treatment}.
+$\hat{p}_A, \hat{p}_B$: observed sample proportions.
+$n_A, n_B$: sample sizes per group.
+$\alpha$: significance level; $\beta$: Type~II error rate; $1-\beta$: power.
+$\Phi$: standard normal CDF; $\Phi^{-1}$: its inverse.
+$z_{\alpha/2} = \Phi^{-1}(1-\alpha/2)$, e.g.\ $z_{0.025} = 1.96$.
+\end{tcolorbox}
+\vspace{8pt}
+\tableofcontents
+\newpage
+
+% ==================================================================
+\section{Experimental Design Fundamentals}
+% ==================================================================
+
+\begin{formaldef}[Randomization and SRM Detection]
+In a controlled experiment, each user $i$ is assigned to group $G_i \in \{A, B\}$ via:
+\[
+P(G_i = A) = \pi_A, \quad P(G_i = B) = 1 - \pi_A
+\]
+Typically $\pi_A = \pi_B = 0.5$. Randomization ensures that, in expectation, all covariates $X$ are balanced:
+\[
+E[X \mid G = A] = E[X \mid G = B]
+\]
+This is the foundation of causal inference: any observed difference in outcomes $Y$ can be attributed to the treatment, not to confounders.
+
+\medskip
+\textbf{Sample Ratio Mismatch (SRM).} Given expected counts $E_A = n \cdot \pi_A$ and $E_B = n \cdot \pi_B$, SRM is detected via chi-squared goodness-of-fit:
+\[
+\chi^2 = \frac{(n_A - E_A)^2}{E_A} + \frac{(n_B - E_B)^2}{E_B}, \quad \chi^2 \sim \chi^2_1 \text{ under } H_0
+\]
+Reject balance if $p < 0.01$. An SRM means the randomization mechanism is broken and all results become untrustworthy.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[The Rigged Shuffle]
+Think of randomization like shuffling a deck of cards and dealing into two piles. A fair shuffle balances \emph{everything}, even factors you have not thought of. That is its superpower.
+
+SRM is the ``rigged shuffle'' detector. If you expected 50/50 and got 55/45 with 100K users, the chi-squared test will flag it: the shuffle was rigged. You should not trust any result from a rigged shuffle, even if the treatment looks amazing.
+
+The \textbf{unit of randomization} matters: one user can generate many sessions. If you randomize by session, a power user who visits 50 times could see both variants, contaminating the experiment. Randomize by user: one user, one variant, always.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Test Health Checks]
+The \textbf{Executive Overview} tab shows the SRM test result under ``Test Health Checks.'' The backend function \code{sample\_ratio\_mismatch\_test(n\_control, n\_treatment)} computes the chi-squared statistic using \scipy{chi2.cdf(chi2, df=1)}, reports the p-value, and flags \code{is\_balanced = True} if $p > 0.01$.
+
+\medskip
+\textbf{Worked example from the dataset:} With $n_A = 145{,}310$ and $n_B = 145{,}274$ (total $290{,}584$):
+\[
+E_A = E_B = 145{,}292, \quad \chi^2 = \frac{(145310 - 145292)^2}{145292} + \frac{(145274 - 145292)^2}{145292} = \frac{324 + 324}{145292} \approx 0.0045
+\]
+$p \approx 0.95$. No SRM detected; the randomization is clean.
+\end{application}
+
+\vspace{8pt}
+
+\begin{dashlink}
+\textbf{Tab:} Executive Overview $\to$ Test Health Checks.\\
+\textbf{Backend:} \code{routers/overview.py} calls \code{stats\_engine.sample\_ratio\_mismatch\_test()}.\\
+\textbf{Scipy:} \code{scipy.stats.chi2.cdf(chi2, df=1)}.
+\end{dashlink}
+
+
+% ==================================================================
+\section{Frequentist Inference for Proportions}
+% ==================================================================
+
+\subsection{The Two-Proportion Z-Test}
+
+\begin{formaldef}[Z-Test for Two Proportions]
+Let $X_A \sim \mathrm{Binomial}(n_A, p_A)$ and $X_B \sim \mathrm{Binomial}(n_B, p_B)$ be independent. Hypotheses:
+\[
+H_0: p_A = p_B \quad \text{vs.} \quad H_1: p_A \neq p_B
+\]
+
+\textbf{Pooled proportion} (under $H_0$):
+\[
+\hat{p} = \frac{X_A + X_B}{n_A + n_B}
+\]
+
+\textbf{Test statistic:}
+\[
+Z = \frac{\hat{p}_B - \hat{p}_A}{\underbrace{\sqrt{\hat{p}(1-\hat{p})\left(\dfrac{1}{n_A} + \dfrac{1}{n_B}\right)}}_{\text{pooled SE}}}
+\]
+
+Under $H_0$ and by the CLT, $Z \xrightarrow{d} N(0,1)$. Reject $H_0$ if $|Z| > z_{\alpha/2}$.
+
+\medskip
+\textbf{p-value:} $p = 2\,\Phi(-|Z|)$.
+
+\medskip
+\textbf{Confidence interval} (uses \emph{unpooled} SE, since we do not assume $p_A = p_B$ for the CI):
+\[
+\mathrm{SE}_{\mathrm{CI}} = \sqrt{\frac{\hat{p}_A(1-\hat{p}_A)}{n_A} + \frac{\hat{p}_B(1-\hat{p}_B)}{n_B}}, \qquad \mathrm{CI}_{1-\alpha}: (\hat{p}_B - \hat{p}_A) \pm z_{\alpha/2} \cdot \mathrm{SE}_{\mathrm{CI}}
+\]
+
+\textbf{Why pooled for the test but unpooled for the CI?} Under $H_0$, the best estimate of the common $p$ is the pooled proportion. But the CI estimates the \emph{difference} $p_B - p_A$ without assuming equality, so each variance is estimated separately.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[Signal-to-Noise Ratio]
+The numerator $\hat{p}_B - \hat{p}_A$ is the \textbf{signal}: the observed difference. The denominator (SE) is the \textbf{noise}: how much random variation we would expect from chance alone. $Z$ measures how many ``noise units'' the signal spans. If $|Z| > 2$, the signal is louder than what chance typically produces.
+
+\medskip
+\textbf{The CI tells you the range of plausible truths.} If the 95\% CI for the difference is $(0.001, 0.008)$, the true lift is somewhere in there with 95\% coverage. If the CI includes zero, the data is consistent with no effect.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Frequentist Tab]
+The backend function \code{z\_test\_proportions(n\_a, conv\_a, n\_b, conv\_b)} returns \code{\{z\_stat, p\_value, ci\_lower, ci\_upper, diff\}}. It uses \scipy{norm.cdf(abs(z\_stat))} for the p-value and \scipy{norm.ppf(0.975)} for the critical $z$ value.
+
+The \textbf{Frequentist Analysis} tab displays:
+\begin{itemize}[nosep]
+  \item Confidence interval visualization (horizontal bar showing control CI, treatment CI, and overlap)
+  \item P-value context: where it falls relative to $\alpha = 0.05$
+  \item The 2$\times$2 contingency table with observed vs.\ expected counts
+\end{itemize}
+\end{application}
+
+\subsection{Chi-Squared Test of Independence}
+
+\begin{formaldef}[Chi-Squared for a 2$\times$2 Table]
+For the contingency table with observed counts $O_{ij}$ and expected counts $E_{ij} = R_i \cdot C_j / N$:
+\[
+\chi^2 = \sum_{i,j} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}, \qquad \chi^2 \sim \chi^2_1
+\]
+
+\textbf{Equivalence:} For a 2$\times$2 table, $\chi^2 = Z^2$ exactly. They always give the same p-value for a two-sided test. The chi-squared test is the z-test in disguise; squaring removes the direction.
+
+\medskip
+\textbf{Cram\'{e}r's V} (effect size for contingency tables):
+\[
+V = \sqrt{\frac{\chi^2}{n}}
+\]
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[Z-Test in Disguise]
+Squaring the z-statistic removes the sign (direction), which is why chi-squared is inherently two-sided. If you need a one-sided test, use the z-test directly. For A/B testing, we almost always want to know the direction (``is B \emph{better}?''), so the z-test is more informative. The chi-squared is a redundant check that should give the same answer.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Backend Implementation]
+\code{chi\_squared\_test(n\_a, conv\_a, n\_b, conv\_b)} builds the 2$\times$2 contingency table and calls \scipy{chi2\_contingency(table)}, returning $\chi^2$, p-value, and Cram\'{e}r's V. The Frequentist tab displays all three alongside the z-test results.
+\end{application}
+
+\subsection{Wilson Score Confidence Interval}
+
+\begin{formaldef}[Wilson Score Interval]
+The standard Wald interval $\hat{p} \pm z\sqrt{\hat{p}(1-\hat{p})/n}$ can produce intervals outside $[0,1]$ and has zero width when $\hat{p} \in \{0, 1\}$.
+
+The Wilson interval is derived by inverting the z-test. Find all $p_0$ such that:
+\[
+\left|\frac{\hat{p} - p_0}{\sqrt{p_0(1-p_0)/n}}\right| \leq z_{\alpha/2}
+\]
+
+Squaring and solving the resulting quadratic:
+\[
+\tilde{p} = \frac{\hat{p} + z^2/(2n)}{1 + z^2/n}, \qquad \text{Wilson CI} = \tilde{p} \pm \frac{z}{1 + z^2/n}\sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}}
+\]
+
+The center $\tilde{p}$ is a \emph{shrunken} estimate that pulls $\hat{p}$ toward $0.5$, more so for small $n$.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[Pulling Toward Ignorance]
+The Wald interval says ``I trust my data completely.'' The Wilson interval says ``I trust my data, but I hedge toward 50\% a little, especially when I have few observations.'' This prevents the embarrassing case of observing 0 failures in 10 trials and concluding the failure rate is exactly zero.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Wilson CIs per Group]
+\code{wilson\_confidence\_interval(successes, trials, alpha)} uses \scipy{norm.ppf(1 - alpha/2)} and returns the (lower, upper) bounds. The Frequentist tab calls this separately for control and treatment to display per-group CIs, which is more informative than just the CI on the difference.
+\end{application}
+
+\subsection{Cohen's h Effect Size}
+
+\begin{formaldef}[Cohen's h for Proportions]
+The arcsine transformation stabilizes variance:
+\[
+h = 2\arcsin\!\left(\sqrt{p_B}\right) - 2\arcsin\!\left(\sqrt{p_A}\right)
+\]
+
+\textbf{Why arcsine?} The transformation $\phi = 2\arcsin(\sqrt{p})$ is variance-stabilizing: $\mathrm{Var}(\hat{p}) = p(1-p)/n$ depends on $p$, but $\mathrm{Var}(\phi) \approx 1/n$, independent of $p$.
+
+\medskip
+\begin{tabular}{@{}ll@{}}
+\toprule
+$|h|$ & Interpretation \\
+\midrule
+$< 0.20$ & Small effect \\
+$0.20$--$0.50$ & Medium effect \\
+$\geq 0.50$ & Large effect \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\textbf{Example:} $p_A = 0.10$, $p_B = 0.12$ (20\% relative lift). $h = 2\arcsin(\sqrt{0.12}) - 2\arcsin(\sqrt{0.10}) = 0.064$, a very small effect. Large relative lifts on small baselines are hard to detect because the absolute effect in standardized units is tiny.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[Proportions Near 0 or 1 Are Harder]
+Imagine stretching a rubber band between 0 and 1. The arcsine transformation stretches the ends (near 0 and 1) and compresses the middle (near 0.5). A change from 0.01 to 0.02 maps to a larger $h$ than you might expect, while 0.49 to 0.50 maps to a smaller $h$. This reflects reality: detecting changes near the extremes is genuinely harder because $p(1-p)$ is smallest there.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Effect Size Gauge on the Dashboard]
+\code{cohens\_h(p1, p2)} computes $h$ and returns the interpretation string. The Frequentist tab displays this as an ``Effect Size Gauge'' with small/medium/large labels, giving stakeholders a quick read on whether the detected difference is practically meaningful, not just statistically significant.
+\end{application}
+
+\subsection{Proper p-Value Interpretation}
+
+\begin{formaldef}[What a p-Value Is and Is Not]
+Formally:
+\[
+p\text{-value} = P(\text{data as extreme or more extreme} \mid H_0 \text{ is true})
+\]
+
+\textbf{Common misinterpretations:}
+\begin{enumerate}[nosep]
+  \item ``There is a 5\% probability the null is true.'' \textbf{Wrong.} The p-value conditions on $H_0$; computing $P(H_0 \mid \text{data})$ requires Bayes' theorem and a prior.
+  \item ``The effect size is $1 - p$.'' \textbf{Wrong.} p-values say nothing about effect magnitude.
+  \item ``$p = 0.049$ is meaningfully different from $p = 0.051$.'' \textbf{Wrong.} The $\alpha = 0.05$ threshold is a convention, not a physical constant.
+  \item ``Failing to reject $H_0$ means $H_0$ is true.'' \textbf{Wrong.} The test may be underpowered (see Section~\ref{sec:power}).
+\end{enumerate}
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[The Courtroom Analogy]
+A p-value is like the prosecution's evidence in a trial where the defendant ($H_0$) is presumed innocent. A small p-value means the evidence is strong, but even overwhelming evidence does not tell you the \emph{probability} of innocence. The jury can say ``guilty beyond reasonable doubt'' (reject $H_0$) or ``not proven'' (fail to reject), but never ``there is a 3\% chance the defendant is innocent.''
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: P-Value Context]
+The Frequentist tab shows the p-value not just as a number but as a visual showing where it falls relative to $\alpha$, preventing the common mistake of treating $p = 0.049$ and $p = 0.051$ as fundamentally different outcomes.
+\end{application}
+
+\vspace{8pt}
+
+\begin{dashlink}
+\textbf{Tab:} Frequentist Analysis.\\
+\textbf{Backend:} \code{routers/frequentist.py} calls \code{z\_test\_proportions()}, \code{chi\_squared\_test()}, \code{wilson\_confidence\_interval()} (for both groups), and \code{cohens\_h()}.\\
+\textbf{Additional:} Welch's t-test via \scipy{ttest\_ind(equal\_var=False)} for continuous metrics (revenue, session duration).
+\end{dashlink}
+
+
+% ==================================================================
+\section{Bayesian Inference for A/B Testing}
+% ==================================================================
+
+\subsection{The Beta-Binomial Conjugate Model}
+
+\begin{formaldef}[Beta Prior and Posterior Update]
+\textbf{Prior:}
+\[
+p_A \sim \mathrm{Beta}(\alpha_A, \beta_A), \quad f(p; \alpha, \beta) = \frac{p^{\alpha-1}(1-p)^{\beta-1}}{B(\alpha, \beta)}
+\]
+
+\textbf{Common prior choices:}
+\begin{itemize}[nosep]
+  \item $\mathrm{Beta}(1, 1)$: uniform (non-informative). The dashboard uses this.
+  \item $\mathrm{Beta}(0.5, 0.5)$: Jeffreys prior (invariant under reparameterization).
+  \item $\mathrm{Beta}(100, 9900)$: informative, encoding belief that $p \approx 0.01$.
+\end{itemize}
+
+\textbf{Likelihood:} $X_A \mid p_A \sim \mathrm{Binomial}(n_A, p_A)$.
+
+\textbf{Posterior} (conjugacy):
+\[
+p_A \mid X_A \sim \mathrm{Beta}(\alpha_A + X_A, \;\beta_A + n_A - X_A)
+\]
+
+The update is simply \emph{addition}: add successes to $\alpha$, add failures to $\beta$. The posterior mean is a weighted average between the prior mean and the MLE:
+\[
+E[p_A \mid X_A] = \frac{\alpha_A + X_A}{\alpha_A + \beta_A + n_A}
+\]
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[The Belief Histogram and Imaginary Data]
+The Beta distribution is a ``belief histogram'' over where the true conversion rate lies. $\mathrm{Beta}(1,1)$ is flat: equal belief everywhere. After observing 100 conversions and 9,900 non-conversions, your belief becomes $\mathrm{Beta}(101, 9901)$: a sharp bump centered at ${\sim}0.01$.
+
+\medskip
+\textbf{The prior as imaginary data.} $\mathrm{Beta}(\alpha, \beta)$ is equivalent to having already seen $\alpha - 1$ successes and $\beta - 1$ failures. $\mathrm{Beta}(1,1)$ means zero imaginary observations. The more imaginary data you inject, the harder it is for real data to move your beliefs.
+
+\medskip
+\textbf{The see-saw.} The prior is one end, the data is the other. With little data, the see-saw tips toward the prior. With lots of data, it tips toward the observed rate. The fulcrum position is $n_{\mathrm{prior}} / (n_{\mathrm{prior}} + n_{\mathrm{data}})$ where $n_{\mathrm{prior}} = \alpha + \beta$.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Posterior Distribution Chart]
+\code{beta\_posterior(prior\_alpha, prior\_beta, successes, failures)} returns the updated $(\alpha, \beta)$. The backend uses $\mathrm{Beta}(1, 1)$ as the prior (constants \code{PRIOR\_ALPHA = 1.0}, \code{PRIOR\_BETA = 1.0}).
+
+\code{posterior\_pdf(alpha, beta, x\_points=200)} evaluates the density via \scipy{beta.pdf(x, alpha, beta)} at 200 points, sent to the frontend as \code{\{x: [...], pdf: [...]\}} for the overlapping area chart on the Bayesian tab.
+\end{application}
+
+\subsection{P(B $>$ A) via Monte Carlo}
+
+\begin{formaldef}[Probability That Treatment Beats Control]
+Draw $S$ samples from each posterior:
+\[
+p_A^{(s)} \sim \mathrm{Beta}(\alpha_A', \beta_A'), \quad p_B^{(s)} \sim \mathrm{Beta}(\alpha_B', \beta_B'), \quad s = 1, \ldots, S
+\]
+Then:
+\[
+\widehat{P}(p_B > p_A \mid \text{data}) = \frac{1}{S}\sum_{s=1}^{S} \mathbf{1}\!\left[p_B^{(s)} > p_A^{(s)}\right]
+\]
+
+With $S = 100{,}000$, the Monte Carlo standard error is $\leq \sqrt{0.25/100000} \approx 0.0016$.
+
+\medskip
+\textbf{Closed-form} (Evan Miller): For equal priors, there is an exact formula using the regularized incomplete beta function, but it is computationally expensive for large parameters. Monte Carlo is more practical.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[The Question Everyone Actually Wants Answered]
+When a product manager asks ``is B better?'', they want a probability. The frequentist answers: ``if there were truly no difference, we would see data this extreme only 3\% of the time.'' That answers a question nobody asked.
+
+The Bayesian $P(B > A) = 0.97$ is direct: ``there is a 97\% probability that B has a higher conversion rate.'' This is the natural language of decision-making.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Probability Donut Chart]
+\code{probability\_b\_beats\_a(post\_a, post\_b, n\_simulations=100000)} uses \numpy{random.default\_rng(42).beta()} for reproducibility. The Bayesian tab displays this as a donut chart labeled ``Probability of Being Best.''
+\end{application}
+
+\subsection{Expected Loss}
+
+\begin{formaldef}[Expected Loss (Regret)]
+The loss of choosing B when the true parameters are $(p_A, p_B)$:
+\[
+L(\text{choose } B; p_A, p_B) = \max(p_A - p_B, \; 0)
+\]
+If B is worse, we lose the difference; if B is better, we lose nothing.
+
+\textbf{Expected loss} via Monte Carlo:
+\[
+\widehat{E}\bigl[\text{Loss}(\text{choose } B)\bigr] = \frac{1}{S}\sum_{s=1}^{S} \max\!\left(p_A^{(s)} - p_B^{(s)}, \; 0\right)
+\]
+
+\textbf{Decision rule:} Ship B when $E[\text{Loss}(\text{choose } B)] < \varepsilon$, where $\varepsilon$ is a business-defined threshold. Unlike the frequentist $\alpha$, $\varepsilon$ has a direct business interpretation: ``we accept a maximum average loss of $\varepsilon$ percentage points of conversion rate.''
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[Insurance Pricing]
+Think of choosing variant B as buying insurance. The expected loss is the premium: the average amount you would lose if B turns out worse, weighted by how likely that is. If the premium is negligibly small (below $\varepsilon$), the ``insurance'' is practically free: go with B.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Expected Loss Display]
+\code{expected\_loss(post\_a, post\_b, n\_simulations=100000)} uses \numpy{maximum(diff, 0)} for the one-sided max and returns \code{\{loss\_a, loss\_b\}}. The Bayesian tab shows both losses, allowing the viewer to see not just which variant is better, but how much they would lose by picking the wrong one.
+\end{application}
+
+\subsection{Credible Intervals}
+
+\begin{formaldef}[Equal-Tailed CI vs.\ Highest Density Interval]
+\textbf{Equal-tailed credible interval (ETI):} $[q_{\alpha/2}, q_{1-\alpha/2}]$ where $q_p$ is the $p$-th quantile of the posterior. Excludes $\alpha/2$ probability from each tail.
+
+\textbf{Highest Density Interval (HDI):} The narrowest interval containing $1-\alpha$ probability mass. For any point inside the HDI, the posterior density is higher than for any point outside.
+
+\medskip
+For symmetric posteriors (large $n$, moderate $p$): ETI $\approx$ HDI. For skewed posteriors (small $n$, extreme $p$): HDI is narrower and more informative.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{application}[Backend: Beta Quantiles]
+\code{credible\_interval(alpha, beta, level=0.95)} uses \scipy{beta.ppf()} to compute the equal-tailed interval. The dashboard shows side-by-side 95\% credible interval bars for control and treatment on the Bayesian tab.
+\end{application}
+
+\vspace{8pt}
+
+\begin{dashlink}
+\textbf{Tab:} Bayesian Analysis.\\
+\textbf{Backend:} \code{routers/bayesian.py} calls all four functions above, plus builds a comparison table against the frequentist results. Agreement check: frequentist significant $\approx$ Bayesian decisive ($P(B>A) > 0.95$ or $< 0.05$).
+\end{dashlink}
+
+
+% ==================================================================
+\section{Frequentist vs.\ Bayesian: A Comparison}
+% ==================================================================
+
+\begin{formaldef}[Side-by-Side Comparison]
+\begin{tabular}{@{}p{3cm}p{5.5cm}p{5.5cm}@{}}
+\toprule
+\textbf{Dimension} & \textbf{Frequentist} & \textbf{Bayesian} \\
+\midrule
+Probability & Long-run frequency & Degree of belief \\
+Parameters & Fixed, unknown constants & Random variables with distributions \\
+Output & p-values, confidence intervals & Posteriors, credible intervals \\
+Error control & Type I ($\alpha$), Type II ($\beta$) rates & Expected loss, posterior risk \\
+Sample size & Must be fixed before experiment & Can be flexible (with caveats) \\
+Prior info & Not formally incorporated & Encoded via prior distributions \\
+Interval meaning & ``95\% of CIs from repeated experiments contain the truth'' & ``95\% probability the truth is in this interval'' \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\textbf{Bernstein--von Mises theorem:} With a flat prior and large samples, Bayesian credible intervals converge to frequentist confidence intervals:
+\[
+p \mid \text{data} \xrightarrow{d} N\!\left(\hat{p}_{\mathrm{MLE}}, \; \frac{1}{I(\hat{p}_{\mathrm{MLE}})}\right)
+\]
+In finite samples with informative priors, the approaches can diverge meaningfully.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[The Weather Forecast]
+\textbf{Frequentist:} ``Under long-run repetitions of similar atmospheric conditions, it rains 30\% of the time.'' Technically correct, but awkward.
+
+\textbf{Bayesian:} ``There is a 30\% chance of rain tomorrow.'' Natural, actionable, what people actually want.
+
+\medskip
+\textbf{When frequentist is better:} Regulatory contexts (FDA, financial audits) where pre-specified error rates matter; when there is no reasonable prior; when transparency is paramount.
+
+\textbf{When Bayesian is better:} Decision-making under uncertainty; small samples where the prior regularizes; when stakeholders want probabilities, not p-values; sequential decisions.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Comparison Table]
+The Bayesian tab's comparison table (built in \code{routers/bayesian.py}) shows both frameworks' conclusions side by side: point estimate, interval, and conclusion. When they agree, the decision is easy. When they disagree (e.g., $p = 0.049$ but $P(B>A) = 0.83$), it signals that evidence is weak and more data is needed.
+\end{application}
+
+
+% ==================================================================
+\section{Power Analysis}
+\label{sec:power}
+% ==================================================================
+
+\subsection{Sample Size for Two Proportions}
+
+\begin{formaldef}[Sample Size Formula]
+For a two-sided z-test comparing $p_A$ vs.\ $p_B = p_A + \delta$ with significance $\alpha$ and power $1-\beta$:
+\[
+n = \frac{\left(z_{\alpha/2}\sqrt{2\bar{p}(1-\bar{p})} + z_{\beta}\sqrt{p_A(1-p_A) + p_B(1-p_B)}\right)^2}{(p_B - p_A)^2}
+\]
+where $\bar{p} = (p_A + p_B)/2$.
+
+\medskip
+\textbf{Simplified approximation} (when $p_B \approx p_A$):
+\[
+n \approx \frac{(z_{\alpha/2} + z_\beta)^2 \cdot 2p(1-p)}{(p_B - p_A)^2}
+\]
+
+This gives $n$ per group. Total users $= 2n$.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[Trip Planning]
+Power analysis is trip planning. ``Do I have enough gas (users) to reach my destination (detect the effect)?''
+
+\begin{itemize}[nosep]
+  \item $n$ = tank size
+  \item MDE = distance to destination
+  \item $\alpha$ = speed limit (strictness of the rules)
+  \item $1-\beta$ = probability of arriving (80\% power = 80\% chance of ``getting there'')
+\end{itemize}
+
+\textbf{The $1/\sqrt{n}$ law.} Halving the MDE requires \emph{quadrupling} the sample size. Standard errors shrink as $1/\sqrt{n}$, not $1/n$. Going from 1\% MDE to 0.5\% MDE means going from 10K to 40K users per group. This ``law of diminishing returns'' is the fundamental constraint of experimentation.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Power Calculator]
+The Power \& Design tab has interactive sliders for baseline rate, MDE, $\alpha$, and power. The backend \code{required\_sample\_size(baseline\_rate, mde, alpha, power)} uses \scipy{norm.ppf(1 - alpha/2)} and \scipy{norm.ppf(power)} to compute the formula above.
+
+\medskip
+\textbf{Worked example:} $p_A = 0.12$, MDE $= 0.01$, $\alpha = 0.05$, power $= 0.80$:
+\[
+z_\alpha = 1.96, \quad z_\beta = 0.84, \quad p_B = 0.13
+\]
+\[
+n = \frac{(1.96\sqrt{2 \cdot 0.125 \cdot 0.875} + 0.84\sqrt{0.12 \cdot 0.88 + 0.13 \cdot 0.87})^2}{(0.01)^2} \approx 14{,}752 \text{ per group}
+\]
+\end{application}
+
+\subsection{Minimum Detectable Effect and Power Curves}
+
+\begin{formaldef}[MDE and Power Function]
+\textbf{MDE} at a given $n$: the smallest $\delta$ such that $n \geq n_{\mathrm{required}}(\delta)$. Found by binary search inverting the sample size formula.
+
+\medskip
+\textbf{Power as a function of effect size $\delta$:}
+\[
+\mathrm{Power}(\delta) = \Phi\!\left(\frac{|\delta|\sqrt{n}}{\sqrt{p_A(1-p_A) + p_B(1-p_B)}} - z_{\alpha/2}\right)
+\]
+
+Key properties: Power$(0) = \alpha$; power increases with $|\delta|$ and $n$; decreases with $\alpha$.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[The Sensitivity Curve]
+A power curve is a ``sensitivity diagram'': it shows how likely your experiment is to detect effects of various sizes. The curve always starts at $\alpha$ (at zero effect, ``detection'' is just a false positive) and rises toward 1. The MDE is the effect size where the curve crosses 0.80.
+
+\textbf{Why 80\% and not 95\%?} Going to 95\% power roughly doubles sample size. Most product teams prefer speed, accepting that 1 in 5 real effects will be missed.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: MDE Curve and Runtime]
+\code{minimum\_detectable\_effect(n, baseline\_rate)} uses binary search. \code{power\_curve(baseline\_rate, n)} evaluates power at 25 predefined effect sizes using \scipy{norm.cdf()}. The tab also estimates runtime:
+\[
+\text{Days} = \frac{n_{\mathrm{required}} - n_{\mathrm{current}}}{\text{daily\_traffic} / 2}
+\]
+Daily traffic is estimated as the mean daily observation count from the data.
+\end{application}
+
+\vspace{8pt}
+
+\begin{dashlink}
+\textbf{Tab:} Power \& Design.\\
+\textbf{Backend:} \code{routers/power.py} calls \code{required\_sample\_size()}, \code{minimum\_detectable\_effect()}, and \code{power\_curve()}.\\
+\textbf{Scipy:} \code{scipy.stats.norm.ppf()}, \code{scipy.stats.norm.cdf()}.
+\end{dashlink}
+
+
+% ==================================================================
+\section{Sequential Testing}
+\label{sec:sequential}
+% ==================================================================
+
+\subsection{Why Peeking Inflates Type I Error}
+
+\begin{formaldef}[The Peeking Problem]
+If you peek at data $k$ times during collection and stop the first time $|Z| > z_{\alpha/2}$, the actual Type~I error rate under $H_0$ is:
+\[
+\alpha_{\mathrm{inflated}} \approx 1 - (1 - \alpha)^k
+\]
+For $k = 5$: $\alpha_{\mathrm{inflated}} \approx 1 - 0.95^5 = 0.226$ (22.6\%, not 5\%).
+
+\medskip
+\textbf{The mathematical core.} Under $H_0$, the cumulative z-statistic at information fraction $t$ follows approximately $Z(t) \approx W(t)/\sqrt{t}$ where $W(t)$ is a standard Brownian motion. Since Brownian motion is recurrent, it will \emph{eventually} cross any finite boundary. Continuous peeking with fixed boundaries guarantees a false positive with probability~1.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[Lottery Tickets]
+Each time you check a running experiment, you buy a lottery ticket. Even though each ticket has only a 5\% chance of ``winning'' (false positive), buying 10 tickets gives you a 40\% chance. Sequential testing does not stop you from buying tickets; it makes each ticket progressively harder to win, so the total chance stays at 5\%.
+
+\medskip
+\textbf{The drunk on a number line.} Under the null, your cumulative test statistic wanders like a drunk person. Given enough time, the drunk will wander arbitrarily far from the origin. Fixed boundaries ($\pm 1.96$) will \emph{always} be crossed eventually. Sequential testing uses expanding boundaries to account for this inevitable wandering.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Daily P-Value Evolution]
+The Sequential tab shows how the p-value fluctuates over the 22-day experiment period. This visualization directly demonstrates the peeking problem: some days the p-value dips below 0.05, then bounces back. A naive analyst who stopped on those days would have declared a false winner.
+\end{application}
+
+\subsection{O'Brien--Fleming Boundaries}
+
+\begin{formaldef}[Group Sequential Design]
+Divide the experiment into $K$ stages at information fractions $t_1 < \cdots < t_K = 1$. At each stage $k$, compare $|Z_k|$ to boundary $c_k$:
+\begin{itemize}[nosep]
+  \item Stop and reject $H_0$ if $|Z_k| \geq c_k$
+  \item Continue if $|Z_k| < c_k$ for $k < K$
+\end{itemize}
+
+Boundaries $\{c_k\}$ are chosen so the overall Type~I error is exactly $\alpha$:
+\[
+P\!\left(\bigcup_{k=1}^{K}\{|Z_k| \geq c_k\} \;\middle|\; H_0\right) = \alpha
+\]
+
+\textbf{O'Brien--Fleming boundary:}
+\[
+c_k^{\mathrm{OBF}} = c \cdot \sqrt{K/k}
+\]
+where $c$ is calibrated for overall $\alpha$.
+
+\medskip
+\begin{tabular}{@{}cccc@{}}
+\toprule
+Stage $k$ & Info fraction & OBF boundary & Approx.\ $\alpha$ spent \\
+\midrule
+1 & 0.20 & 4.56 & 0.000005 \\
+2 & 0.40 & 3.23 & 0.0013 \\
+3 & 0.60 & 2.63 & 0.0085 \\
+4 & 0.80 & 2.28 & 0.0228 \\
+5 & 1.00 & 2.04 & 0.0417 \\
+\bottomrule
+\end{tabular}
+
+\medskip
+Key: very conservative early (overwhelming evidence required), final boundary (2.04) close to fixed-sample (1.96). Total sample size increase: only ${\sim}3\%$ more.
+
+\medskip
+\textbf{Alpha spending function} (Lan--DeMets OBF-type):
+\[
+\alpha^*_{\mathrm{OBF}}(t) = 2 - 2\Phi\!\left(\frac{z_{\alpha/2}}{\sqrt{t}}\right)
+\]
+This does not require pre-specifying the number or timing of interim analyses.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[The Skeptical Judge]
+Early in a trial, the OBF boundary is extremely high, like a judge who says ``extraordinary claims require extraordinary evidence.'' As more data accumulates, the judge relaxes. This is sensible because early results are noisy (small $n$), so we should demand stronger evidence.
+
+\medskip
+\textbf{Alpha spending as a budget.} You have \$0.05 of ``significance dollars.'' The spending function decides how to spread the budget over time. OBF saves most for the end. You can never overspend; once the budget is exhausted, you stop.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Sequential Chart]
+The backend \code{obrien\_fleming\_bounds(n\_looks, alpha)} uses \scipy{norm.ppf(1 - alpha/2)} and computes $c_k = z_\alpha / \sqrt{k/K}$ for each day of the experiment. \code{cumulative\_stats\_by\_day(df)} computes running z-statistics by calling \code{z\_test\_proportions()} on cumulative data each day.
+
+The Sequential tab overlays the z-statistic trajectory on the OBF boundaries, and highlights the \textbf{optimal stopping point}: the first day where $|z| \geq c_k$, if any.
+\end{application}
+
+\vspace{8pt}
+
+\begin{dashlink}
+\textbf{Tab:} Sequential Monitoring.\\
+\textbf{Backend:} \code{routers/sequential.py} calls \code{cumulative\_stats\_by\_day()} and \code{obrien\_fleming\_bounds()}.\\
+\textbf{Output:} cumulative stats, boundaries, daily p-values, and optimal stopping point.
+\end{dashlink}
+
+
+% ==================================================================
+\section{Simpson's Paradox}
+\label{sec:simpson}
+% ==================================================================
+
+\begin{formaldef}[When Aggregation Reverses the Truth]
+Let $X$ be treatment, $Y$ outcome, $Z$ a confounding variable. Simpson's Paradox occurs when:
+\[
+P(Y{=}1 \mid X{=}B, Z{=}z) > P(Y{=}1 \mid X{=}A, Z{=}z) \quad \forall\, z
+\]
+but
+\[
+P(Y{=}1 \mid X{=}B) < P(Y{=}1 \mid X{=}A)
+\]
+B beats A in every subgroup, but A beats B in aggregate.
+
+\medskip
+\textbf{How it happens.} The marginal rate is a weighted average:
+\[
+p_X = \sum_z w_{X,z} \cdot p_{X,z}, \quad w_{X,z} = P(Z{=}z \mid X)
+\]
+When the \textbf{weights} $w_{X,z}$ differ between treatments and correlate with the subgroup rates, aggregation distorts the comparison.
+
+\medskip
+\textbf{Numerical example:}
+
+\medskip
+\begin{tabular}{@{}lccc@{}}
+\toprule
+ & Subgroup 1 (easy) & Subgroup 2 (hard) & Aggregate \\
+\midrule
+Treatment A & 81/87 = 93.1\% & 192/263 = 73.0\% & 273/350 = 78.0\% \\
+Treatment B & 234/270 = 86.7\% & 55/80 = 68.8\% & 289/350 = 82.6\% \\
+\bottomrule
+\end{tabular}
+
+\medskip
+A is better in \emph{both} subgroups, but B wins in aggregate because 77\% of B's sample is in the easy subgroup, while only 25\% of A's is.
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[The Berkeley Admissions Paradox]
+In 1973, UC Berkeley's aggregate admission rates showed apparent gender bias: 44\% of men admitted vs.\ 35\% of women. But department-by-department, women were admitted at equal or higher rates. The explanation: women disproportionately applied to competitive departments with low admission rates.
+
+The ``paradox'' vanishes once you realize that aggregation ignores a lurking variable (department competitiveness) whose distribution differs across groups. \textbf{Simpson's Paradox is really about weighted averages with different weights.}
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Simpson's Paradox Detection]
+The Segments tab includes a Simpson's Paradox callout. The backend helper \code{\_simpsons\_paradox(df)} in \code{routers/segments.py} computes:
+\begin{enumerate}[nosep]
+  \item The aggregate treatment effect direction
+  \item Per-segment effect directions (by \code{user\_segment})
+  \item Paradox flag: True if the aggregate direction differs from \emph{all} segment directions
+\end{enumerate}
+
+In the enriched dataset, the treatment works differently for new vs.\ returning users (by design): the treatment helps new users but slightly hurts returning users. This creates a Simpson's Paradox opportunity when the segment proportions are imbalanced.
+
+\medskip
+\textbf{Causal interpretation} (Pearl): condition on $Z$ if it is a confounder; do NOT condition if it is a mediator or collider. In the dashboard, device type and user segment are confounders (they exist before treatment assignment).
+\end{application}
+
+\vspace{8pt}
+
+\begin{dashlink}
+\textbf{Tab:} Segments (Simpson's Paradox callout section).\\
+\textbf{Backend:} \code{routers/segments.py}, helper \code{\_simpsons\_paradox(df)}.\\
+\textbf{Also:} \code{\_segment\_effects(df, dimension)} runs z-tests per segment across 5 dimensions.
+\end{dashlink}
+
+
+% ==================================================================
+\section{Multiple Testing Corrections}
+\label{sec:multiple}
+% ==================================================================
+
+\begin{formaldef}[Controlling Error Rates Across Multiple Tests]
+When testing $m$ hypotheses at level $\alpha$, the probability of at least one false positive under the global null is:
+\[
+P(\text{at least one false positive}) = 1 - (1-\alpha)^m
+\]
+For $m = 20$: $P = 1 - 0.95^{20} = 0.642$.
+
+\medskip
+\textbf{Family-Wise Error Rate (FWER):} $P(\text{at least one false positive}) \leq \alpha$.
+
+\textbf{False Discovery Rate (FDR):} $E\!\left[\frac{\text{false positives}}{\text{total rejections}}\right] \leq q$.
+
+\medskip
+\textbf{Bonferroni:} Reject $H_i$ if $p_i < \alpha/m$. Proof via union bound:
+\[
+P\!\left(\bigcup_{i \in \mathcal{H}_0}\{p_i < \alpha/m\}\right) \leq \sum_{i \in \mathcal{H}_0} \frac{\alpha}{m} \leq \alpha
+\]
+Very conservative: with $m=100$, each test uses $\alpha/100 = 0.0005$.
+
+\medskip
+\textbf{Holm (step-down, FWER):} Order p-values $p_{(1)} \leq \cdots \leq p_{(m)}$. For $k = 1, \ldots, m$: if $p_{(k)} < \alpha/(m-k+1)$, reject and continue; else stop. Strictly more powerful than Bonferroni because after each rejection, fewer hypotheses remain.
+
+\medskip
+\textbf{Benjamini--Hochberg (FDR):} Find the largest $k$ such that $p_{(k)} \leq (k/m) \cdot q$. Reject $H_{(1)}, \ldots, H_{(k)}$. Controls FDR at level $q$ under independence.
+
+\medskip
+\begin{tabular}{@{}llll@{}}
+\toprule
+Method & Controls & Threshold & Conservatism \\
+\midrule
+Bonferroni & FWER & $\alpha/m$ & Very high \\
+Holm & FWER & Step-down from $\alpha/m$ & Moderate \\
+BH & FDR & $(k/m) \cdot q$ & Lowest (different metric) \\
+\bottomrule
+\end{tabular}
+\end{formaldef}
+
+\vspace{8pt}
+
+\begin{intuition}[Three Inspectors]
+\textbf{Bonferroni} (paranoid): checking 20 products, uses 0.25\% error per product to keep total risk at 5\%. Safe but misses real defects.
+
+\textbf{Holm} (sequential): starts with the most suspicious item. After flagging it, relaxes the threshold slightly, since fewer suspects remain. Strictly better than Bonferroni.
+
+\textbf{BH-FDR} (pragmatic): ``I accept that among my discoveries, up to 5\% might be false. I will verify the important ones later.'' The right mindset for exploratory segment analysis.
+\end{intuition}
+
+\vspace{8pt}
+
+\begin{application}[Dashboard: Segment Analysis Context]
+The Segments tab runs z-tests across 5 dimensions (device, browser, country, user segment, traffic source), each with multiple levels. This produces many simultaneous tests.
+
+\medskip
+\textbf{Practical recommendation for the dashboard:}
+\begin{enumerate}[nosep]
+  \item \textbf{Primary metric} (conversion rate on the Overview tab): tested without correction. This is the experiment's official success criterion.
+  \item \textbf{Secondary metrics} (revenue, session duration on the Frequentist tab): corrected with Holm.
+  \item \textbf{Segment breakdowns} (Segments tab): corrected with BH-FDR, since these are exploratory.
+  \item \textbf{Guardrail metrics} (if any): separate FWER correction.
+\end{enumerate}
+
+\medskip
+\textbf{Worked example} (5 metrics tested simultaneously):
+
+\medskip
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Metric & Raw $p$ & Bonferroni & Holm & BH \\
+\midrule
+Add-to-cart & 0.003 & 0.015 & 0.015 & 0.015 \\
+Revenue/visitor & 0.018 & 0.090 & 0.072 & 0.045 \\
+Bounce rate & 0.032 & 0.160 & 0.096 & 0.053 \\
+Time on page & 0.085 & 0.425 & 0.170 & 0.106 \\
+Scroll depth & 0.220 & 1.000 & 0.220 & 0.220 \\
+\bottomrule
+\end{tabular}
+
+\medskip
+All methods agree: add-to-cart is significant. BH additionally flags revenue. The choice of method determines how aggressive your discovery threshold is.
+\end{application}
+
+
+% ==================================================================
+\section{Cross-Topic Connections}
+% ==================================================================
+
+Understanding how these concepts link together is crucial for mastering A/B testing as a system, not just a collection of techniques.
+
+\begin{enumerate}
+  \item \textbf{Power analysis (Sec.~\ref{sec:power}) depends on effect size (Sec.~2.4):} The sample size formula uses the expected $\delta = p_B - p_A$, which can be expressed via Cohen's $h$. Smaller $h$ means more users needed.
+
+  \item \textbf{Sequential testing (Sec.~\ref{sec:sequential}) modifies power analysis:} OBF designs require ${\sim}3\%$ more users than fixed-sample designs. Factor this into runtime estimation.
+
+  \item \textbf{SRM detection (Sec.~1) uses the same chi-squared test as the analysis (Sec.~2.2):} Both compare observed vs.\ expected frequencies. SRM is a ``meta-test'' that validates the infrastructure before you trust the treatment effect test.
+
+  \item \textbf{Simpson's Paradox (Sec.~\ref{sec:simpson}) motivates segmented analysis, which triggers multiple testing (Sec.~\ref{sec:multiple}):} When you segment results to check for the paradox, you run many tests. Apply BH-FDR to segment-level comparisons.
+
+  \item \textbf{Bayesian expected loss (Sec.~3.3) provides a natural alternative to multiple testing correction:} The loss function inherently penalizes overconfident conclusions, reducing (but not eliminating) the multiple comparisons problem.
+
+  \item \textbf{Frequentist CIs (Sec.~2) converge to Bayesian credible intervals (Sec.~3) with flat priors:} The Bernstein--von Mises theorem (Sec.~4) guarantees this for large $n$. For small $n$, informative priors can be substantially more accurate.
+
+  \item \textbf{Sequential testing and Bayesian stopping rules:} Both address peeking. Frequentist sequential testing controls Type~I error via alpha spending. Bayesian stopping controls expected loss. The Bayesian approach is simpler but lacks the Type~I error guarantee.
+\end{enumerate}
+
+
+% ==================================================================
+\section{Summary Table}
+% ==================================================================
+
+\begin{tabular}{@{}p{3.5cm}p{5cm}p{2cm}p{3.5cm}@{}}
+\toprule
+\textbf{Concept} & \textbf{Core Formula} & \textbf{Dashboard Tab} & \textbf{Backend Function} \\
+\midrule
+Z-test (proportions) & $Z = (\hat{p}_B - \hat{p}_A) / \mathrm{SE}_{\mathrm{pool}}$ & Frequentist & \code{z\_test\_proportions} \\
+Chi-squared & $\chi^2 = \sum (O-E)^2/E$ & Frequentist & \code{chi\_squared\_test} \\
+Wilson CI & $\tilde{p} \pm z \cdot [\ldots] / (1+z^2/n)$ & Frequentist & \code{wilson\_confidence\_interval} \\
+Cohen's $h$ & $2\arcsin(\sqrt{p_B}) - 2\arcsin(\sqrt{p_A})$ & Frequentist & \code{cohens\_h} \\
+Beta posterior & $\mathrm{Beta}(\alpha+X, \beta+n-X)$ & Bayesian & \code{beta\_posterior} \\
+$P(B>A)$ & $\frac{1}{S}\sum \mathbf{1}[p_B^{(s)} > p_A^{(s)}]$ & Bayesian & \code{probability\_b\_beats\_a} \\
+Expected loss & $\frac{1}{S}\sum \max(p_A^{(s)}-p_B^{(s)}, 0)$ & Bayesian & \code{expected\_loss} \\
+Sample size & $n = [(z_\alpha\sqrt{\ldots}+z_\beta\sqrt{\ldots})/\delta]^2$ & Power & \code{required\_sample\_size} \\
+MDE & Binary search on sample size & Power & \code{minimum\_detectable\_effect} \\
+OBF boundary & $c_k = c\sqrt{K/k}$ & Sequential & \code{obrien\_fleming\_bounds} \\
+SRM test & $\chi^2 = \sum(O_i-E_i)^2/E_i$ & Overview & \code{sample\_ratio\_mismatch\_test} \\
+\bottomrule
+\end{tabular}
+
+
+% ==================================================================
+\section{Key Formulas Quick Reference}
+% ==================================================================
+
+\begin{align}
+\text{Pooled proportion:} \quad & \hat{p} = \frac{X_A + X_B}{n_A + n_B} \\[6pt]
+\text{Z-statistic:} \quad & Z = \frac{\hat{p}_B - \hat{p}_A}{\sqrt{\hat{p}(1-\hat{p})(1/n_A + 1/n_B)}} \\[6pt]
+\text{Wilson CI center:} \quad & \tilde{p} = \frac{\hat{p} + z^2/(2n)}{1 + z^2/n} \\[6pt]
+\text{Cohen's } h: \quad & h = 2\arcsin\!\left(\sqrt{p_B}\right) - 2\arcsin\!\left(\sqrt{p_A}\right) \\[6pt]
+\text{Beta posterior:} \quad & \mathrm{Beta}(\alpha + X, \;\beta + n - X) \\[6pt]
+\text{P}(B > A): \quad & \frac{1}{S}\sum_{s=1}^S \mathbf{1}\!\left[p_B^{(s)} > p_A^{(s)}\right] \\[6pt]
+\text{Expected loss:} \quad & \frac{1}{S}\sum_{s=1}^S \max\!\left(p_A^{(s)} - p_B^{(s)}, 0\right) \\[6pt]
+\text{Sample size:} \quad & n = \frac{(z_{\alpha/2} + z_\beta)^2 \cdot [p_A(1{-}p_A) + p_B(1{-}p_B)]}{(p_B - p_A)^2} \\[6pt]
+\text{Runtime:} \quad & \text{Days} = \frac{2n}{T \cdot f} \\[6pt]
+\text{OBF boundary:} \quad & c_k = c \cdot \sqrt{K/k} \\[6pt]
+\text{OBF spending:} \quad & \alpha^*(t) = 2 - 2\Phi\!\left(\frac{z_{\alpha/2}}{\sqrt{t}}\right) \\[6pt]
+\text{Bonferroni:} \quad & \text{Reject if } p_i < \alpha / m
+\end{align}
+
+\end{document}
