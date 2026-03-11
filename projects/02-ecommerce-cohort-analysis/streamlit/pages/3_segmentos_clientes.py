@@ -12,7 +12,7 @@ import plotly.express as px
 
 from utils.styles import inject_styles
 from utils.data_loader import load_rfm, load_ltv_curves, load_activation
-from utils.filters import apply_segment_filter
+from utils.filters import apply_segment_filter, render_active_filter_badges, render_dynamic_footer
 from utils import charts
 from components.metric_row import render_metric_row
 from components.chart_container import render_chart_container
@@ -41,11 +41,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Filter badge
-selected_segs = st.session_state.get("selected_segments", [])
-if selected_segs:
-    badges = " ".join(f'<span class="filter-badge">{s}</span>' for s in selected_segs)
-    st.markdown(f"Filtro activo: {badges}", unsafe_allow_html=True)
+render_active_filter_badges()
 
 # -- Contexto --
 st.markdown(
@@ -82,7 +78,7 @@ for i, (seg, count) in enumerate(top_segments.items()):
     pct = count / len(rfm) * 100
     seg_metrics.append({
         "label": seg,
-        "value": f"{count:,}",
+        "value": charts.format_number(count),
         "subtitle": f"{pct:.1f}% de clientes",
         "border_color": seg_colors[i % len(seg_colors)],
     })
@@ -143,8 +139,10 @@ with tab_rfm:
         "Recencia vs Frecuencia (tamaño = monto monetario, color = segmento)",
         fig_scatter,
         interpretation=(
-            "Los clientes se concentran en baja frecuencia (1-2 compras). "
-            "Los segmentos de alto valor aparecen como puntos grandes con baja recencia."
+            "<ul>"
+            "<li>Los clientes se concentran en <strong>baja frecuencia</strong> (1-2 compras)</li>"
+            "<li>Segmentos de alto valor = puntos grandes con baja recencia</li>"
+            "</ul>"
         ),
         source_text=f"Fuente: Olist E-Commerce Dataset | Muestra de {len(rfm_sample):,} clientes",
     )
@@ -290,23 +288,25 @@ with tab_act:
         if len(sig_positive) > 0:
             top_pos = sig_positive.sort_values("odds_ratio", ascending=False).iloc[0]
             interp_parts.append(
-                f"El factor más asociado con la recompra es '{top_pos['feature']}' "
-                f"(OR = {top_pos['odds_ratio']:.2f})."
+                f"<li>Mayor asociación con recompra: <strong>'{top_pos['feature']}'</strong> "
+                f"(OR = {top_pos['odds_ratio']:.2f})</li>"
             )
         if len(sig_negative) > 0:
             top_neg = sig_negative.sort_values("odds_ratio").iloc[0]
             interp_parts.append(
-                f"El factor más asociado con NO recomprar es '{top_neg['feature']}' "
-                f"(OR = {top_neg['odds_ratio']:.2f})."
+                f"<li>Mayor asociación con NO recomprar: <strong>'{top_neg['feature']}'</strong> "
+                f"(OR = {top_neg['odds_ratio']:.2f})</li>"
             )
+
+        interp_html = f"<ul>{''.join(interp_parts)}</ul>" if interp_parts else (
+            "Los odds ratios muestran la asociación de cada variable con la probabilidad de recompra."
+        )
 
         render_chart_container(
             "Factores de Activación (Odds Ratios)",
             "Qué factores predicen una segunda compra",
             fig_act,
-            interpretation=" ".join(interp_parts) if interp_parts else (
-                "Los odds ratios muestran la asociacion de cada variable con la probabilidad de recompra."
-            ),
+            interpretation=interp_html,
             source_text="Fuente: Regresión logística | p < 0.05 = significativo",
         )
     else:
@@ -359,8 +359,10 @@ with tab_lorenz:
         f"Coeficiente de Gini = {gini:.3f}",
         fig_lorenz,
         interpretation=(
-            f"El coeficiente de Gini es {gini:.3f}, indicando una alta concentración de ingresos. "
-            f"El 20% superior de clientes genera el {(1-top_20_rev)*100:.0f}% de los ingresos totales."
+            f"<ul>"
+            f"<li>Coeficiente de Gini: <strong>{gini:.3f}</strong> (alta concentración de ingresos)</li>"
+            f"<li>El <strong>20% superior</strong> de clientes genera el {(1-top_20_rev)*100:.0f}% de los ingresos totales</li>"
+            f"</ul>"
         ),
         source_text="Fuente: Olist E-Commerce Dataset | Distribución completa de ingresos",
     )
@@ -371,16 +373,20 @@ if len(champion_seg) > 0:
     champ_pct = len(champion_seg) / len(rfm_raw) * 100
     champ_rev_pct = champion_seg["total_revenue"].sum() / rfm_raw["total_revenue"].sum() * 100
     finding = (
-        f"Los 'Champions' representan solo el {champ_pct:.1f}% de la base pero "
-        f"generan el {champ_rev_pct:.1f}% de los ingresos. "
-        f"El coeficiente de Gini de {gini:.3f} confirma una alta concentración."
+        f"<ul>"
+        f"<li>Los 'Champions' representan solo el <strong>{champ_pct:.1f}%</strong> de la base "
+        f"pero generan el <strong>{champ_rev_pct:.1f}%</strong> de los ingresos</li>"
+        f"<li>Gini de {gini:.3f} confirma alta concentración</li>"
+        f"</ul>"
     )
 else:
     _trapz2 = getattr(np, "trapezoid", None) or np.trapz
     gini2 = 1 - 2 * _trapz2(cum_revenue, cum_population)
     finding = (
-        f"El coeficiente de Gini de {gini2:.3f} indica una fuerte concentración "
-        "de ingresos en pocos clientes."
+        f"<ul>"
+        f"<li>Coeficiente de Gini: <strong>{gini2:.3f}</strong></li>"
+        f"<li>Fuerte concentración de ingresos en pocos clientes</li>"
+        f"</ul>"
     )
 
 render_insight_box(
@@ -393,10 +399,4 @@ render_insight_box(
 )
 
 # -- Footer --
-st.markdown(
-    '<div class="dashboard-footer">'
-    "Análisis de Cohortes -- Olist E-Commerce | Andrés González Ortega | "
-    "Datos: Sep 2016 - Oct 2018 | N = 96,478 pedidos entregados"
-    "</div>",
-    unsafe_allow_html=True,
-)
+render_dynamic_footer(None)

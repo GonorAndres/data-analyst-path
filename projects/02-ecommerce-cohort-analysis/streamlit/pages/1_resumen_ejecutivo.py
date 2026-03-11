@@ -10,7 +10,7 @@ import numpy as np
 
 from utils.styles import inject_styles
 from utils.data_loader import load_orders, load_customers
-from utils.filters import apply_date_filter
+from utils.filters import apply_date_filter, apply_date_filter_customers, render_active_filter_badges, render_dynamic_footer
 from utils import charts
 from components.metric_row import render_metric_row
 from components.chart_container import render_chart_container
@@ -28,6 +28,7 @@ if orders_raw is None or customers is None:
 
 # Apply global date filter
 orders = apply_date_filter(orders_raw)
+customers = apply_date_filter_customers(customers)
 
 # -- Header --
 st.markdown('<div class="page-header">Resumen Ejecutivo</div>', unsafe_allow_html=True)
@@ -38,14 +39,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Active filter badge
-date_start = st.session_state.get("date_start")
-date_end = st.session_state.get("date_end")
-if date_start and date_end:
-    st.markdown(
-        f'<span class="filter-badge">Período: {date_start} → {date_end}</span>',
-        unsafe_allow_html=True,
-    )
+render_active_filter_badges()
 
 # -- Contexto --
 st.markdown(
@@ -77,12 +71,13 @@ with st.spinner("Calculando KPIs..."):
         yoy_pct = None
 
 render_metric_row([
-    {"label": "Clientes Únicos", "value": f"{total_customers:,}", "border_color": "#2563EB"},
-    {"label": "Ingresos Totales", "value": f"{total_revenue:,.0f}",
+    {"label": "Clientes Únicos", "value": charts.format_number(total_customers),
+     "border_color": "#2563EB"},
+    {"label": "Ingresos Totales", "value": charts.format_number(total_revenue),
      "prefix": "R$ ", "border_color": "#059669"},
     {"label": "Tasa de Recompra", "value": f"{repeat_rate:.1f}",
      "suffix": "%", "border_color": "#D97706"},
-    {"label": "LTV Promedio", "value": f"{avg_ltv:,.0f}",
+    {"label": "LTV Promedio", "value": charts.format_number(avg_ltv),
      "prefix": "R$ ", "border_color": "#7C3AED"},
 ])
 
@@ -122,9 +117,11 @@ with tab_ing:
         "Ingresos totales por mes de compra",
         fig_rev,
         interpretation=(
-            f"Los ingresos alcanzaron su pico en {peak_month} con R$ {peak_val:,.0f}. "
-            "Se observa un crecimiento acelerado desde mediados de 2017, "
-            "seguido de una meseta en el segundo semestre de 2018."
+            f"<ul>"
+            f"<li>Pico de ingresos en <strong>{peak_month}</strong> con R$ {peak_val:,.0f}</li>"
+            f"<li>Crecimiento acelerado desde mediados de 2017</li>"
+            f"<li>Meseta en el segundo semestre de 2018</li>"
+            f"</ul>"
         ),
         source_text="Fuente: Olist E-Commerce Dataset | Pedidos entregados",
     )
@@ -167,9 +164,10 @@ with tab_adq:
         "Tamaño de cada cohorte de adquisición (azul = sobre promedio)",
         fig_cohort,
         interpretation=(
-            f"El promedio mensual de adquisición es de {avg_cohort:,.0f} clientes nuevos. "
-            "Las cohortes más grandes coinciden con el período de mayor inversión en marketing "
-            "(Q1-Q2 2018)."
+            f"<ul>"
+            f"<li>Promedio mensual de adquisición: <strong>{avg_cohort:,.0f}</strong> clientes nuevos</li>"
+            f"<li>Las cohortes más grandes coinciden con el período de mayor inversión en marketing (Q1-Q2 2018)</li>"
+            f"</ul>"
         ),
         source_text="Fuente: Olist E-Commerce Dataset | Primer pedido del cliente",
     )
@@ -207,10 +205,12 @@ with tab_ret:
         "Cuántos clientes alcanzan cada etapa de recompra",
         fig_funnel,
         interpretation=(
-            f"Solo {conv_1_2:.1f}% de los clientes realiza una segunda compra. "
-            f"De quienes compran dos veces, {conv_2_3:.1f}% llega a la tercera. "
-            f"La conversión de 3a a 4a+ es de {conv_3_4:.1f}%. "
-            "La mayor barrera está en la primera recompra."
+            f"<ul style='margin:4px 0; padding-left:18px; line-height:1.8;'>"
+            f"<li>1a → 2a compra: <strong>{conv_1_2:.1f}%</strong> convierte</li>"
+            f"<li>2a → 3a compra: <strong>{conv_2_3:.1f}%</strong> de quienes ya recompraron</li>"
+            f"<li>3a → 4a+ compra: <strong>{conv_3_4:.1f}%</strong></li>"
+            f"</ul>"
+            f"<p style='margin:6px 0 0;'>La mayor barrera está en la <strong>primera recompra</strong>.</p>"
         ),
         source_text="Fuente: Olist E-Commerce Dataset",
     )
@@ -226,25 +226,22 @@ with tab_ret:
 # -- Insight box --
 render_insight_box(
     finding=(
-        f"La tasa de recompra de Olist es de apenas {repeat_rate:.1f}%, "
-        f"lo que significa que de {total_customers:,} clientes únicos, "
-        f"solo {second:,} realizaron una segunda compra. "
-        "Esta métrica es la palanca de crecimiento más crítica."
+        f"<ul>"
+        f"<li>Tasa de recompra: apenas <strong>{repeat_rate:.1f}%</strong></li>"
+        f"<li>De {total_customers:,} clientes únicos, solo <strong>{second:,}</strong> realizaron una segunda compra</li>"
+        f"<li>Esta métrica es la <strong>palanca de crecimiento más crítica</strong></li>"
+        f"</ul>"
     ),
     recommendation=(
-        "Implementar un programa de reenganche post-compra con incentivos dirigidos "
-        "(cupón de descuento dentro de los primeros 30 días). "
-        "Incluso un aumento del 1pp en recompra representaria ~930 clientes adicionales "
-        f"y potencialmente R$ {930 * avg_ltv:,.0f} en ingresos incrementales."
+        f"<ol>"
+        f"<li>Implementar programa de reenganche post-compra con incentivos dirigidos "
+        f"(cupón de descuento dentro de los primeros 30 días)</li>"
+        f"<li>Un aumento del 1pp en recompra = ~930 clientes adicionales "
+        f"y potencialmente R$ {930 * avg_ltv:,.0f} en ingresos incrementales</li>"
+        f"</ol>"
     ),
     box_type="warning",
 )
 
 # -- Footer --
-st.markdown(
-    '<div class="dashboard-footer">'
-    "Análisis de Cohortes -- Olist E-Commerce | Andrés González Ortega | "
-    "Datos: Sep 2016 - Oct 2018 | N = 96,478 pedidos entregados"
-    "</div>",
-    unsafe_allow_html=True,
-)
+render_dynamic_footer(len(orders))

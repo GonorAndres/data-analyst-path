@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 
 from utils.styles import inject_styles
+from utils.filters import render_dynamic_footer
 
 inject_styles()
 
@@ -311,10 +312,4 @@ customers_unique = orders.merge(
     )
 
 # -- Footer --
-st.markdown(
-    '<div class="dashboard-footer">'
-    "Análisis de Cohortes -- Olist E-Commerce | Andrés González Ortega | "
-    "Datos: Sep 2016 - Oct 2018 | N = 96,478 pedidos entregados"
-    "</div>",
-    unsafe_allow_html=True,
-)
+render_dynamic_footer(None)

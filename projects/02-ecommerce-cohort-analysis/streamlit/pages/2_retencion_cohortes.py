@@ -13,7 +13,7 @@ from utils.styles import inject_styles
 from utils.data_loader import (
     load_cohort_retention, load_cohort_revenue, load_survival, load_customers,
 )
-from utils.filters import apply_cohort_size_filter
+from utils.filters import apply_cohort_size_filter, apply_date_filter_cohorts, render_active_filter_badges, render_dynamic_footer
 from utils import charts
 from components.chart_container import render_chart_container
 from components.insight_box import render_insight_box
@@ -38,6 +38,8 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True,
 )
+
+render_active_filter_badges()
 
 # -- Contexto --
 st.markdown(
@@ -82,8 +84,10 @@ else:
 # Convert to percentages
 data_pct = data.div(data.iloc[:, 0], axis=0) * 100
 
-# Apply cohort size filter from session_state
-data_pct_filtered = apply_cohort_size_filter(data_pct, retention)
+# Apply date filter to cohort index, then cohort size filter
+data_pct = apply_date_filter_cohorts(data_pct)
+retention_date = apply_date_filter_cohorts(retention)
+data_pct_filtered = apply_cohort_size_filter(data_pct, retention_date)
 
 if len(data_pct_filtered) == 0:
     min_size = st.session_state.get("min_cohort_size", 50)
@@ -121,8 +125,10 @@ with tab_heat:
         f"Porcentaje de {label_suffix} retenidos en cada mes relativo a la cohorte",
         fig_heatmap,
         interpretation=(
-            f"La retención promedio al mes 1 es de {avg_m1:.1f}% y al mes 3 de {avg_m3:.1f}%. "
-            "La caída más pronunciada ocurre entre el mes 0 y el mes 1."
+            f"<ul>"
+            f"<li>Retención promedio al mes 1: <strong>{avg_m1:.1f}%</strong> | mes 3: <strong>{avg_m3:.1f}%</strong></li>"
+            f"<li>La caída más pronunciada ocurre entre el <strong>mes 0 y el mes 1</strong></li>"
+            f"</ul>"
         ),
         source_text=f"Fuente: Olist E-Commerce Dataset | Cohortes filtradas por tamaño mínimo",
     )
@@ -183,9 +189,11 @@ with tab_prom:
         "Promedio de todas las cohortes con intervalo de confianza al 95%",
         fig_curve,
         interpretation=(
-            "Las líneas tenues representan cohortes individuales. "
-            "La banda azul muestra el intervalo de confianza del 95%. "
-            "La retención se estabiliza después del mes 3-4."
+            "<ul>"
+            "<li>Líneas tenues = cohortes individuales</li>"
+            "<li>Banda azul = intervalo de confianza del 95%</li>"
+            "<li>La retención se estabiliza después del <strong>mes 3-4</strong></li>"
+            "</ul>"
         ),
         source_text=f"Fuente: Olist E-Commerce Dataset | N = {n_cohorts} cohortes",
     )
@@ -264,8 +272,10 @@ with tab_comp:
             "Comparación de la cohorte con mayor y menor retención acumulada (meses 1-6)",
             fig_compare,
             interpretation=(
-                f"La cohorte {best_cohort} muestra la mejor retención, mientras que "
-                f"{worst_cohort} tiene la peor."
+                f'<div style="display:flex; gap:24px; flex-wrap:wrap;">'
+                f'<div><span style="color:{charts.SUCCESS}; font-weight:700;">Mejor:</span> {best_cohort}</div>'
+                f'<div><span style="color:{charts.DANGER}; font-weight:700;">Peor:</span> {worst_cohort}</div>'
+                f'</div>'
             ),
             source_text="Fuente: Olist E-Commerce Dataset",
         )
@@ -327,9 +337,10 @@ with tab_km:
                     annotation_position="top right",
                 )
             km_interp = (
-                "La curva de supervivencia muestra que la probabilidad de recompra se concentra "
-                "en las primeras semanas. Después de ~6 meses, la probabilidad de retorno "
-                "es prácticamente nula."
+                "<ul>"
+                "<li>La probabilidad de recompra se concentra en las <strong>primeras semanas</strong></li>"
+                "<li>Después de ~6 meses, la probabilidad de retorno es prácticamente nula</li>"
+                "</ul>"
             )
         else:
             # Segmented KM
@@ -353,8 +364,10 @@ with tab_km:
                     name=str(val),
                 ))
             km_interp = (
-                f"Curvas segmentadas por '{km_seg}'. Las diferencias entre grupos "
-                "revelan el impacto de esta variable en el tiempo hasta la recompra."
+                "<ul>"
+                f"<li>Segmentación por <strong>'{km_seg}'</strong></li>"
+                "<li>Las diferencias entre grupos revelan el impacto de esta variable en el tiempo hasta la recompra</li>"
+                "</ul>"
             )
 
         fig_km.update_layout(
@@ -374,24 +387,21 @@ with tab_km:
 
         render_insight_box(
             finding=(
-                "La mayor parte del churn ocurre en los primeros 90 días. "
-                "Los clientes que no regresan en este período tienen una probabilidad "
-                "casi nula de recompra futura."
+                "<ul>"
+                "<li>La mayor parte del churn ocurre en los <strong>primeros 90 días</strong></li>"
+                "<li>Los clientes que no regresan en este período tienen probabilidad casi nula de recompra futura</li>"
+                "</ul>"
             ),
             recommendation=(
-                "Diseñar un flujo automatizado de reenganche en 3 etapas: "
-                "email de seguimiento a los 7 días post-entrega, incentivo personalizado "
-                "a los 30 días, y último intento a los 60 días."
+                "<ol>"
+                "<li><strong>7 días</strong> post-entrega: email de seguimiento</li>"
+                "<li><strong>30 días</strong>: incentivo personalizado</li>"
+                "<li><strong>60 días</strong>: último intento de reenganche</li>"
+                "</ol>"
             ),
         )
     else:
         st.info("Datos de supervivencia no disponibles.")
 
 # -- Footer --
-st.markdown(
-    '<div class="dashboard-footer">'
-    "Análisis de Cohortes -- Olist E-Commerce | Andrés González Ortega | "
-    "Datos: Sep 2016 - Oct 2018 | N = 96,478 pedidos entregados"
-    "</div>",
-    unsafe_allow_html=True,
-)
+render_dynamic_footer(None)

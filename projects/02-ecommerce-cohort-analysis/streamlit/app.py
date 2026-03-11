@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import streamlit as st
 from utils.styles import inject_styles
 from utils.data_loader import load_orders, load_customers
-from utils.filters import apply_date_filter
+from utils.filters import apply_date_filter, apply_date_filter_customers, render_dynamic_footer
 
 st.set_page_config(
     page_title="Análisis de Cohortes -- Olist",
@@ -41,6 +41,7 @@ with st.sidebar:
             min_value=min_date,
             max_value=max_date,
             key="_date_range_input",
+            help="Filtra: Resumen, Retención, Geográfico",
         )
         if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
             st.session_state["date_start"] = date_range[0]
@@ -57,6 +58,7 @@ with st.sidebar:
             value=st.session_state.get("min_cohort_size", 50),
             step=10,
             key="min_cohort_size",
+            help="Filtra: Retención (tamaño mínimo de cohorte)",
         )
 
         # Segment multiselect
@@ -77,15 +79,16 @@ with st.sidebar:
 
         # Stats after filter
         orders_filtered = apply_date_filter(orders)
+        customers_filtered = apply_date_filter_customers(customers) if customers is not None else None
         st.markdown("##### Resumen de Datos")
         st.markdown(f"- **Pedidos:** {len(orders_filtered):,}")
-        if customers is not None:
-            st.markdown(f"- **Clientes únicos:** {len(customers):,}")
+        if customers_filtered is not None:
+            st.markdown(f"- **Clientes únicos:** {len(customers_filtered):,}")
         period_start = orders_filtered["order_purchase_timestamp"].min().strftime("%b %Y")
         period_end = orders_filtered["order_purchase_timestamp"].max().strftime("%b %Y")
         st.markdown(f"- **Período filtrado:** {period_start} -- {period_end}")
-        if customers is not None:
-            repeat_rate = customers["is_repeat_customer"].mean() * 100
+        if customers_filtered is not None:
+            repeat_rate = customers_filtered["is_repeat_customer"].mean() * 100
             st.markdown(f"- **Tasa de recompra:** {repeat_rate:.1f}%")
 
     st.markdown("---")
@@ -112,12 +115,21 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+n_orders_str = f"{len(orders_filtered):,}" if orders is not None else "96,478"
+n_customers_str = f"{len(customers_filtered):,}" if customers_filtered is not None else "93,358"
+date_start = st.session_state.get("date_start")
+date_end = st.session_state.get("date_end")
+period_label = (
+    f"{date_start.strftime('%b %Y')} y {date_end.strftime('%b %Y')}"
+    if date_start and date_end
+    else "septiembre 2016 y octubre 2018"
+)
 st.markdown(
-    """
+    f"""
     <div class="contexto-box">
     <p>
-    Este dashboard analiza el comportamiento de compra de <strong>93,358 clientes únicos</strong>
-    de la plataforma Olist entre septiembre 2016 y octubre 2018. El análisis revela que solo el
+    Este dashboard analiza el comportamiento de compra de <strong>{n_customers_str} clientes únicos</strong>
+    ({n_orders_str} pedidos) de la plataforma Olist entre {period_label}. El análisis revela que solo el
     ~3% de los clientes realiza una segunda compra, lo cual es la pregunta central:
     <strong>¿qué diferencia al 3% que regresa?</strong>
     </p>
@@ -140,10 +152,4 @@ st.markdown(
     """
 )
 
-st.markdown(
-    '<div class="dashboard-footer">'
-    "Análisis de Cohortes -- Olist E-Commerce | Andrés González Ortega | "
-    "Datos: Sep 2016 - Oct 2018 | N = 96,478 pedidos entregados"
-    "</div>",
-    unsafe_allow_html=True,
-)
+render_dynamic_footer(len(orders_filtered) if orders is not None else None)

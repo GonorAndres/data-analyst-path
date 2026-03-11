@@ -1,5 +1,7 @@
 """Filter helper functions reading from st.session_state."""
 
+from __future__ import annotations
+
 import pandas as pd
 import streamlit as st
 
@@ -31,3 +33,68 @@ def apply_segment_filter(rfm_df: pd.DataFrame) -> pd.DataFrame:
     if not selected or set(selected) == set(all_segs):
         return rfm_df
     return rfm_df[rfm_df["segment"].isin(selected)].copy()
+
+
+def apply_date_filter_customers(customers_df: pd.DataFrame) -> pd.DataFrame:
+    """Filter customers_df by session_state date range on cohort_month."""
+    start = st.session_state.get("date_start")
+    end = st.session_state.get("date_end")
+    if start is None or end is None or "cohort_month" not in customers_df.columns:
+        return customers_df
+    start_str = start.strftime("%Y-%m")
+    end_str = end.strftime("%Y-%m")
+    mask = (customers_df["cohort_month"] >= start_str) & (customers_df["cohort_month"] <= end_str)
+    return customers_df[mask].copy()
+
+
+def apply_date_filter_cohorts(retention_df: pd.DataFrame) -> pd.DataFrame:
+    """Filter retention_df rows (cohort index as YYYY-MM strings) by session_state date range."""
+    start = st.session_state.get("date_start")
+    end = st.session_state.get("date_end")
+    if start is None or end is None:
+        return retention_df
+    start_str = start.strftime("%Y-%m")
+    end_str = end.strftime("%Y-%m")
+    idx = retention_df.index.astype(str)
+    mask = (idx >= start_str) & (idx <= end_str)
+    return retention_df[mask].copy()
+
+
+def render_active_filter_badges() -> None:
+    """Render badges for all active sidebar filters."""
+    parts = []
+    date_start = st.session_state.get("date_start")
+    date_end = st.session_state.get("date_end")
+    if date_start and date_end:
+        parts.append(
+            f'<span class="filter-badge">Período: {date_start} &rarr; {date_end}</span>'
+        )
+    min_cohort = st.session_state.get("min_cohort_size", 50)
+    if min_cohort != 50:
+        parts.append(
+            f'<span class="filter-badge">Cohorte mín: {min_cohort}</span>'
+        )
+    selected_segs = st.session_state.get("selected_segments", [])
+    if selected_segs:
+        for s in selected_segs:
+            parts.append(f'<span class="filter-badge">{s}</span>')
+    if parts:
+        st.markdown(" ".join(parts), unsafe_allow_html=True)
+
+
+def render_dynamic_footer(n_orders: int | None = None) -> None:
+    """Render a dynamic footer with the active date range and optional order count."""
+    date_start = st.session_state.get("date_start")
+    date_end = st.session_state.get("date_end")
+    if date_start and date_end:
+        period = f"{date_start.strftime('%b %Y')} - {date_end.strftime('%b %Y')}"
+    else:
+        period = "Sep 2016 - Oct 2018"
+    order_text = f" | N = {n_orders:,} pedidos entregados" if n_orders is not None else ""
+    st.markdown(
+        f'<div class="dashboard-footer">'
+        f"Análisis de Cohortes -- Olist E-Commerce | Andrés González Ortega | "
+        f"Datos: {period}{order_text}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )

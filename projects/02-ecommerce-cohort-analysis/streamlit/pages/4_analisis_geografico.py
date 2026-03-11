@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 
 from utils.styles import inject_styles
 from utils.data_loader import load_orders, load_customers
+from utils.filters import apply_date_filter, apply_date_filter_customers, render_active_filter_badges, render_dynamic_footer
 from utils import charts
 from components.chart_container import render_chart_container
 from components.insight_box import render_insight_box
@@ -18,12 +19,16 @@ from components.insight_box import render_insight_box
 inject_styles()
 
 # -- Load data --
-orders = load_orders()
-customers = load_customers()
+orders_raw = load_orders()
+customers_raw = load_customers()
 
-if orders is None or customers is None:
+if orders_raw is None or customers_raw is None:
     st.error("No se pudieron cargar los datos.")
     st.stop()
+
+# Apply global date filter
+orders = apply_date_filter(orders_raw)
+customers = apply_date_filter_customers(customers_raw)
 
 # -- Header --
 st.markdown('<div class="page-header">Análisis Geográfico</div>', unsafe_allow_html=True)
@@ -33,6 +38,8 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True,
 )
+
+render_active_filter_badges()
 
 # -- Contexto --
 st.markdown(
@@ -149,8 +156,12 @@ render_chart_container(
     "Tasa de recompra por estado (verde = sobre mediana, rojo = bajo mediana)",
     fig_ret,
     interpretation=(
-        f"'{best_state['customer_state']}' lidera con {best_state['retencion_pct']:.1f}% de retención, "
-        f"mientras que '{worst_state['customer_state']}' tiene la más baja con {worst_state['retencion_pct']:.1f}%."
+        f'<div style="display:flex; gap:24px; flex-wrap:wrap;">'
+        f'<div><span style="color:{charts.SUCCESS}; font-weight:700;">Mejor:</span> '
+        f"{best_state['customer_state']} ({best_state['retencion_pct']:.1f}%)</div>"
+        f'<div><span style="color:{charts.DANGER}; font-weight:700;">Peor:</span> '
+        f"{worst_state['customer_state']} ({worst_state['retencion_pct']:.1f}%)</div>"
+        f'</div>'
     ),
     source_text="Fuente: Olist E-Commerce Dataset | Clientes con >= 1 pedido entregado",
 )
@@ -237,8 +248,10 @@ render_chart_container(
     f"Comparación de retención para {len(selected_states)} estados seleccionados",
     fig_state_ret,
     interpretation=(
-        "Las curvas muestran como varía la retención entre estados. "
-        "Estados con mejor infraestructura logística tienden a mostrar curvas superiores."
+        "<ul>"
+        "<li>Las curvas muestran cómo varía la retención entre estados</li>"
+        "<li>Estados con mejor infraestructura logística tienden a mostrar curvas superiores</li>"
+        "</ul>"
     ),
     source_text="Fuente: Olist E-Commerce Dataset | Retención mensual por estado",
 )
@@ -294,40 +307,42 @@ render_chart_container(
     f"Correlación: r = {correlation:.3f} (tamaño = número de clientes)",
     fig_delivery,
     interpretation=(
-        f"La correlación entre días de entrega y retención es r = {correlation:.3f}. "
+        "<ul>"
+        f"<li>Correlación entrega-retención: <strong>r = {correlation:.3f}</strong></li>"
+        "<li>"
         + (
             "La relación negativa sugiere que estados con entregas más rápidas "
-            "tienden a tener mejor retención. "
+            "tienden a tener mejor retención"
             if correlation < -0.1 else
-            "La relación es débil, sugiriendo que otros factores influyen en la retención. "
+            "La relación es débil, sugiriendo que otros factores influyen en la retención"
         )
+        + "</li>"
+        "</ul>"
     ),
     source_text=f"Fuente: Olist E-Commerce Dataset | Estados con >= 100 clientes (N = {len(scatter_df)})",
 )
 
 # -- Insight box --
-best_delivery = f"{best_state['entrega_prom']:.1f}" if pd.notna(best_state['entrega_prom']) else "N/D"
-worst_delivery = f"{worst_state['entrega_prom']:.1f}" if pd.notna(worst_state['entrega_prom']) else "N/D"
+best_delivery = f"{best_state['entrega_prom']:.1f} días" if pd.notna(best_state['entrega_prom']) else "N/D"
+worst_delivery = f"{worst_state['entrega_prom']:.1f} días" if pd.notna(worst_state['entrega_prom']) else "N/D"
 render_insight_box(
     finding=(
-        f"Existe una correlación de {correlation:.3f} entre tiempo de entrega y retención. "
-        f"El estado con mejor retención ('{best_state['customer_state']}') tiene un promedio de "
-        f"{best_delivery} días de entrega, vs "
-        f"{worst_delivery} días en '{worst_state['customer_state']}'."
+        "<ul>"
+        f"<li>Correlación entrega-retención: <strong>r = {correlation:.3f}</strong></li>"
+        f"<li>Mejor retención: <strong>'{best_state['customer_state']}'</strong> "
+        f"(entrega promedio: {best_delivery})</li>"
+        f"<li>Peor retención: <strong>'{worst_state['customer_state']}'</strong> "
+        f"(entrega promedio: {worst_delivery})</li>"
+        "</ul>"
     ),
     recommendation=(
-        "Priorizar la expansión de centros de distribución en estados con altos tiempos "
-        "de entrega pero buena demanda. Paralelamente, establecer expectativas de entrega "
-        "más transparentes para estados lejanos."
+        "<ol>"
+        "<li>Expandir centros de distribución en estados con altos tiempos de entrega pero buena demanda</li>"
+        "<li>Establecer expectativas de entrega más transparentes para estados lejanos</li>"
+        "</ol>"
     ),
     box_type="insight",
 )
 
 # -- Footer --
-st.markdown(
-    '<div class="dashboard-footer">'
-    "Análisis de Cohortes -- Olist E-Commerce | Andrés González Ortega | "
-    "Datos: Sep 2016 - Oct 2018 | N = 96,478 pedidos entregados"
-    "</div>",
-    unsafe_allow_html=True,
-)
+render_dynamic_footer(len(orders))
