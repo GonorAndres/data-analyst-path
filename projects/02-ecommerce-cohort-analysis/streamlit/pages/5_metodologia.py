@@ -143,7 +143,7 @@ rfm["RFM_score"] = rfm["R_score"].astype(str) + rfm["F_score"].astype(str) + rfm
 
     seg_rules = pd.DataFrame({
         "Segmento": [
-            "Campeones", "Leales", "Potencial Leal",
+            "Alto Valor", "Leales", "Potencial Leal",
             "Nuevos", "Prometedores", "Requieren Atencion",
             "En Riesgo", "Inactivos", "Perdidos",
         ],

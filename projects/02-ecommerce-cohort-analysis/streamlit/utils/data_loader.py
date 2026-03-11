@@ -11,7 +11,7 @@ _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "process
 
 # English -> natural Spanish mapping for RFM segments
 SEGMENT_ES: dict[str, str] = {
-    "Champions": "Campeones",
+    "Champions": "Alto Valor",
     "Loyal": "Leales",
     "Potential Loyalist": "Potencial Leal",
     "New": "Nuevos",
