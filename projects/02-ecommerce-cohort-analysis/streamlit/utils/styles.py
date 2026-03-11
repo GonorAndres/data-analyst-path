@@ -111,12 +111,14 @@ def inject_styles():
         }
         .kpi-card .kpi-value {
             font-family: 'DM Sans', sans-serif;
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 700;
             color: #1E293B;
-            line-height: 1.15;
+            line-height: 1.2;
             margin-bottom: 4px;
-            word-break: break-word;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .kpi-card .kpi-subtitle {
             font-size: 13px;
@@ -212,6 +214,27 @@ def inject_styles():
             margin-top: 12px;
             padding-top: 12px;
             border-top: 1px solid #E2E8F0;
+        }
+        .chart-interpretation ul,
+        .chart-interpretation ol {
+            margin: 4px 0;
+            padding-left: 20px;
+            line-height: 1.6;
+        }
+        .chart-interpretation li {
+            margin-bottom: 4px;
+        }
+        .chart-interpretation p {
+            margin: 6px 0 0;
+        }
+        .insight-box ul,
+        .insight-box ol {
+            margin: 4px 0;
+            padding-left: 20px;
+            line-height: 1.6;
+        }
+        .insight-box li {
+            margin-bottom: 4px;
         }
         .chart-container .chart-source {
             font-size: 12px;

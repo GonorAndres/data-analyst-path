@@ -14,10 +14,10 @@ def render_chart_container(title, subtitle, fig, interpretation="", source_text=
         unsafe_allow_html=True,
     )
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    if interpretation or source_text:
-        interp_html = f'<div class="chart-interpretation">{interpretation}</div>' if interpretation else ""
-        source_html = f'<div class="chart-source">{source_text}</div>' if source_text else ""
+    if interpretation:
         st.markdown(
-            f"""<div style="margin-top:-16px;">{interp_html}{source_html}</div>""",
+            f'<div class="chart-interpretation">{interpretation}</div>',
             unsafe_allow_html=True,
         )
+    if source_text:
+        st.caption(source_text)

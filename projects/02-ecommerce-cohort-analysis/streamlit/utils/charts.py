@@ -18,6 +18,18 @@ CATEGORICAL = ["#2563EB", "#7C3AED", "#059669", "#D97706", "#DC2626", "#0891B2",
 SEQUENTIAL_BLUES = ["#EFF6FF", "#DBEAFE", "#93C5FD", "#3B82F6", "#1D4ED8", "#1E3A8A"]
 
 
+def format_number(n: float) -> str:
+    """Format a number with K/M suffix for compact KPI display."""
+    if n is None:
+        return "N/D"
+    abs_n = abs(n)
+    if abs_n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if abs_n >= 1_000:
+        return f"{n / 1_000:.1f}K"
+    return f"{n:,.0f}"
+
+
 def _base_layout():
     return dict(
         font_family="Inter, system-ui, sans-serif",
