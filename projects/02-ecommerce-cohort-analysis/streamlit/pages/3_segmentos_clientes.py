@@ -83,7 +83,7 @@ for i, (seg, count) in enumerate(top_segments.items()):
     seg_metrics.append({
         "label": seg,
         "value": f"{count:,}",
-        "suffix": f" ({pct:.1f}%)",
+        "subtitle": f"{pct:.1f}% de clientes",
         "border_color": seg_colors[i % len(seg_colors)],
     })
 

@@ -22,4 +22,5 @@ def render_metric_row(metrics):
                 prefix=m.get("prefix", ""),
                 suffix=m.get("suffix", ""),
                 border_color=m.get("border_color", "#2563EB"),
+                subtitle=m.get("subtitle", ""),
             )

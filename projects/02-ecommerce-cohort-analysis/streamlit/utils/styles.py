@@ -92,39 +92,59 @@ def inject_styles():
             border: 1px solid #E2E8F0;
             border-left: 4px solid #2563EB;
             border-radius: 8px;
-            padding: 20px 24px;
+            padding: 18px 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            height: 100%;
+        }
+        .kpi-card .kpi-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: #94A3B8;
+            margin-bottom: 8px;
+            line-height: 1.2;
         }
         .kpi-card .kpi-value {
             font-family: 'DM Sans', sans-serif;
-            font-size: 36px;
+            font-size: 28px;
             font-weight: 700;
             color: #1E293B;
-            line-height: 1.1;
+            line-height: 1.15;
             margin-bottom: 4px;
+            word-break: break-word;
         }
-        .kpi-card .kpi-label {
+        .kpi-card .kpi-subtitle {
             font-size: 13px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
             color: #64748B;
-            margin-bottom: 4px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            line-height: 1.3;
         }
         .kpi-card .kpi-delta-up {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: #059669;
+            margin-top: auto;
+            padding-top: 6px;
         }
         .kpi-card .kpi-delta-down {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: #DC2626;
+            margin-top: auto;
+            padding-top: 6px;
         }
         .kpi-card .kpi-delta-neutral {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: #64748B;
+            margin-top: auto;
+            padding-top: 6px;
         }
 
         /* Insight Box */
