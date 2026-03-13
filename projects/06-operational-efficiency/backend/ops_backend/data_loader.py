@@ -11,8 +11,13 @@ PARQUET_PATH = os.path.join(DATA_DIR, "nyc311_enriched.parquet")
 # ---------------------------------------------------------------------------
 # Load data at module import
 # ---------------------------------------------------------------------------
+REQUIRED_COLUMNS = [
+    "agency_name", "borough", "complaint_category", "created_month",
+    "open_data_channel_type", "resolution_days", "status", "sla_status",
+]
+
 try:
-    df: pd.DataFrame = pd.read_parquet(PARQUET_PATH)
+    df: pd.DataFrame = pd.read_parquet(PARQUET_PATH, columns=REQUIRED_COLUMNS)
     print(f"  Loaded nyc311_enriched: {len(df):,} rows")
 except FileNotFoundError:
     print(f"  WARNING: {PARQUET_PATH} not found -- using empty DataFrame")

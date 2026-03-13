@@ -11,8 +11,14 @@ PARQUET_PATH = os.path.join(DATA_DIR, "ab_data_enriched.parquet")
 # ---------------------------------------------------------------------------
 # Load data at module import
 # ---------------------------------------------------------------------------
+REQUIRED_COLUMNS = [
+    "group", "landing_page", "converted", "timestamp",
+    "device_type", "browser", "country", "user_segment", "traffic_source",
+    "revenue", "session_duration_sec",
+]
+
 try:
-    df: pd.DataFrame = pd.read_parquet(PARQUET_PATH)
+    df: pd.DataFrame = pd.read_parquet(PARQUET_PATH, columns=REQUIRED_COLUMNS)
     if "timestamp" in df.columns:
         df["timestamp"] = pd.to_datetime(df["timestamp"])
     if "date" not in df.columns and "timestamp" in df.columns:
