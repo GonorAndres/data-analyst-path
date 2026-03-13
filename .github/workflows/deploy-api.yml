@@ -7,6 +7,9 @@ on:
       - "backend/**"
       - "projects/00-demo-aestehtics/backend/**"
       - "projects/01-insurance-claims-dashboard/backend/**"
+      - "projects/03-ab-test-analysis/backend/**"
+      - "projects/04-executive-kpi-report/backend/**"
+      - "projects/06-operational-efficiency/backend/**"
 
   workflow_dispatch:
 
@@ -42,8 +45,14 @@ jobs:
         run: |
           mkdir -p projects/00-demo-aestehtics/backend/data
           mkdir -p projects/01-insurance-claims-dashboard/data/processed
+          mkdir -p projects/03-ab-test-analysis/data/processed
+          mkdir -p projects/04-executive-kpi-report/data/processed
+          mkdir -p projects/06-operational-efficiency/data/processed
           gcloud storage cp "${{ env.DATA_BUCKET }}/olist-backend/*" projects/00-demo-aestehtics/backend/data/
           gcloud storage cp "${{ env.DATA_BUCKET }}/insurance-processed/*" projects/01-insurance-claims-dashboard/data/processed/
+          gcloud storage cp "${{ env.DATA_BUCKET }}/abtest-processed/*" projects/03-ab-test-analysis/data/processed/
+          gcloud storage cp "${{ env.DATA_BUCKET }}/kpi-processed/*" projects/04-executive-kpi-report/data/processed/
+          gcloud storage cp "${{ env.DATA_BUCKET }}/ops-processed/*" projects/06-operational-efficiency/data/processed/
 
       - name: Authenticate Docker to Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
@@ -82,3 +91,6 @@ jobs:
           echo "Health check: $URL/health"
           echo "Insurance: $URL/insurance/health"
           echo "Olist: $URL/olist/health"
+          echo "A/B Test: $URL/abtest/health"
+          echo "KPI: $URL/kpi/health"
+          echo "Ops: $URL/ops/health"
