@@ -1,0 +1,52 @@
+name: Deploy Operational Efficiency
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "projects/06-operational-efficiency/src/**"
+      - "projects/06-operational-efficiency/public/**"
+      - "projects/06-operational-efficiency/package.json"
+      - "projects/06-operational-efficiency/next.config.js"
+      - "projects/06-operational-efficiency/tailwind.config.ts"
+  workflow_dispatch:
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: prj_Vb3uLkMTrRma0ZsC8dgWWtqly9Wg
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: projects/06-operational-efficiency
+
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: projects/06-operational-efficiency
+
+      - name: Deploy to production
+        id: deploy
+        run: |
+          URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed to: $URL"
+        working-directory: projects/06-operational-efficiency
+
+      - name: Smoke test
+        run: |
+          sleep 10
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.deploy.outputs.url }}")
+          echo "GET / -> HTTP $HTTP"
+          if [ "$HTTP" -ge 400 ]; then
+            echo "FAIL: site returned HTTP $HTTP"
+            exit 1
+          fi
+          echo "PASS"
