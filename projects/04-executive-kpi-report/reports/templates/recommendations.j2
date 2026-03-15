@@ -1,0 +1,50 @@
+{# Recommendations Template -- bilingual (EN/ES) #}
+{% if lang == 'es' %}
+## Recomendaciones
+
+Basado en el analisis de KPIs del periodo {{ period_start }} a {{ period_end }}, se presentan las siguientes recomendaciones priorizadas:
+
+{% for rec in recommendations %}
+### {{ loop.index }}. {{ rec.title }}
+
+{{ rec.body }}
+
+{% if rec.impact %}
+**Impacto estimado**: {{ rec.impact }}
+{% endif %}
+
+{% if rec.timeline %}
+**Plazo sugerido**: {{ rec.timeline }}
+{% endif %}
+
+{% endfor %}
+
+---
+
+*Estas recomendaciones son generadas automaticamente basandose en los umbrales de KPIs definidos. Se recomienda revisar con el equipo de liderazgo antes de implementar.*
+
+{% else %}
+## Recommendations
+
+Based on KPI analysis for the period {{ period_start }} to {{ period_end }}, the following prioritized recommendations are presented:
+
+{% for rec in recommendations %}
+### {{ loop.index }}. {{ rec.title }}
+
+{{ rec.body }}
+
+{% if rec.impact %}
+**Estimated impact**: {{ rec.impact }}
+{% endif %}
+
+{% if rec.timeline %}
+**Suggested timeline**: {{ rec.timeline }}
+{% endif %}
+
+{% endfor %}
+
+---
+
+*These recommendations are auto-generated based on defined KPI thresholds. Review with the leadership team before implementation is advised.*
+
+{% endif %}

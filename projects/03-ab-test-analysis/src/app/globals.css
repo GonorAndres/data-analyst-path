@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #FAFAF8;
+  --foreground: #1A1A1A;
+  --chart-tick:   #6B6B6B;
+  --chart-label:  #1A1A1A;
+  --chart-grid:   #E5E4DF;
+  --chart-bg:     #FAFAF8;
+
+  /* Experiment colors */
+  --control:       #64748B;
+  --treatment:     #059669;
+  --sig-positive:  #16A34A;
+  --sig-negative:  #DC2626;
+  --sig-neutral:   #D97706;
+  --accent-indigo: #3730A3;
+
+  /* Posterior distribution fills */
+  --posterior-a:   #94A3B8;
+  --posterior-b:   #6EE7B7;
+}
+
+.dark {
+  --background: #141414;
+  --foreground: #F0EFEB;
+  --chart-tick:   #9A9A9A;
+  --chart-label:  #F0EFEB;
+  --chart-grid:   #2a2a2a;
+  --chart-bg:     #1A1A1A;
+
+  /* Experiment colors -- dark mode */
+  --control:       #94A3B8;
+  --treatment:     #34D399;
+  --sig-positive:  #4ADE80;
+  --sig-negative:  #F87171;
+  --sig-neutral:   #FBBF24;
+  --accent-indigo: #818CF8;
+
+  --posterior-a:   #64748B;
+  --posterior-b:   #059669;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-lora), Georgia, serif;
+}
+
+/* Editorial rule lines */
+.rule-line {
+  border-top: 2px solid #1A1A1A;
+}
+
+.dark .rule-line {
+  border-top-color: #F0EFEB;
+}
+
+.dark .text-muted {
+  color: #9A9A9A;
+}

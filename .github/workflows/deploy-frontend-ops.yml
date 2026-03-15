@@ -43,7 +43,7 @@ jobs:
       - name: Smoke test
         run: |
           sleep 10
-          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.deploy.outputs.url }}")
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "https://operational-efficiency.vercel.app")
           echo "GET / -> HTTP $HTTP"
           if [ "$HTTP" -ge 400 ]; then
             echo "FAIL: site returned HTTP $HTTP"

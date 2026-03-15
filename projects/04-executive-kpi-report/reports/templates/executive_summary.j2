@@ -1,0 +1,64 @@
+{# Executive Summary Template -- bilingual (EN/ES) #}
+{% if lang == 'es' %}
+## Resumen Ejecutivo
+
+La salud general de **{{ company_name }}** se evalua como **{{ health_tone }}** con un puntaje de **{{ health_score }}/100**.
+
+### Metricas Clave del Periodo ({{ period_start }} - {{ period_end }})
+
+| Metrica | Valor | Cambio MoM | Estado |
+|---------|-------|------------|--------|
+{% for kpi in kpis %}
+| {{ kpi.name }} | {{ kpi.formatted }} | {{ '%+.1f' | format(kpi.change_mom * 100) }}% | {{ kpi.traffic_light | upper }} |
+{% endfor %}
+
+### Aspectos Destacados
+
+{% if mrr_growth > 0.02 %}
+- **Crecimiento de ingresos solido**: El MRR crecio {{ '%.1f' | format(mrr_growth * 100) }}% mes a mes, manteniendo una trayectoria positiva.
+{% elif mrr_growth >= 0 %}
+- **Ingresos estables**: El MRR mostro un crecimiento de {{ '%.1f' | format(mrr_growth * 100) }}%, indicando estabilidad pero posible desaceleracion.
+{% else %}
+- **Atencion requerida en ingresos**: El MRR disminuyo {{ '%.1f' | format(mrr_growth * 100) }}%, requiriendo accion inmediata.
+{% endif %}
+
+{% if churn_rate < 0.02 %}
+- **Retencion excelente**: La tasa de abandono de {{ '%.1f' | format(churn_rate * 100) }}% se mantiene por debajo del benchmark.
+{% elif churn_rate < 0.05 %}
+- **Retencion aceptable**: La tasa de abandono de {{ '%.1f' | format(churn_rate * 100) }}% esta en rango pero merece seguimiento.
+{% else %}
+- **Retencion en riesgo**: La tasa de abandono de {{ '%.1f' | format(churn_rate * 100) }}% esta por encima de los niveles aceptables.
+{% endif %}
+
+{% else %}
+## Executive Summary
+
+**{{ company_name }}**'s overall health is rated as **{{ health_tone }}** with a score of **{{ health_score }}/100**.
+
+### Key Metrics for Period ({{ period_start }} - {{ period_end }})
+
+| Metric | Value | MoM Change | Status |
+|--------|-------|------------|--------|
+{% for kpi in kpis %}
+| {{ kpi.name }} | {{ kpi.formatted }} | {{ '%+.1f' | format(kpi.change_mom * 100) }}% | {{ kpi.traffic_light | upper }} |
+{% endfor %}
+
+### Highlights
+
+{% if mrr_growth > 0.02 %}
+- **Strong revenue growth**: MRR grew {{ '%.1f' | format(mrr_growth * 100) }}% month-over-month, maintaining a positive trajectory.
+{% elif mrr_growth >= 0 %}
+- **Stable revenue**: MRR showed {{ '%.1f' | format(mrr_growth * 100) }}% growth, indicating stability but potential deceleration.
+{% else %}
+- **Revenue attention required**: MRR declined {{ '%.1f' | format(mrr_growth * 100) }}%, requiring immediate action.
+{% endif %}
+
+{% if churn_rate < 0.02 %}
+- **Excellent retention**: Logo churn at {{ '%.1f' | format(churn_rate * 100) }}% remains below benchmark.
+{% elif churn_rate < 0.05 %}
+- **Acceptable retention**: Logo churn at {{ '%.1f' | format(churn_rate * 100) }}% is within range but merits monitoring.
+{% else %}
+- **Retention at risk**: Logo churn at {{ '%.1f' | format(churn_rate * 100) }}% is above acceptable levels.
+{% endif %}
+
+{% endif %}

@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ops-bg: #0F0F0F;
+  --ops-surface: #171717;
+  --ops-surface-hover: #212121;
+  --ops-border: #2A2A2A;
+  --ops-text: #EDEBE8;
+  --ops-text-muted: #7A7670;
+  --ops-blue: #D4A15E;
+  --ops-cyan: #7EB8DA;
+  --ops-green: #6FCF97;
+  --ops-amber: #F2C94C;
+  --ops-red: #EB5757;
+}
+
+body {
+  background-color: var(--ops-bg);
+  color: var(--ops-text);
+}
+
+/* Subtle noise grain overlay for depth */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Glow effects for D3 elements -- warm brass tones */
+.glow-blue { filter: drop-shadow(0 0 6px rgba(212, 161, 94, 0.45)); }
+.glow-cyan { filter: drop-shadow(0 0 6px rgba(126, 184, 218, 0.4)); }
+.glow-green { filter: drop-shadow(0 0 6px rgba(111, 207, 151, 0.4)); }
+.glow-red { filter: drop-shadow(0 0 6px rgba(235, 87, 87, 0.4)); }
+
+/* Monospace numbers */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2A2A2A; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3A3A3A; }
+
+/* Selection color */
+::selection { background: rgba(212, 161, 94, 0.25); color: #EDEBE8; }

@@ -12,6 +12,7 @@ import { SegmentExplorer } from './SegmentExplorer'
 import { PowerCalculator } from './PowerCalculator'
 import { SequentialChart } from './SequentialChart'
 import { IntroSection } from './IntroSection'
+import Link from 'next/link'
 
 const TABS = [
   { id: 'overview', label: 'Executive Overview' },
@@ -174,7 +175,14 @@ function DashboardInner() {
         {/* Footer */}
         <footer className="py-10 border-t border-border dark:border-[#2a2a2a] mt-10">
           <p className="font-sans text-xs text-muted text-center">
-            A/B Test Lab | Andres Gonzalez Ortega | Data: Udacity E-Commerce A/B Test (enriched with synthetic columns)
+            A/B Test Lab | Andrés González Ortega |{' '}
+            <Link
+              href="/abtest/notebooks"
+              className="underline underline-offset-2 hover:text-ink dark:hover:text-[#F0EFEB] transition-colors"
+            >
+              Technical Process
+            </Link>
+            {' '}| Data: Udacity E-Commerce A/B Test (enriched with synthetic columns)
           </p>
         </footer>
       </div>

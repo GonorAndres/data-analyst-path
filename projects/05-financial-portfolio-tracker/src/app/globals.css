@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Cream & Violet -- editorial purple-black */
+
+  /* Finance gain/loss -- muted, not neon */
+  --gain: #7BC4A4;
+  --loss: #C47B8A;
+  --neutral: #7A7488;
+
+  /* Accent -- true violet */
+  --accent: #9B7DC8;
+  --accent-hover: #8468B0;
+  --accent-blue: #7B9EC4;
+  --benchmark: #D4C5A0;
+
+  /* Surfaces (violet-tinted dark glass) */
+  --bg: #0B090E;
+  --paper: #110F14;
+  --surface: rgba(160, 140, 200, 0.04);
+  --surface-hover: rgba(160, 140, 200, 0.07);
+  --ink: #EDE8F0;
+  --border: rgba(160, 140, 200, 0.08);
+  --border-hover: rgba(160, 140, 200, 0.14);
+  --muted: #7A7488;
+  --muted-dim: #524E5C;
+
+  /* Asset category colors -- curated, not default chart */
+  --us-equity: #7B9EC4;
+  --intl-equity: #B08AD4;
+  --emerging: #C4867B;
+  --fixed-income: #7BC4A4;
+  --real-estate: #D4C5A0;
+  --commodities: #C49B7B;
+
+  /* Chart helpers */
+  --chart-tick: #524E5C;
+  --chart-label: #EDE8F0;
+  --chart-grid: rgba(160, 140, 200, 0.05);
+  --chart-bg: #0B090E;
+
+  /* Tooltip */
+  --tooltip-bg: #16131A;
+  --tooltip-border: rgba(160, 140, 200, 0.1);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-outfit), system-ui, sans-serif;
+}
+
+/* Tabular numbers for financial figures */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Glass card utility */
+.glass-card {
+  background: var(--surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: var(--border-hover);
+}
+
+/* KPI glow on hover */
+.glow-violet:hover {
+  box-shadow: 0 0 20px rgba(155, 125, 200, 0.12);
+}
+
+/* Custom scrollbar (terminal feel) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted-dim);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Range input styling for dark theme */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(160, 140, 200, 0.1);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #9B7DC8;
+  cursor: pointer;
+  border: 2px solid #0B090E;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #9B7DC8;
+  cursor: pointer;
+  border: 2px solid #0B090E;
+}
