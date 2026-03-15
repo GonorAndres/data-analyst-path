@@ -26,5 +26,9 @@ COPY projects/04-executive-kpi-report/data/processed/ ./projects/04-executive-kp
 COPY projects/06-operational-efficiency/backend/ops_backend/ ./projects/06-operational-efficiency/backend/ops_backend/
 COPY projects/06-operational-efficiency/data/processed/ ./projects/06-operational-efficiency/data/processed/
 
+# Financial Portfolio Tracker backend (live yfinance -- no static data)
+COPY projects/05-financial-portfolio-tracker/backend/portfolio_backend/ ./projects/05-financial-portfolio-tracker/backend/portfolio_backend/
+RUN mkdir -p projects/05-financial-portfolio-tracker/data/cache
+
 EXPOSE 8080
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8080"]

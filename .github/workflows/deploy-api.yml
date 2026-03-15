@@ -9,6 +9,7 @@ on:
       - "projects/01-insurance-claims-dashboard/backend/**"
       - "projects/03-ab-test-analysis/backend/**"
       - "projects/04-executive-kpi-report/backend/**"
+      - "projects/05-financial-portfolio-tracker/backend/**"
       - "projects/06-operational-efficiency/backend/**"
 
   workflow_dispatch:
@@ -84,13 +85,20 @@ jobs:
             --allow-unauthenticated
             --port=8080
 
-      - name: Show Cloud Run URL
+      - name: Smoke test deployed service
         run: |
-          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --format='value(status.url)')
+          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
           echo "Deployed to: $URL"
-          echo "Health check: $URL/health"
-          echo "Insurance: $URL/insurance/health"
-          echo "Olist: $URL/olist/health"
-          echo "A/B Test: $URL/abtest/health"
-          echo "KPI: $URL/kpi/health"
-          echo "Ops: $URL/ops/health"
+          sleep 20
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$URL/health")
+          if [ "$HTTP" != "200" ]; then
+            echo "FAIL: /health returned HTTP $HTTP"
+            exit 1
+          fi
+          echo "PASS: /health -> 200"
+          for SVC in insurance olist abtest kpi ops portfolio; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$URL/$SVC/health")
+            echo "$SVC/health -> HTTP $HTTP"
+          done
