@@ -12,6 +12,7 @@ import { TrendsPanel } from './TrendsPanel'
 import { ParetoPanel } from './ParetoPanel'
 import { ProcesoTecnicoPanel } from './ProcesoTecnicoPanel'
 import { IntroPanel } from './IntroPanel'
+import { ColdStartBanner } from './ColdStartBanner'
 
 const TABS = [
   { key: 'contexto', label: 'Contexto' },
@@ -203,6 +204,7 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-ops-bg">
+      <ColdStartBanner />
       {/* Brass accent strip */}
       <div className="h-[2px] bg-gradient-to-r from-transparent via-ops-blue to-transparent" />
 

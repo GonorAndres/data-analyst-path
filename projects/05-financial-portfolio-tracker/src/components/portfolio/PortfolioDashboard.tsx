@@ -10,6 +10,7 @@ import { CorrelationPanel } from './CorrelationPanel'
 import { MonteCarloPanel } from './MonteCarloPanel'
 import { FrontierPanel } from './FrontierPanel'
 import { MethodologyPanel } from './MethodologyPanel'
+import { ColdStartBanner } from './ColdStartBanner'
 
 const TABS = [
   { id: 'about', label: 'About' },
@@ -53,6 +54,7 @@ function DashboardInner() {
 
   return (
     <div className="min-h-screen bg-bg">
+      <ColdStartBanner />
       {/* Header */}
       <header className="max-w-7xl mx-auto px-4 pt-8 pb-6 flex items-start justify-between">
         <div>
