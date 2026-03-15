@@ -7,6 +7,7 @@ on:
       - "projects/02-ecommerce-cohort-analysis/streamlit/**"
       - "projects/02-ecommerce-cohort-analysis/requirements.txt"
       - "projects/02-ecommerce-cohort-analysis/Dockerfile"
+      - "e2e/ecommerce-cohorts.*"
 
   workflow_dispatch:
 
@@ -22,8 +23,52 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Python dependencies
+        run: pip install -r projects/02-ecommerce-cohort-analysis/requirements.txt
+
+      - name: Copy test data
+        run: |
+          mkdir -p projects/02-ecommerce-cohort-analysis/data/processed
+          if [ -d "projects/02-ecommerce-cohort-analysis/data/processed" ] && [ "$(ls -A projects/02-ecommerce-cohort-analysis/data/processed 2>/dev/null)" ]; then
+            echo "Data files exist"
+          else
+            echo "WARNING: No processed data files found -- Streamlit may fail to load data"
+            echo "Skipping test (data not available in CI without GCS)"
+            exit 0
+          fi
+
+      - name: Start Streamlit
+        run: streamlit run app.py --server.headless true --server.port 8501 &
+        working-directory: projects/02-ecommerce-cohort-analysis/streamlit
+
+      - name: Install Playwright
+        run: npm i -g @playwright/test && npx playwright install --with-deps chromium
+
+      - name: Wait for Streamlit
+        run: npx -y wait-on http://localhost:8501 --timeout 30000
+
+      - name: Run deploy gate tests
+        run: npx playwright test --config=e2e/ecommerce-cohorts.config.ts
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code

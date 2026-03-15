@@ -9,6 +9,7 @@ on:
       - "projects/04-executive-kpi-report/package.json"
       - "projects/04-executive-kpi-report/next.config.js"
       - "projects/04-executive-kpi-report/tailwind.config.ts"
+      - "e2e/executive-kpi.*"
   workflow_dispatch:
 
 env:
@@ -16,7 +17,38 @@ env:
   VERCEL_PROJECT_ID: prj_XUdzqOOlVB7WKx8UGJMb4u7rXb2n
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: projects/04-executive-kpi-report
+
+      - name: Build
+        run: npm run build
+        working-directory: projects/04-executive-kpi-report
+
+      - name: Install Playwright
+        run: npm i -g @playwright/test && npx playwright install --with-deps chromium
+
+      - name: Start server
+        run: npm start &
+        working-directory: projects/04-executive-kpi-report
+
+      - name: Wait for server
+        run: npx -y wait-on http://localhost:3000 --timeout 15000
+
+      - name: Run deploy gate tests
+        run: npx playwright test --config=e2e/executive-kpi.config.ts
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,14 +71,3 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Deployed to: $URL"
         working-directory: projects/04-executive-kpi-report
-
-      - name: Smoke test
-        run: |
-          sleep 10
-          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "https://executive-kpi-report.vercel.app")
-          echo "GET / -> HTTP $HTTP"
-          if [ "$HTTP" -ge 400 ]; then
-            echo "FAIL: site returned HTTP $HTTP"
-            exit 1
-          fi
-          echo "PASS"
