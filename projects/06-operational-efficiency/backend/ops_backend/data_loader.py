@@ -12,8 +12,11 @@ PARQUET_PATH = os.path.join(DATA_DIR, "nyc311_enriched.parquet")
 # Load data at module import
 # ---------------------------------------------------------------------------
 REQUIRED_COLUMNS = [
-    "agency_name", "borough", "complaint_category", "created_month",
-    "open_data_channel_type", "resolution_days", "status", "sla_status",
+    "agency_name", "borough", "complaint_category", "complaint_type",
+    "created_month", "created_dow", "created_hour",
+    "open_data_channel_type", "resolution_days", "resolution_hours",
+    "status", "sla_status", "is_overdue",
+    "response_category", "process_stage",
 ]
 
 try:

@@ -10,18 +10,19 @@ A collection of end-to-end data analysis projects demonstrating business storyte
 
 | # | Project | Domain | Tools | Output | Status |
 |---|---------|--------|-------|--------|--------|
-| 01 | [Insurance Claims Dashboard](projects/01-insurance-claims-dashboard/) | Insurance | Next.js, SQL, Python | Next.js dashboard + executive summary | Complete |
-| 02 | [E-Commerce Cohort Analysis](projects/02-ecommerce-cohort-analysis/) | E-Commerce | SQL, Python, Streamlit | Jupyter notebook + Streamlit app | Planned |
-| 03 | [A/B Test Analysis](projects/03-ab-test-analysis/) | Product | R, Python | Statistical report + recommendation memo | Planned |
-| 04 | [Executive KPI Report](projects/04-executive-kpi-report/) | Operations | Python, Power BI | Automated PDF report + dashboard | Planned |
-| 05 | [Financial Portfolio Tracker](projects/05-financial-portfolio-tracker/) | Finance | Python, Streamlit, Plotly | Interactive Streamlit app | Planned |
-| 06 | [Operational Efficiency](projects/06-operational-efficiency/) | Operations | SQL, Power BI | Dashboard + exec slide deck | Planned |
+| 00 | [Airbnb CDMX: Market Analysis](projects/00-demo-aestehtics/) | Real Estate | Next.js, Recharts, Static JSON | Next.js dashboard (zero-backend) | Complete |
+| 01 | [Insurance Claims Dashboard](projects/01-insurance-claims-dashboard/) | Insurance | Next.js, SQL, Python, FastAPI | Next.js dashboard + executive summary | Complete |
+| 02 | [E-Commerce Cohort Analysis](projects/02-ecommerce-cohort-analysis/) | E-Commerce | SQL, Python, Streamlit | Jupyter notebook + Streamlit app | Complete |
+| 03 | [A/B Test Analysis](projects/03-ab-test-analysis/) | Product | Python, Next.js, FastAPI | Next.js dashboard + statistical analysis | Complete |
+| 04 | [Executive KPI Report](projects/04-executive-kpi-report/) | Operations | Python, Next.js, FastAPI | Next.js dashboard + automated PDF reports | Complete |
+| 05 | [Financial Portfolio Tracker](projects/05-financial-portfolio-tracker/) | Finance | Python, Next.js, FastAPI | Next.js dashboard + notebooks | Complete |
+| 06 | [Operational Efficiency](projects/06-operational-efficiency/) | Operations | Next.js, D3.js, FastAPI, Python | Next.js dashboard + analytical notebooks | Complete |
 
 ## Skills Overview
 
-**Languages:** SQL (PostgreSQL, BigQuery) -- Python (pandas, plotly, seaborn, streamlit) -- R (tidyverse, ggplot2)
+**Languages:** SQL (PostgreSQL, BigQuery) -- Python (pandas, plotly, seaborn, scipy, streamlit) -- TypeScript/Next.js
 
-**BI Tools:** Power BI (DAX, data modeling, PBI Service) -- Streamlit -- Jupyter Notebooks
+**BI Tools:** Next.js + Recharts/D3.js dashboards -- Streamlit -- Jupyter Notebooks
 
 **Techniques:** Cohort analysis -- A/B testing -- KPI design -- RFM segmentation -- Time series analysis -- Process mining -- Financial risk metrics
 

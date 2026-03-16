@@ -142,7 +142,11 @@ def build_sankey_data(df: pd.DataFrame) -> dict:
     if not required_cols.issubset(set(df.columns)):
         return {"nodes": [], "links": []}
 
-    work = df.dropna(subset=["response_category"]).copy()
+    work = df.copy()
+    # Coerce response_category: drop nulls and string "None"/"0" artifacts from np.select
+    if "response_category" in work.columns:
+        work["response_category"] = work["response_category"].replace({"None": None, "0": None, "": None})
+    work = work.dropna(subset=["response_category"])
     if work.empty:
         return {"nodes": [], "links": []}
 
@@ -274,30 +278,39 @@ def agency_ranking(df: pd.DataFrame) -> list:
 
 
 def agency_complaint_heatmap(df: pd.DataFrame) -> dict:
-    """Top 10 agencies x top 10 complaint types count matrix."""
+    """Top 10 agencies x top 10 complaint types count matrix.
+
+    Uses the raw complaint_type column (not the bucketed complaint_category)
+    so each cell reflects a specific complaint type rather than the catch-all
+    'Otros' bucket that dominates most agencies.
+    """
     if df.empty:
         return {"agencies": [], "complaint_types": [], "matrix": []}
 
-    required = {"agency_name", "complaint_category"}
+    col = "complaint_type" if "complaint_type" in df.columns else "complaint_category"
+    required = {"agency_name", col}
     if not required.issubset(set(df.columns)):
         return {"agencies": [], "complaint_types": [], "matrix": []}
 
     top_agencies = df["agency_name"].value_counts().head(10).index.tolist()
-    top_complaints = df["complaint_category"].value_counts().head(10).index.tolist()
+    top_complaints = df[col].value_counts().head(15).index.tolist()
 
     subset = df[
         df["agency_name"].isin(top_agencies)
-        & df["complaint_category"].isin(top_complaints)
+        & df[col].isin(top_complaints)
     ]
 
     pivot = subset.pivot_table(
         index="agency_name",
-        columns="complaint_category",
+        columns=col,
         aggfunc="size",
         fill_value=0,
     )
 
     pivot = pivot.reindex(index=top_agencies, columns=top_complaints, fill_value=0)
+
+    # Drop agencies whose row is entirely zero (no overlap with top complaints)
+    pivot = pivot.loc[pivot.sum(axis=1) > 0]
 
     return {
         "agencies": [str(a) for a in pivot.index.tolist()],
