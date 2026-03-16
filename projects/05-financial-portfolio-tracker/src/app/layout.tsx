@@ -26,6 +26,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Portfolio Tracker -- Andres Gonzalez Ortega',
   description: 'Financial portfolio analytics dashboard: performance attribution, risk metrics, Monte Carlo simulation, and efficient frontier optimization.',
+  icons: { icon: '/favicon.svg' },
   openGraph: {
     title: 'Portfolio Tracker -- Andres Gonzalez Ortega',
     description: 'Financial portfolio analytics with risk metrics and optimization.',

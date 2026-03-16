@@ -17,6 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Centro de Operaciones NYC 311 -- Andres Gonzalez Ortega',
   description: 'Panel de eficiencia operativa para solicitudes de servicio NYC 311',
+  icons: { icon: '/favicon.svg' },
 }
 
 export default function RootLayout({

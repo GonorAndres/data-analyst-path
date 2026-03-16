@@ -21,6 +21,7 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: 'Andrés González Ortega — Analista de Datos',
   description: 'Portafolio de análisis de datos: seguros, e-commerce y analítica financiera.',
+  icons: { icon: '/favicon.svg' },
   openGraph: {
     title: 'Andrés González Ortega — Analista de Datos',
     description: 'Portafolio de análisis de datos: seguros, e-commerce y analítica financiera.',

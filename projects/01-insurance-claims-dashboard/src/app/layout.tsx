@@ -21,6 +21,7 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: 'Insurance Claims Dashboard — Andres Gonzalez Ortega',
   description: 'Reservas y siniestralidad: triangulos de desarrollo, IBNR y ratios combinados con datos CAS/NAIC.',
+  icons: { icon: '/favicon.svg' },
   openGraph: {
     title: 'Insurance Claims Dashboard — Andres Gonzalez Ortega',
     description: 'Reservas y siniestralidad: triangulos de desarrollo, IBNR y ratios combinados con datos CAS/NAIC.',
