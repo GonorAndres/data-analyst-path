@@ -12,6 +12,7 @@ import { SegmentExplorer } from './SegmentExplorer'
 import { PowerCalculator } from './PowerCalculator'
 import { SequentialChart } from './SequentialChart'
 import { IntroSection } from './IntroSection'
+import { ColdStartBanner } from './ColdStartBanner'
 import Link from 'next/link'
 
 const TABS = [
@@ -34,6 +35,7 @@ function DashboardInner() {
 
   return (
     <div className="min-h-screen bg-paper dark:bg-[#141414]">
+      <ColdStartBanner />
       {/* Header */}
       <header className="max-w-6xl mx-auto px-4 pt-8 pb-4 flex items-center justify-between">
         <div>

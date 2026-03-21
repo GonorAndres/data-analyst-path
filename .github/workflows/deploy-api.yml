@@ -91,14 +91,20 @@ jobs:
             --region=${{ env.REGION }} \
             --format='value(status.url)')
           echo "Deployed to: $URL"
-          sleep 20
-          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$URL/health")
+          for i in 1 2 3 4 5 6; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL/health")
+            if [ "$HTTP" = "200" ]; then
+              echo "PASS: /health -> 200 (attempt $i)"
+              break
+            fi
+            echo "Attempt $i: /health -> HTTP $HTTP -- retrying in 10s"
+            sleep 10
+          done
           if [ "$HTTP" != "200" ]; then
-            echo "FAIL: /health returned HTTP $HTTP"
+            echo "FAIL: /health never returned 200 after 6 attempts"
             exit 1
           fi
-          echo "PASS: /health -> 200"
           for SVC in insurance olist abtest kpi ops portfolio; do
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" "$URL/$SVC/health")
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL/$SVC/health")
             echo "$SVC/health -> HTTP $HTTP"
           done

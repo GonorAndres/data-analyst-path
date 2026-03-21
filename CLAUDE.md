@@ -5,9 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Purpose
 
 Comprehensive **Data Analyst portfolio and knowledge base** for an actuarial science graduate (UNAM, Mexico) targeting hybrid DA roles (business/financial/product analyst). The repo combines:
-- **6 end-to-end portfolio projects** spanning insurance, e-commerce, finance, and operations domains
+- **7 end-to-end portfolio projects** spanning real estate, insurance, e-commerce, finance, and operations domains
 - **Knowledge base** documenting the full analyst workflow (stakeholder question -> delivered insights)
-- **Multiple output formats**: Power BI dashboards (.pbix + PBI Service links), Streamlit apps, Jupyter notebooks, automated PDF reports, executive slide decks
+- **Multiple output formats**: Next.js interactive dashboards (Vercel), Streamlit apps (Cloud Run), Jupyter notebooks, automated PDF reports
 
 This repo is distinct from sibling repos: `data-science/` (ML/predictive modeling) and `data-enginer/` (pipelines/infrastructure). The DA repo focuses on **business storytelling, visualization, and stakeholder communication** -- not model building or ETL infrastructure.
 
@@ -20,13 +20,14 @@ data-analyst/
 │   ├── tools/                   # Power BI, SQL analytics, Python EDA, R stats patterns
 │   ├── templates/               # Reusable project README, exec summary, stakeholder brief
 │   └── design/                  # Dashboard design principles, chart selection
-├── projects/                    # 6 portfolio projects (each self-contained)
-│   ├── 01-insurance-claims-dashboard/   # Power BI + SQL (actuarial domain)
-│   ├── 02-ecommerce-cohort-analysis/    # SQL + Python (product analyst angle)
-│   ├── 03-ab-test-analysis/             # R + Python (statistical rigor)
-│   ├── 04-executive-kpi-report/         # Automated reporting (Python + Power BI)
-│   ├── 05-financial-portfolio-tracker/  # Streamlit app (finance + analytics)
-│   └── 06-operational-efficiency/       # SQL + Power BI (process optimization)
+├── projects/                    # 7 portfolio projects (each self-contained)
+│   ├── 00-demo-aestehtics/              # Next.js + Recharts (Airbnb CDMX, zero-backend)
+│   ├── 01-insurance-claims-dashboard/   # Next.js + FastAPI + SQL (actuarial domain)
+│   ├── 02-ecommerce-cohort-analysis/    # SQL + Python + Streamlit (product analyst angle)
+│   ├── 03-ab-test-analysis/             # Python + Next.js + FastAPI (statistical rigor)
+│   ├── 04-executive-kpi-report/         # Python + Next.js + FastAPI (SaaS KPI automation)
+│   ├── 05-financial-portfolio-tracker/  # Next.js + FastAPI + yfinance (finance + analytics)
+│   └── 06-operational-efficiency/       # Next.js + D3.js + FastAPI (process optimization)
 ├── scripts/utils/               # Shared Python utilities
 └── subagents_outputs/           # Claude Code subagent working files (gitignored)
 ```
@@ -51,8 +52,8 @@ Every project under `projects/` follows this structure:
 
 - **SQL** (PostgreSQL dialect, BigQuery where relevant): Primary analysis language. Window functions, CTEs, multi-table joins.
 - **Python**: pandas, plotly, seaborn, scipy, streamlit. For EDA, automation, and interactive apps.
-- **R**: tidyverse, ggplot2, broom. For statistical testing and actuarial-adjacent work.
-- **Power BI**: Primary BI tool. .pbix files in repo + published to Power BI Service for interactive viewing.
+- **Next.js + TypeScript**: Primary dashboard framework. Deployed to Vercel with Recharts/D3.js for visualization.
+- **FastAPI**: Backend APIs serving processed data to dashboards. Deployed to Cloud Run as a consolidated service.
 - **Jupyter Notebooks**: For reproducible analytical narratives. Write like blog posts with markdown between code.
 
 ## Commands
@@ -81,12 +82,17 @@ cd backend && bash dev.sh   # serves on port 8080
 
 ## Consolidated Backend
 
-A unified FastAPI entry point at `backend/main.py` mounts both project backends under path prefixes:
+A unified FastAPI entry point at `backend/main.py` mounts all project backends under path prefixes:
 
 | Path prefix | Sub-app | Standalone port |
 |-------------|---------|-----------------|
-| `/insurance` | `insurance_backend` (project 01) | 2051 |
 | `/olist` | `olist_backend` (project 00) | 2050 |
+| `/insurance` | `insurance_backend` (project 01) | 2051 |
+| `/abtest` | `abtest_backend` (project 03) | 2053 |
+| `/kpi` | `kpi_backend` (project 04) | 2054 |
+| `/portfolio` | `portfolio_backend` (project 05) | 2055 |
+| `/ops` | `ops_backend` (project 06) | 2056 |
+| `/health` | Status endpoint listing all services | -- |
 
 **Dev modes:**
 - **Standalone**: `cd projects/01-.../backend && uvicorn insurance_backend.main:app --port 2051`
@@ -130,7 +136,7 @@ Every project README must follow `docs/templates/project-readme-template.md`:
 - Every chart must have: title, labeled axes, source annotation, insight annotation
 - Prefer: bar charts for comparison, line charts for trends, scatter for relationships
 - Avoid: 3D charts, pie charts with >5 slices, rainbow palettes
-- Power BI dashboards include a "How to Read This Dashboard" text box
+- Next.js dashboards include an "About / Methodology" page or tab
 
 ### Knowledge Base (docs/)
 - Obsidian-compatible markdown with `[[wikilinks]]` for cross-references
@@ -139,10 +145,10 @@ Every project README must follow `docs/templates/project-readme-template.md`:
 - Differentiated from `data-enginer/docs/`: NO infrastructure, pipelines, or cloud architecture content
 
 ### Output Delivery
-- Power BI: .pbix files committed + screenshots in `dashboards/screenshots/` + PBI Service publish links in `dashboards/README.md`
-- Streamlit: App code in project's `streamlit/` folder, deployed to Streamlit Cloud when polished
-- Notebooks: Renderable via nbviewer/GitHub. Include "View on nbviewer" badge in project README
-- Reports: PDF exports in `reports/`, source files (if editable) alongside them
+- Next.js dashboards: Deployed to Vercel. Screenshots in `dashboards/screenshots/`. Live URLs in project README.
+- Streamlit: App code in project's `streamlit/` folder, deployed to Cloud Run.
+- Notebooks: Renderable via nbviewer/GitHub. Include "View on nbviewer" badge in project README.
+- Reports: PDF exports in `reports/`, source files (if editable) alongside them.
 
 ### Technical Process Page (Notebook-in-Streamlit Pattern)
 For Streamlit projects with supporting Jupyter notebooks, embed the full analytical pipeline as a browsable page inside the dashboard:
@@ -159,23 +165,30 @@ This pattern adds significant portfolio value -- viewers see the full code, tran
 
 | # | Project | Analyst Flavor | Primary Tools | Output Format |
 |---|---------|---------------|---------------|---------------|
-| 01 | Insurance Claims Dashboard | Financial/Insurance | Next.js, SQL, Python | Next.js dashboard + executive summary |
+| 00 | Airbnb CDMX: Market Analysis | Real Estate/Analytics | Next.js, Recharts, Static JSON | Next.js dashboard (zero-backend) |
+| 01 | Insurance Claims Dashboard | Financial/Insurance | Next.js, SQL, Python, FastAPI | Next.js dashboard + executive summary |
 | 02 | E-Commerce Cohort Analysis | Product/Growth | SQL, Python, Streamlit | Jupyter notebook + Streamlit app |
-| 03 | A/B Test Analysis | Product/Growth | R, Python | R Markdown + Jupyter notebook |
-| 04 | Executive KPI Report | Business/General | Python, Power BI | Automated PDF + Power BI dashboard |
-| 05 | Financial Portfolio Tracker | Financial | Python, Streamlit | Streamlit app + notebook |
-| 06 | Operational Efficiency | Business/General | SQL, Power BI | Power BI dashboard + exec summary slides |
+| 03 | A/B Test Analysis | Product/Growth | Python, Next.js, FastAPI | Next.js dashboard + statistical analysis |
+| 04 | Executive KPI Report | Business/General | Python, Next.js, FastAPI | Next.js dashboard + automated PDF reports |
+| 05 | Financial Portfolio Tracker | Financial | Python, Next.js, FastAPI | Next.js dashboard + notebooks |
+| 06 | Operational Efficiency | Business/General | Next.js, D3.js, FastAPI, Python | Next.js dashboard + analytical notebooks |
 
 ## CI/CD & Cloud Run Deployment
 
 ### How It Works
 
-Two GitHub Actions workflows auto-deploy on push to `main`, each with **path filters** so they only run when relevant files change:
+Eight GitHub Actions workflows auto-deploy on push to `main`, each with **path filters** so they only run when relevant files change:
 
-| Workflow | File | Triggers on | Deploys | Cloud Run Service |
-|----------|------|-------------|---------|-------------------|
-| API | `.github/workflows/deploy-api.yml` | `backend/**`, project 00/01 backends + data | Consolidated FastAPI (insurance + olist) | `da-portfolio-api` (port 8080) |
-| Streamlit | `.github/workflows/deploy-streamlit.yml` | `projects/02-*/streamlit/**`, data, requirements, Dockerfile | Cohort Analysis dashboard | `da-cohort-streamlit` (port 8501) |
+| Workflow | File | Deploys to | Service/Project |
+|----------|------|------------|-----------------|
+| API | `deploy-api.yml` | Cloud Run | `da-portfolio-api` (port 8080) |
+| Streamlit | `deploy-streamlit.yml` | Cloud Run | `da-cohort-streamlit` (port 8501) |
+| Demo Aesthetics | `deploy-frontend-demo-aesthetics.yml` | Vercel | Project 00 frontend |
+| Insurance Claims | `deploy-frontend-insurance.yml` | Vercel | Project 01 frontend |
+| A/B Test | `deploy-frontend-abtest.yml` | Vercel | Project 03 frontend |
+| Executive KPI | `deploy-frontend-kpi.yml` | Vercel | Project 04 frontend |
+| Portfolio Tracker | `deploy-frontend-portfolio.yml` | Vercel | Project 05 frontend |
+| Ops Efficiency | `deploy-frontend-ops.yml` | Vercel | Project 06 frontend |
 
 **Merge behavior**: When a branch merges into `main`, GitHub evaluates path filters against *all changed files* in that push. If the merge touches both `backend/` and `projects/02-*/streamlit/`, both workflows fire in parallel. Each workflow is independent.
 
@@ -187,11 +200,15 @@ Push to main
     v
 GitHub Actions (Workload Identity Federation -- no SA keys)
     |
-    +--> deploy-api.yml -----> Artifact Registry --> Cloud Run (da-portfolio-api)
-    |                                                  /insurance/*  /olist/*
+    +--> deploy-api.yml ---------> Artifact Registry --> Cloud Run (da-portfolio-api)
+    |                                                      /olist/* /insurance/* /abtest/*
+    |                                                      /kpi/*  /portfolio/* /ops/*
     |
-    +--> deploy-streamlit.yml -> Artifact Registry --> Cloud Run (da-cohort-streamlit)
-                                                       Streamlit app on :8501
+    +--> deploy-streamlit.yml ---> Artifact Registry --> Cloud Run (da-cohort-streamlit)
+    |                                                      Streamlit app on :8501
+    |
+    +--> deploy-frontend-*.yml --> Vercel (6 Next.js dashboards)
+                                     projects 00, 01, 03, 04, 05, 06
 ```
 
 ### GCP Resources
@@ -238,6 +255,13 @@ To deploy a new project to Cloud Run:
 | Cohort Streamlit | `projects/02-ecommerce-cohort-analysis/Dockerfile` | repo root | 8501 |
 
 Both Dockerfiles use repo root as build context (run `docker build -f <path> .` from root).
+
+## Production & Quality Standards
+
+- Every deployed Next.js dashboard must include an **About / Methodology** page or tab surfacing data sources, transformations, choices made, and limitations
+- Every project README must include a **Decisions & Trade-offs** table: what was chosen, alternatives considered, and why
+- Tests are mandatory: at minimum backend health tests + data pipeline tests per project
+- CI must include lint (ruff) + test (pytest) workflow, not just deploy workflows. Green CI badge required on root README.
 
 ## Cross-Project Integration
 

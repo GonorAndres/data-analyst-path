@@ -12,6 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Executive KPI Report -- Andres Gonzalez Ortega',
   description: 'SaaS executive dashboard with automated KPI tracking, anomaly detection, and forecasting for NovaCRM.',
+  icons: { icon: '/favicon.svg' },
   openGraph: {
     title: 'Executive KPI Report -- Andres Gonzalez Ortega',
     description: 'SaaS executive dashboard: MRR, churn, NPS tracking with anomaly detection and forecasting.',

@@ -14,6 +14,7 @@ import { AnomalyPanel } from './AnomalyPanel'
 import { ReportPanel } from './ReportPanel'
 import { IntroSection } from './IntroSection'
 import { TechnicalProcess } from './TechnicalProcess'
+import { ColdStartBanner } from './ColdStartBanner'
 import type { FiltersResponse } from '@/types/kpi-types'
 
 function DashboardInner() {
@@ -37,6 +38,7 @@ function DashboardInner() {
 
   return (
     <div className="min-h-screen">
+      <ColdStartBanner />
       {/* Header */}
       <header className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 pb-4 flex items-start justify-between">
         <div>

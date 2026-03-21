@@ -9,6 +9,7 @@ on:
       - "projects/01-insurance-claims-dashboard/package.json"
       - "projects/01-insurance-claims-dashboard/next.config.js"
       - "projects/01-insurance-claims-dashboard/tailwind.config.ts"
+      - "e2e/insurance-claims.*"
   workflow_dispatch:
 
 env:
@@ -16,7 +17,38 @@ env:
   VERCEL_PROJECT_ID: prj_4W4jqiF2MFMVNL2hbJEUlRF5NquG
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: projects/01-insurance-claims-dashboard
+
+      - name: Build
+        run: npm run build
+        working-directory: projects/01-insurance-claims-dashboard
+
+      - name: Install Playwright
+        run: npm i -g @playwright/test && npx playwright install --with-deps chromium
+
+      - name: Start server
+        run: npm start &
+        working-directory: projects/01-insurance-claims-dashboard
+
+      - name: Wait for server
+        run: npx -y wait-on http://localhost:3000 --timeout 15000
+
+      - name: Run deploy gate tests
+        run: npx playwright test --config=e2e/insurance-claims.config.ts
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,14 +71,3 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Deployed to: $URL"
         working-directory: projects/01-insurance-claims-dashboard
-
-      - name: Smoke test
-        run: |
-          sleep 10
-          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "https://insurance-claims-dashboard-pi.vercel.app")
-          echo "GET / -> HTTP $HTTP"
-          if [ "$HTTP" -ge 400 ]; then
-            echo "FAIL: site returned HTTP $HTTP"
-            exit 1
-          fi
-          echo "PASS"

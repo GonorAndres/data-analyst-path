@@ -7,6 +7,7 @@ on:
       - "projects/02-ecommerce-cohort-analysis/streamlit/**"
       - "projects/02-ecommerce-cohort-analysis/requirements.txt"
       - "projects/02-ecommerce-cohort-analysis/Dockerfile"
+      - "e2e/ecommerce-cohorts.*"
 
   workflow_dispatch:
 
@@ -22,8 +23,64 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Download test data from GCS
+        run: |
+          mkdir -p projects/02-ecommerce-cohort-analysis/data/processed
+          gcloud storage cp "${{ env.DATA_BUCKET }}/cohort-processed/*" projects/02-ecommerce-cohort-analysis/data/processed/
+
+      - name: Install Python dependencies
+        run: pip install -r projects/02-ecommerce-cohort-analysis/requirements.txt
+
+      - name: Verify test data
+        run: |
+          if [ -z "$(ls -A projects/02-ecommerce-cohort-analysis/data/processed 2>/dev/null)" ]; then
+            echo "FATAL: No processed data files after GCS download"
+            exit 1
+          fi
+          echo "Data files present:"
+          ls -la projects/02-ecommerce-cohort-analysis/data/processed/
+
+      - name: Start Streamlit
+        run: streamlit run app.py --server.headless true --server.port 8501 &
+        working-directory: projects/02-ecommerce-cohort-analysis/streamlit
+
+      - name: Install Playwright
+        run: npm i -g @playwright/test && npx playwright install --with-deps chromium
+
+      - name: Wait for Streamlit
+        run: npx -y wait-on http://localhost:8501 --timeout 30000
+
+      - name: Run deploy gate tests
+        run: npx playwright test --config=e2e/ecommerce-cohorts.config.ts
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code

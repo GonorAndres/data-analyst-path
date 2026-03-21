@@ -419,7 +419,8 @@ def customer_concentration_lorenz(segments_data: List[Dict]) -> Dict:
         cum_revenue.append(round(running_rev / total_revenue, 4))
 
     # Gini coefficient via trapezoidal approximation
-    area_under_lorenz = np.trapz(cum_revenue, percentiles)
+    _trapz = getattr(np, "trapezoid", None) or np.trapz
+    area_under_lorenz = _trapz(cum_revenue, percentiles)
     gini = round(float(1 - 2 * area_under_lorenz), 4)
 
     return {

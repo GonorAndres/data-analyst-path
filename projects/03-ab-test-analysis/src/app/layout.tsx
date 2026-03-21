@@ -21,6 +21,7 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: 'A/B Test Lab -- Andres Gonzalez Ortega',
   description: 'E-Commerce conversion experiment dashboard: frequentist and Bayesian analysis with segment deep dives and sequential monitoring.',
+  icons: { icon: '/favicon.svg' },
   openGraph: {
     title: 'A/B Test Lab -- Andres Gonzalez Ortega',
     description: 'E-Commerce conversion experiment dashboard with statistical rigor.',
