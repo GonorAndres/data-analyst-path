@@ -46,3 +46,32 @@ subagents_outputs/
 credentials.json
 *.pem
 *.key
+
+# Node / Next.js build artifacts
+node_modules/
+.next/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Playwright MCP logs
+.playwright-mcp/
+
+# Ad-hoc screenshots (root + projects/)
+/*.png
+projects/*.png
+
+# Data caches (yfinance etc.)
+**/data/cache/
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+
+# Personal / ephemeral
+to-do.md
