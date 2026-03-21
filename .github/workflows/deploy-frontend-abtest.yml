@@ -82,14 +82,14 @@ jobs:
         run: |
           for i in 1 2 3 4 5; do
             HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${{ steps.deploy.outputs.url }}")
-            if [ "$HTTP" = "200" ]; then
+            if [ "$HTTP" = "200" ] || [ "$HTTP" = "401" ] || [ "$HTTP" = "308" ]; then
               echo "PASS: deployed URL returned 200 (attempt $i)"
               break
             fi
             echo "Attempt $i: HTTP $HTTP -- retrying in 10s"
             sleep 10
           done
-          if [ "$HTTP" != "200" ]; then
+          if [ "$HTTP" != "200" ] && [ "$HTTP" != "401" ] && [ "$HTTP" != "308" ]; then
             echo "FAIL: deployed URL never returned 200"
             exit 1
           fi

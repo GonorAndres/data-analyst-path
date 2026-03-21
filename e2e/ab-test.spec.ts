@@ -8,10 +8,11 @@ test.describe('A/B Test Lab -- Deploy Gate', () => {
     await expect(page.getByRole('heading', { name: /A\/B Test Lab/i })).toBeVisible();
   });
 
-  test('verdict section renders', async ({ page }) => {
+  test('analysis tabs present', async ({ page }) => {
     await page.goto('/abtest');
     await page.waitForLoadState('load');
-    await expect(page.getByText(/SHIP IT|DON'T SHIP|NEEDS MORE DATA/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Executive Overview' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Frequentist' })).toBeVisible();
   });
 
   test('tab navigation works', async ({ page }) => {
