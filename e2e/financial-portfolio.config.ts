@@ -5,5 +5,5 @@ export default defineConfig({
   ...baseConfig,
   testDir: '.',
   testMatch: 'financial-portfolio.spec.ts',
-  use: { ...baseConfig.use, baseURL: process.env.BASE_URL || 'http://localhost:3000' },
+  use: { ...baseConfig.use, baseURL: process.env.BASE_URL || 'http://localhost:3055' },
 });

@@ -75,7 +75,7 @@ jobs:
         run: npm ci && npx playwright install --with-deps chromium
 
       - name: Wait for Streamlit
-        run: npx -y wait-on http://localhost:8501 --timeout 30000
+        run: npx -y wait-on tcp:localhost:8501 --timeout 30000
 
       - name: Run deploy gate tests
         run: npx playwright test --config=e2e/ecommerce-cohorts.config.ts

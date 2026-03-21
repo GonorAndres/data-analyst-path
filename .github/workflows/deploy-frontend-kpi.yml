@@ -47,7 +47,7 @@ jobs:
         working-directory: projects/04-executive-kpi-report
 
       - name: Wait for server
-        run: npx -y wait-on http://localhost:3000 --timeout 30000
+        run: npx -y wait-on tcp:localhost:3052 --timeout 30000
 
       - name: Run deploy gate tests
         run: npx playwright test --config=e2e/executive-kpi.config.ts
