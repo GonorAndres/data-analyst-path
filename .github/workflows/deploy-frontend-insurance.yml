@@ -12,6 +12,10 @@ on:
       - "e2e/insurance-claims.*"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: prj_4W4jqiF2MFMVNL2hbJEUlRF5NquG
@@ -19,6 +23,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -35,14 +40,14 @@ jobs:
         working-directory: projects/01-insurance-claims-dashboard
 
       - name: Install Playwright
-        run: npm i -g @playwright/test && npx playwright install --with-deps chromium
+        run: npm ci && npx playwright install --with-deps chromium
 
       - name: Start server
         run: npm start &
         working-directory: projects/01-insurance-claims-dashboard
 
       - name: Wait for server
-        run: npx -y wait-on http://localhost:3000 --timeout 15000
+        run: npx -y wait-on http://localhost:3000 --timeout 30000
 
       - name: Run deploy gate tests
         run: npx playwright test --config=e2e/insurance-claims.config.ts
@@ -50,6 +55,7 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -71,3 +77,19 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Deployed to: $URL"
         working-directory: projects/01-insurance-claims-dashboard
+
+      - name: Verify deployment
+        run: |
+          for i in 1 2 3 4 5; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${{ steps.deploy.outputs.url }}")
+            if [ "$HTTP" = "200" ]; then
+              echo "PASS: deployed URL returned 200 (attempt $i)"
+              break
+            fi
+            echo "Attempt $i: HTTP $HTTP -- retrying in 10s"
+            sleep 10
+          done
+          if [ "$HTTP" != "200" ]; then
+            echo "FAIL: deployed URL never returned 200"
+            exit 1
+          fi

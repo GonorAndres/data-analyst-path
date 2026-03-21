@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "name": "data-analyst-path",
+  "description": "Root package - Playwright e2e tests only",
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}

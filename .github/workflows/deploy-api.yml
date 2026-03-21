@@ -14,6 +14,10 @@ on:
 
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: us-central1
@@ -26,8 +30,82 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Download data from GCS
+        run: |
+          mkdir -p projects/00-demo-aestehtics/backend/data
+          mkdir -p projects/01-insurance-claims-dashboard/data/processed
+          mkdir -p projects/03-ab-test-analysis/data/processed
+          mkdir -p projects/04-executive-kpi-report/data/processed
+          mkdir -p projects/06-operational-efficiency/data/processed
+          gcloud storage cp "${{ env.DATA_BUCKET }}/olist-backend/*" projects/00-demo-aestehtics/backend/data/
+          gcloud storage cp "${{ env.DATA_BUCKET }}/insurance-processed/*" projects/01-insurance-claims-dashboard/data/processed/
+          gcloud storage cp "${{ env.DATA_BUCKET }}/abtest-processed/*" projects/03-ab-test-analysis/data/processed/
+          gcloud storage cp "${{ env.DATA_BUCKET }}/kpi-processed/*" projects/04-executive-kpi-report/data/processed/
+          gcloud storage cp "${{ env.DATA_BUCKET }}/ops-processed/*" projects/06-operational-efficiency/data/processed/
+
+      - name: Install Python dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Start API server
+        run: python -m uvicorn backend.main:app --host 0.0.0.0 --port 8080 &
+
+      - name: Wait for API
+        run: |
+          for i in 1 2 3 4 5 6; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://localhost:8080/health")
+            if [ "$HTTP" = "200" ]; then
+              echo "PASS: /health -> 200 (attempt $i)"
+              break
+            fi
+            echo "Attempt $i: /health -> HTTP $HTTP -- retrying in 5s"
+            sleep 5
+          done
+          if [ "$HTTP" != "200" ]; then
+            echo "FAIL: /health never returned 200 after 6 attempts"
+            exit 1
+          fi
+
+      - name: Verify sub-service health endpoints
+        run: |
+          FAIL=0
+          for SVC in insurance olist abtest kpi ops portfolio; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://localhost:8080/$SVC/health")
+            if [ "$HTTP" = "200" ]; then
+              echo "PASS: $SVC/health -> 200"
+            else
+              echo "FAIL: $SVC/health -> HTTP $HTTP"
+              FAIL=1
+            fi
+          done
+          if [ "$FAIL" = "1" ]; then
+            echo "One or more sub-service health checks failed"
+            exit 1
+          fi
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -104,7 +182,17 @@ jobs:
             echo "FAIL: /health never returned 200 after 6 attempts"
             exit 1
           fi
+          FAIL=0
           for SVC in insurance olist abtest kpi ops portfolio; do
             HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL/$SVC/health")
-            echo "$SVC/health -> HTTP $HTTP"
+            if [ "$HTTP" = "200" ]; then
+              echo "PASS: $SVC/health -> 200"
+            else
+              echo "FAIL: $SVC/health -> HTTP $HTTP"
+              FAIL=1
+            fi
           done
+          if [ "$FAIL" = "1" ]; then
+            echo "One or more sub-service health checks failed post-deploy"
+            exit 1
+          fi
