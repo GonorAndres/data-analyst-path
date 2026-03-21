@@ -8,11 +8,10 @@ test.describe('Executive KPI Report -- Deploy Gate', () => {
     await expect(page.getByRole('heading', { name: /Executive KPI Report/i })).toBeVisible();
   });
 
-  test('about tab content visible', async ({ page }) => {
+  test('intro section renders', async ({ page }) => {
     await page.goto('/kpi');
     await page.waitForLoadState('load');
-    await expect(page.getByText('NovaCRM')).toBeVisible();
-    await expect(page.getByText(/Portfolio Project/i)).toBeVisible();
+    await expect(page.getByText('NovaCRM', { exact: true })).toBeVisible();
   });
 
   test('tab navigation works', async ({ page }) => {

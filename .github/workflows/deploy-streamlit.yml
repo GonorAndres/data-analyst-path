@@ -11,6 +11,10 @@ on:
 
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: us-central1
@@ -25,6 +29,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -67,10 +72,10 @@ jobs:
         working-directory: projects/02-ecommerce-cohort-analysis/streamlit
 
       - name: Install Playwright
-        run: npm i -g @playwright/test && npx playwright install --with-deps chromium
+        run: npm ci && npx playwright install --with-deps chromium
 
       - name: Wait for Streamlit
-        run: npx -y wait-on http://localhost:8501 --timeout 30000
+        run: npx -y wait-on tcp:localhost:8501 --timeout 30000
 
       - name: Run deploy gate tests
         run: npx playwright test --config=e2e/ecommerce-cohorts.config.ts
@@ -78,10 +83,7 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -130,7 +132,20 @@ jobs:
             --allow-unauthenticated
             --port=8501
 
-      - name: Show Cloud Run URL
+      - name: Verify deployment
         run: |
           URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --format='value(status.url)')
           echo "Deployed to: $URL"
+          for i in 1 2 3 4 5; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$URL")
+            if [ "$HTTP" = "200" ]; then
+              echo "PASS: deployed URL returned 200 (attempt $i)"
+              break
+            fi
+            echo "Attempt $i: HTTP $HTTP -- retrying in 10s"
+            sleep 10
+          done
+          if [ "$HTTP" != "200" ]; then
+            echo "FAIL: deployed URL never returned 200"
+            exit 1
+          fi
