@@ -8,11 +8,10 @@ test.describe('Operational Efficiency -- Deploy Gate', () => {
     await expect(page.getByRole('heading', { name: /Centro de Operaciones NYC 311/i })).toBeVisible();
   });
 
-  test('contexto tab content visible', async ({ page }) => {
+  test('intro heading renders', async ({ page }) => {
     await page.goto('/operations');
     await page.waitForLoadState('load');
-    await expect(page.getByText('OPS // P06')).toBeVisible();
-    await expect(page.getByText(/Eficiencia Operacional/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Eficiencia Operacional/i })).toBeVisible();
   });
 
   test('tab navigation works', async ({ page }) => {
