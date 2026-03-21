@@ -263,6 +263,28 @@ Both Dockerfiles use repo root as build context (run `docker build -f <path> .` 
 - Tests are mandatory: at minimum backend health tests + data pipeline tests per project
 - CI must include lint (ruff) + test (pytest) workflow, not just deploy workflows. Green CI badge required on root README.
 
+## E2E Deploy Gate Tests (`e2e/`)
+
+Playwright tests that run **before** every deploy. They verify the frontend builds and serves correctly **without a backend**.
+
+**Architecture:**
+- Root `package.json` exists solely to provide `@playwright/test` -- do not add app deps here
+- Each project has its own config in `e2e/<name>.config.ts` with the correct `baseURL` port
+- Ports must match `package.json` start scripts: P00/P01=3000, P03=3053, P04=3052, P05=3055, P06=3056, P02=8501
+
+**Key constraints (things that broke before):**
+- Tests must NOT assert on backend-dependent data (KPI values, API responses). No backend runs in CI.
+- Use `{ exact: true }` or `getByRole()` to avoid Playwright strict mode violations when text appears multiple times
+- Spanish accented characters (`a` vs `a`) don't match in regex -- use actual accents or match by role
+- `wait-on` uses `tcp:` protocol (not `http://`) to avoid false timeouts from SSR pages returning non-200 without backend
+- Post-deploy verification accepts 200, 401, or 308 (Vercel Deployment Protection returns 401 on non-main branches)
+- API test job uses `curl ... || true` in retry loops to prevent `set -e` from aborting on connection refused
+
+**When to update `e2e/*.spec.ts`:**
+- You rename or remove a heading, route, or tab button that a test checks
+- You add a new critical route worth gating deploys on
+- You do NOT need to update tests for additions (new charts, sections, etc.)
+
 ## Cross-Project Integration
 
 This repo links to but does not duplicate work from:
