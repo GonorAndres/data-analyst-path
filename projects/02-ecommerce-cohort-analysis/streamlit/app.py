@@ -20,15 +20,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Google Analytics (gtag.js)
-st.markdown(
-    """
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-098V02NCB0"></script>
-    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-098V02NCB0');</script>
-    """,
-    unsafe_allow_html=True,
-)
-
 inject_styles()
 
 # -- Sidebar (navigation + branding only) --
