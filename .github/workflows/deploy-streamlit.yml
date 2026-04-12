@@ -2,7 +2,7 @@ name: Deploy Streamlit to Cloud Run
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - "projects/02-ecommerce-cohort-analysis/streamlit/**"
       - "projects/02-ecommerce-cohort-analysis/requirements.txt"
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -82,8 +82,10 @@ jobs:
 
   deploy:
     needs: test
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

@@ -1,0 +1,91 @@
+# Live URL registry for the Data Analyst portfolio.
+# Single source of truth consumed by:
+#   - .github/workflows/ops-health.yml  (health cron)
+#   - CLAUDE.md / README references
+#
+# Branch -> environment mapping:
+#   main -> production (deployed + monitored)
+#   dev  -> preview    (Vercel frontends only; API/Streamlit skip deploy)
+#
+# When a URL changes (custom domain, Vercel rename, Cloud Run redeploy with a
+# different service name) update this file first, then let workflows pick it up.
+
+schema_version: 1
+updated: 2026-04-12
+
+services:
+
+  - id: demo-aesthetics
+    project: 00-demo-aestehtics
+    kind: vercel
+    vercel_project_id: prj_iSVaJs6Sg2s6gIC6pEJIy1h6JUgb
+    production_url: https://demo-aesthetics.vercel.app
+    health_path: /
+    expected_status: [200, 301, 302, 307, 308, 401]
+
+  - id: insurance-claims
+    project: 01-insurance-claims-dashboard
+    kind: vercel
+    vercel_project_id: prj_4W4jqiF2MFMVNL2hbJEUlRF5NquG
+    production_url: https://insurance-claims-dashboard-pi.vercel.app
+    health_path: /
+    expected_status: [200, 301, 302, 307, 308, 401]
+
+  - id: cohort-streamlit
+    project: 02-ecommerce-cohort-analysis
+    kind: cloud_run
+    gcp_service: da-cohort-streamlit
+    region: us-central1
+    production_url: https://da-cohort-streamlit-451451662791.us-central1.run.app
+    health_path: /_stcore/health
+    expected_status: [200]
+
+  - id: ab-test
+    project: 03-ab-test-analysis
+    kind: vercel
+    vercel_project_id: prj_bd4chQuPydvL7VZGUh00aMrWs4eg
+    production_url: https://ab-test-analysis.vercel.app
+    health_path: /
+    expected_status: [200, 301, 302, 307, 308, 401]
+
+  - id: executive-kpi
+    project: 04-executive-kpi-report
+    kind: vercel
+    vercel_project_id: prj_XUdzqOOlVB7WKx8UGJMb4u7rXb2n
+    production_url: https://executive-kpi-report.vercel.app
+    health_path: /
+    expected_status: [200, 301, 302, 307, 308, 401]
+
+  - id: financial-portfolio
+    project: 05-financial-portfolio-tracker
+    kind: vercel
+    vercel_project_id: prj_sRSJiGCR03kYdWqxPpbXow6BFJ0j
+    production_url: https://financial-portfolio-tracker-iota.vercel.app
+    health_path: /
+    expected_status: [200, 301, 302, 307, 308, 401]
+
+  - id: operational-efficiency
+    project: 06-operational-efficiency
+    kind: vercel
+    vercel_project_id: prj_Vb3uLkMTrRma0ZsC8dgWWtqly9Wg
+    production_url: https://operational-efficiency.vercel.app
+    health_path: /
+    expected_status: [200, 301, 302, 307, 308, 401]
+
+  - id: portfolio-api
+    project: backend
+    kind: cloud_run
+    gcp_service: da-portfolio-api
+    region: us-central1
+    production_url: https://da-portfolio-api-451451662791.us-central1.run.app
+    health_path: /health
+    expected_status: [200]
+    # Sub-services exposed by the consolidated API. Each is curled separately
+    # by the health cron.
+    sub_services:
+      - { id: insurance, path: /insurance/health }
+      - { id: olist,     path: /olist/health }
+      - { id: abtest,    path: /abtest/health }
+      - { id: kpi,       path: /kpi/health }
+      - { id: portfolio, path: /portfolio/health }
+      - { id: ops,       path: /ops/health }
