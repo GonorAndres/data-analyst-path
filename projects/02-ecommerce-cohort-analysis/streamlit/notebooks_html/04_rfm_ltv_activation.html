@@ -7802,7 +7802,7 @@ a.anchor-link {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="04----Segmentacion-RFM,-Estimacion-de-LTV-y-Analisis-de-Activacion">04 -- Segmentacion RFM, Estimacion de LTV y Analisis de Activacion<a class="anchor-link" href="#04----Segmentacion-RFM,-Estimacion-de-LTV-y-Analisis-de-Activacion">¶</a></h1><p><strong>Pregunta de negocio:</strong> <em>Como segmentamos clientes por valor, estimamos LTV, e identificamos que comportamientos en la primera compra predicen engagement a largo plazo?</em></p>
+<h1 id="04----Segmentaci%C3%B3n-RFM,-Estimacion-de-LTV-y-An%C3%A1lisis-de-Activaci%C3%B3n">04 -- Segmentación RFM, Estimacion de LTV y Análisis de Activación<a class="anchor-link" href="#04----Segmentaci%C3%B3n-RFM,-Estimacion-de-LTV-y-An%C3%A1lisis-de-Activaci%C3%B3n">¶</a></h1><p><strong>Pregunta de negocio:</strong> <em>Como segmentamos clientes por valor, estimamos LTV, e identificamos que comportamientos en la primera compra predicen engagement a largo plazo?</em></p>
 <p><strong>Contexto:</strong> Solo ~3% de los clientes de Olist son compradores recurrentes. Este notebook cuantifica la concentracion de valor, segmenta clientes por comportamiento (RFM), estima curvas de LTV por segmento, y usa regresion logistica para identificar los factores de la primera compra que predicen la recompra.</p>
 <hr/>
 </div>
@@ -7909,7 +7909,7 @@ Tasa de recompra global: 3.0%
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <hr/>
-<h2 id="1.-Segmentacion-RFM">1. Segmentacion RFM<a class="anchor-link" href="#1.-Segmentacion-RFM">¶</a></h2><p>La segmentacion RFM clasifica clientes en tres dimensiones:</p>
+<h2 id="1.-Segmentaci%C3%B3n-RFM">1. Segmentación RFM<a class="anchor-link" href="#1.-Segmentaci%C3%B3n-RFM">¶</a></h2><p>La segmentación RFM clasifica clientes en tres dimensiones:</p>
 <ul>
 <li><strong>Recency (R):</strong> Dias desde la ultima compra (menor = mejor = mayor score)</li>
 <li><strong>Frequency (F):</strong> Numero total de pedidos</li>
@@ -8181,7 +8181,7 @@ Hibernating                7509           8.00         2.70       315.67        
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><strong>Interpretacion:</strong> La segmentacion RFM revela la estructura de valor del marketplace. Los "Champions" y "Loyal" representan el nucleo de valor -- pocos en numero pero desproporcionados en ingresos. Los segmentos "Lost" y "Hibernating" contienen la gran mayoria de los clientes, confirmando el patron de baja retencion. Los "Potential Loyalist" son el objetivo principal para campanas de reactivacion: son recientes pero aun no han repetido compra.</p>
+<p><strong>Interpretación:</strong> La segmentación RFM revela la estructura de valor del marketplace. Los "Champions" y "Loyal" representan el nucleo de valor -- pocos en numero pero desproporcionados en ingresos. Los segmentos "Lost" y "Hibernating" contienen la gran mayoria de los clientes, confirmando el patrón de baja retención. Los "Potential Loyalist" son el objetivo principal para campanas de reactivacion: son recientes pero aun no han repetido compra.</p>
 </div>
 </div>
 </div>
@@ -8853,7 +8853,7 @@ Top 20% de clientes genera: 53.5% del ingreso
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><strong>Interpretacion:</strong> Un Gini alto confirma una concentracion significativa: una minoria de clientes genera la mayor parte del ingreso. En un marketplace con ~3% de recompra, esto es esperado -- los pocos compradores recurrentes contribuyen desproporcionadamente. Esta concentracion justifica estrategias diferenciadas por segmento en lugar de campanas uniformes.</p>
+<p><strong>Interpretación:</strong> Un Gini alto confirma una concentracion significativa: una minoria de clientes genera la mayor parte del ingreso. En un marketplace con ~3% de recompra, esto es esperado -- los pocos compradores recurrentes contribuyen desproporcionadamente. Esta concentracion justifica estrategias diferenciadas por segmento en lugar de campanas uniformes.</p>
 </div>
 </div>
 </div>
@@ -8975,7 +8975,7 @@ Top 20% de clientes genera: 53.5% del ingreso
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><strong>Interpretacion:</strong> Las curvas de LTV revelan la divergencia de valor entre segmentos. Los "Champions" acumulan ordenes de magnitud mas valor que los demas, con una pendiente que sigue creciendo. Los segmentos de baja frecuencia muestran curvas planas despues del mes 0 -- practicamente todo su valor se concentra en la primera compra. Esto confirma que el LTV en Olist esta dominado por el comportamiento de recompra, no por el valor individual de las ordenes.</p>
+<p><strong>Interpretación:</strong> Las curvas de LTV revelan la divergencia de valor entre segmentos. Los "Champions" acumulan ordenes de magnitud mas valor que los demas, con una pendiente que sigue creciendo. Los segmentos de baja frecuencia muestran curvas planas despues del mes 0 -- practicamente todo su valor se concentra en la primera compra. Esto confirma que el LTV en Olist esta dominado por el comportamiento de recompra, no por el valor individual de las ordenes.</p>
 </div>
 </div>
 </div>
@@ -8987,7 +8987,7 @@ Top 20% de clientes genera: 53.5% del ingreso
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <hr/>
-<h2 id="4.-Analisis-de-Activacion:-Regresion-Logistica">4. Analisis de Activacion: Regresion Logistica<a class="anchor-link" href="#4.-Analisis-de-Activacion:-Regresion-Logistica">¶</a></h2><p>Usamos regresion logistica para identificar que factores de la primera compra predicen si un cliente hara una segunda compra. Este analisis es descriptivo/inferencial (no predictivo): el objetivo es entender asociaciones, no construir un modelo de clasificacion.</p>
+<h2 id="4.-An%C3%A1lisis-de-Activaci%C3%B3n:-Regresion-Logistica">4. Análisis de Activación: Regresion Logistica<a class="anchor-link" href="#4.-An%C3%A1lisis-de-Activaci%C3%B3n:-Regresion-Logistica">¶</a></h2><p>Usamos regresion logistica para identificar que factores de la primera compra predicen si un cliente hara una segunda compra. Este análisis es descriptivo/inferencial (no predictivo): el objetivo es entender asociaciones, no construir un modelo de clasificacion.</p>
 <p><strong>Variable objetivo:</strong> <code>is_repeat_customer</code> (binaria)
 <strong>Features:</strong> Valor de primera orden, items, calificacion, tipo de pago, categoria, dia de semana.</p>
 </div>
@@ -9068,7 +9068,7 @@ Top 20% de clientes genera: 53.5% del ingreso
 <ul>
 <li><strong>Bajo poder explicativo:</strong> El pseudo R-cuadrado es ~1%, lo que indica que las variables de la primera compra explican muy poca varianza en la decision de recompra. Esto es esperado: la recompra probablemente depende de factores no observados (satisfaccion post-compra, necesidad del producto, competencia) que no estan en el dataset.</li>
 <li><strong>Coeficientes como asociaciones, no predictores fuertes:</strong> Los odds ratios deben interpretarse como correlaciones/asociaciones observadas, no como factores con alto poder predictivo individual. Su valor es orientativo para priorizar segmentos, no para construir un modelo de scoring.</li>
-<li><strong>Eliminacion de <code>pay_other</code>:</strong> La categoria de pago "other" fue removida del modelo porque presentaba separacion cuasi-perfecta (ningun o casi ningun cliente con ese metodo de pago recompro), lo que causaba divergencia del coeficiente a -inf y advertencias de convergencia. Su exclusion no afecta la interpretacion de las demas variables.</li>
+<li><strong>Eliminacion de <code>pay_other</code>:</strong> La categoria de pago "other" fue removida del modelo porque presentaba separacion cuasi-perfecta (ningun o casi ningun cliente con ese método de pago recompro), lo que causaba divergencia del coeficiente a -inf y advertencias de convergencia. Su exclusion no afecta la interpretación de las demas variables.</li>
 </ul>
 </div>
 </div>
@@ -10024,7 +10024,7 @@ findfont: Font family 'Inter' not found.
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><strong>Interpretacion:</strong> Los odds ratios revelan que factores de la primera compra estan asociados con la recompra. Un OR &gt; 1 indica mayor probabilidad de recompra, OR &lt; 1 menor probabilidad. Solo los factores con p &lt; 0.05 deben interpretarse como asociaciones estadisticamente robustas. Este analisis es correlacional, no causal -- no podemos afirmar que cambiar estos factores <em>causaria</em> mayor retencion, pero si nos orienta hacia donde buscar.</p>
+<p><strong>Interpretación:</strong> Los odds ratios revelan que factores de la primera compra estan asociados con la recompra. Un OR &gt; 1 indica mayor probabilidad de recompra, OR &lt; 1 menor probabilidad. Solo los factores con p &lt; 0.05 deben interpretarse como asociaciones estadisticamente robustas. Este análisis es correlacional, no causal -- no podemos afirmar que cambiar estos factores <em>causaria</em> mayor retención, pero si nos orienta hacia donde buscar.</p>
 </div>
 </div>
 </div>
@@ -10762,7 +10762,7 @@ findfont: Font family 'Inter' not found.
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><strong>Interpretacion:</strong> El embudo muestra una caida dramatica entre la primera y segunda compra -- la barrera mas grande no es la tercera o cuarta compra, sino lograr la segunda. Esto sugiere que la "activacion" (primera a segunda compra) es el punto de apalancamiento critico. Los clientes que superan esta barrera tienen una probabilidad mucho mayor de seguir comprando. La mediana de dias entre compras indica la ventana optima para campanas de reactivacion.</p>
+<p><strong>Interpretación:</strong> El embudo muestra una caida dramatica entre la primera y segunda compra -- la barrera mas grande no es la tercera o cuarta compra, sino lograr la segunda. Esto sugiere que la "activación" (primera a segunda compra) es el punto de apalancamiento critico. Los clientes que superan esta barrera tienen una probabilidad mucho mayor de seguir comprando. La mediana de dias entre compras indica la ventana optima para campanas de reactivacion.</p>
 </div>
 </div>
 </div>
@@ -13021,7 +13021,7 @@ Clientes en la matriz: 1,521 de 2,736 con ambas ordenes
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><strong>Interpretacion:</strong> La diagonal de la matriz muestra la "lealtad de categoria" -- el porcentaje de clientes que recompran en la misma categoria. Valores altos en la diagonal sugieren categorias con engagement recurrente natural (consumibles, belleza). Valores altos fuera de la diagonal revelan patrones de cross-selling: categorias que naturalmente se complementan. Estas transiciones informan recomendaciones de productos y campanas de email segmentadas.</p>
+<p><strong>Interpretación:</strong> La diagonal de la matriz muestra la "lealtad de categoria" -- el porcentaje de clientes que recompran en la misma categoria. Valores altos en la diagonal sugieren categorias con engagement recurrente natural (consumibles, belleza). Valores altos fuera de la diagonal revelan patrones de cross-selling: categorias que naturalmente se complementan. Estas transiciones informan recomendaciones de productos y campanas de email segmentadas.</p>
 </div>
 </div>
 </div>
@@ -13515,7 +13515,7 @@ Clientes en la matriz: 1,521 de 2,736 con ambas ordenes
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><strong>Interpretacion:</strong> La comparacion entre compradores de fin de semana vs dia laboral, con prueba de proporciones e intervalos de confianza, determina si el momento de la primera compra esta asociado con diferencias en la probabilidad de recompra. Si la diferencia es significativa, puede reflejar perfiles demograficos distintos (compradores recreacionales vs utilitarios), lo que influiria en la estrategia de comunicacion por segmento.</p>
+<p><strong>Interpretación:</strong> La comparacion entre compradores de fin de semana vs dia laboral, con prueba de proporciones e intervalos de confianza, determina si el momento de la primera compra esta asociado con diferencias en la probabilidad de recompra. Si la diferencia es significativa, puede reflejar perfiles demograficos distintos (compradores recreacionales vs utilitarios), lo que influiria en la estrategia de comunicacion por segmento.</p>
 </div>
 </div>
 </div>
@@ -13527,7 +13527,7 @@ Clientes en la matriz: 1,521 de 2,736 con ambas ordenes
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <hr/>
-<h2 id="Exportacion-de-Artefactos">Exportacion de Artefactos<a class="anchor-link" href="#Exportacion-de-Artefactos">¶</a></h2><p>Guardamos los datasets generados para uso en analisis posteriores y en el dashboard de Streamlit.</p>
+<h2 id="Exportacion-de-Artefactos">Exportacion de Artefactos<a class="anchor-link" href="#Exportacion-de-Artefactos">¶</a></h2><p>Guardamos los datasets generados para uso en análisis posteriores y en el dashboard de Streamlit.</p>
 </div>
 </div>
 </div>
@@ -13592,11 +13592,11 @@ Todos los artefactos exportados correctamente.
 <h2 id="Conclusiones">Conclusiones<a class="anchor-link" href="#Conclusiones">¶</a></h2><h3 id="Hallazgos-principales">Hallazgos principales<a class="anchor-link" href="#Hallazgos-principales">¶</a></h3><ol>
 <li><p><strong>Concentracion extrema de valor:</strong> El coeficiente de Gini confirma que una pequena fraccion de clientes genera la mayoria del ingreso. Los segmentos Champions y Loyal, aunque son pocos, representan un porcentaje desproporcionado del ingreso total.</p>
 </li>
-<li><p><strong>La segmentacion RFM confirma el patron 97/3:</strong> La gran mayoria de clientes caen en segmentos de baja frecuencia (Lost, Hibernating, New). Solo una minoria alcanza Champions o Loyal, pero su valor acumulado es ordenes de magnitud mayor.</p>
+<li><p><strong>La segmentación RFM confirma el patrón 97/3:</strong> La gran mayoria de clientes caen en segmentos de baja frecuencia (Lost, Hibernating, New). Solo una minoria alcanza Champions o Loyal, pero su valor acumulado es ordenes de magnitud mayor.</p>
 </li>
 <li><p><strong>Las curvas de LTV divergen desde el mes 1:</strong> Los Champions muestran un LTV creciente a lo largo del tiempo, mientras que los demas segmentos se aplanan rapidamente. Esto valida que la recompra es el principal driver de LTV, no el valor de la primera orden.</p>
 </li>
-<li><p><strong>La activacion depende de factores observables:</strong> La regresion logistica identifica factores de la primera compra asociados con la recompra. Estos factores pueden usarse para priorizar campanas de reactivacion hacia clientes con mayor probabilidad de conversion.</p>
+<li><p><strong>La activación depende de factores observables:</strong> La regresion logistica identifica factores de la primera compra asociados con la recompra. Estos factores pueden usarse para priorizar campanas de reactivacion hacia clientes con mayor probabilidad de conversion.</p>
 </li>
 <li><p><strong>La mayor caida esta en la primera a segunda compra:</strong> El embudo de conversion muestra que la barrera critica es lograr la recompra. Los clientes que superan esta barrera tienen tasas de conversion mucho mayores en compras subsecuentes.</p>
 </li>
@@ -13604,10 +13604,10 @@ Todos los artefactos exportados correctamente.
 </li>
 </ol>
 <h3 id="Recomendaciones-para-Olist">Recomendaciones para Olist<a class="anchor-link" href="#Recomendaciones-para-Olist">¶</a></h3><ul>
-<li><strong>Focalizar esfuerzos en activacion (1ra -&gt; 2da compra):</strong> Es el punto de mayor apalancamiento. Campanas de email personalizadas dentro de los primeros 90 dias post-compra.</li>
+<li><strong>Focalizar esfuerzos en activación (1ra -&gt; 2da compra):</strong> Es el punto de mayor apalancamiento. Campanas de email personalizadas dentro de los primeros 90 dias post-compra.</li>
 <li><strong>Usar scores RFM para personalizar comunicacion:</strong> Champions reciben ofertas de fidelizacion, Potential Loyalists reciben incentivos de segunda compra, At Risk reciben campanas de reactivacion urgente.</li>
 <li><strong>Aprovechar patrones de transicion de categorias:</strong> Recomendar categorias complementarias basadas en la primera compra del cliente.</li>
-<li><strong>No invertir uniformemente:</strong> Dado el Gini alto, campanas masivas son ineficientes. La segmentacion RFM permite asignar presupuesto de marketing de forma proporcional al valor esperado.</li>
+<li><strong>No invertir uniformemente:</strong> Dado el Gini alto, campanas masivas son ineficientes. La segmentación RFM permite asignar presupuesto de marketing de forma proporcional al valor esperado.</li>
 </ul>
 </div>
 </div>

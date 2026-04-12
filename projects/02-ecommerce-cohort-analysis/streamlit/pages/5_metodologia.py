@@ -144,7 +144,7 @@ rfm["RFM_score"] = rfm["R_score"].astype(str) + rfm["F_score"].astype(str) + rfm
     seg_rules = pd.DataFrame({
         "Segmento": [
             "Alto Valor", "Leales", "Potencial Leal",
-            "Nuevos", "Prometedores", "Requieren Atencion",
+            "Nuevos", "Prometedores", "Requieren Atención",
             "En Riesgo", "Inactivos", "Perdidos",
         ],
         "Criterio R": ["5", "2-5", "3-5", "4-5", "3-4", "2-3", "<=2", "1-2", "1"],
@@ -200,8 +200,9 @@ kmf.fit(
 )
 
 # S(t): probabilidad de NO haber recomprado hasta el día t
-print(kmf.survival_function_)
-print(f"Mediana de supervivencia: {kmf.median_survival_time_:.0f} días")
+# S(t): tabla de probabilidades de supervivencia
+# kmf.survival_function_
+# Mediana: kmf.median_survival_time_
         """,
         language="python",
     )
