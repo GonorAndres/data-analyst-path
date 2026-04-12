@@ -28,6 +28,9 @@ data-analyst/
 │   ├── 04-executive-kpi-report/         # Python + Next.js + FastAPI (SaaS KPI automation)
 │   ├── 05-financial-portfolio-tracker/  # Next.js + FastAPI + yfinance (finance + analytics)
 │   └── 06-operational-efficiency/       # Next.js + D3.js + FastAPI (process optimization)
+├── ops/                         # Ops registry + health check script
+│   ├── urls.yml                 # SINGLE source of truth for every live URL
+│   └── health_check.py          # Local / CI probe of every service
 ├── scripts/utils/               # Shared Python utilities
 └── subagents_outputs/           # Claude Code subagent working files (gitignored)
 ```
@@ -175,40 +178,71 @@ This pattern adds significant portfolio value -- viewers see the full code, tran
 
 ## CI/CD & Cloud Run Deployment
 
+### Environments & Branching
+
+Two long-lived branches drive two deployment environments. Both are protected
+and require a PR to merge.
+
+| Branch | Environment (GitHub) | Vercel | Cloud Run |
+|--------|----------------------|--------|-----------|
+| `main` | `production`         | `--prod` deploy to canonical domain | deploys to `da-portfolio-api` / `da-cohort-streamlit` |
+| `dev`  | `preview`            | preview deploy (Vercel-assigned URL) | **skipped** — only test job runs |
+
+**Daily flow:**
+
+```
+<ddMonth> (e.g. 11abril)  -->  PR  -->  dev  -->  PR  -->  main
+   (feature branch,           preview env            production env
+    one per day)
+```
+
+- Feature branches are named by date (`11abril`, `12abril`, ...). Never push to `main` or `dev` directly; protection will reject it.
+- On push to `dev`: Vercel frontends deploy as previews; API / Streamlit run tests but do **not** redeploy Cloud Run (keeps one canonical production service to avoid confusion).
+- On push to `main`: everything deploys to production, same as before.
+- The `ops/urls.yml` file is the **single source of truth** for every live URL. Update it when a canonical URL changes (new custom domain, Vercel rename, Cloud Run service rename), then workflows and health checks pick it up.
+
 ### How It Works
 
-Eight GitHub Actions workflows auto-deploy on push to `main`, each with **path filters** so they only run when relevant files change:
+Nine workflows: eight deploy workflows (path-filtered) and one health-check
+cron. The deploy workflows share the `main` / `dev` routing described above.
 
 | Workflow | File | Deploys to | Service/Project |
 |----------|------|------------|-----------------|
-| API | `deploy-api.yml` | Cloud Run | `da-portfolio-api` (port 8080) |
-| Streamlit | `deploy-streamlit.yml` | Cloud Run | `da-cohort-streamlit` (port 8501) |
+| API | `deploy-api.yml` | Cloud Run (main only) | `da-portfolio-api` (port 8080) |
+| Streamlit | `deploy-streamlit.yml` | Cloud Run (main only) | `da-cohort-streamlit` (port 8501) |
 | Demo Aesthetics | `deploy-frontend-demo-aesthetics.yml` | Vercel | Project 00 frontend |
 | Insurance Claims | `deploy-frontend-insurance.yml` | Vercel | Project 01 frontend |
 | A/B Test | `deploy-frontend-abtest.yml` | Vercel | Project 03 frontend |
 | Executive KPI | `deploy-frontend-kpi.yml` | Vercel | Project 04 frontend |
 | Portfolio Tracker | `deploy-frontend-portfolio.yml` | Vercel | Project 05 frontend |
 | Ops Efficiency | `deploy-frontend-ops.yml` | Vercel | Project 06 frontend |
+| Health cron | `ops-health.yml` | -- | curls every URL in `ops/urls.yml` every 6h |
 
-**Merge behavior**: When a branch merges into `main`, GitHub evaluates path filters against *all changed files* in that push. If the merge touches both `backend/` and `projects/02-*/streamlit/`, both workflows fire in parallel. Each workflow is independent.
+**Merge behavior**: When a PR merges into `main` or `dev`, GitHub evaluates path filters against *all changed files* in that push. Each workflow is independent; multiple can fire in parallel.
 
 ### Architecture
 
 ```
-Push to main
-    |
-    v
+Push to main (production)                      Push to dev (preview)
+    |                                              |
+    v                                              v
 GitHub Actions (Workload Identity Federation -- no SA keys)
-    |
-    +--> deploy-api.yml ---------> Artifact Registry --> Cloud Run (da-portfolio-api)
-    |                                                      /olist/* /insurance/* /abtest/*
-    |                                                      /kpi/*  /portfolio/* /ops/*
-    |
-    +--> deploy-streamlit.yml ---> Artifact Registry --> Cloud Run (da-cohort-streamlit)
-    |                                                      Streamlit app on :8501
-    |
-    +--> deploy-frontend-*.yml --> Vercel (6 Next.js dashboards)
-                                     projects 00, 01, 03, 04, 05, 06
+    |                                              |
+    +--> deploy-api.yml ---------> Cloud Run       +--> test job only (no deploy)
+    |    (da-portfolio-api, sub-svcs under         |
+    |     /olist /insurance /abtest /kpi           |
+    |     /portfolio /ops + /health)               |
+    |                                              |
+    +--> deploy-streamlit.yml ---> Cloud Run       +--> test job only (no deploy)
+    |    (da-cohort-streamlit :8501)               |
+    |                                              |
+    +--> deploy-frontend-*.yml --> Vercel --prod   +--> Vercel preview
+         (6 canonical domains)                         (Vercel-assigned URLs)
+
+Separately, ops-health.yml runs every 6h (schedule cron) + on-demand
+(workflow_dispatch). It reads ops/urls.yml, curls each endpoint, writes
+a markdown report to $GITHUB_STEP_SUMMARY, and auto-opens/closes a single
+"Health alert" issue when services go down or recover.
 ```
 
 ### GCP Resources
@@ -255,6 +289,31 @@ To deploy a new project to Cloud Run:
 | Cohort Streamlit | `projects/02-ecommerce-cohort-analysis/Dockerfile` | repo root | 8501 |
 
 Both Dockerfiles use repo root as build context (run `docker build -f <path> .` from root).
+
+### Health Monitoring
+
+`.github/workflows/ops-health.yml` runs on a 6-hour cron (plus
+`workflow_dispatch` for on-demand runs). It:
+
+1. Reads every service from `ops/urls.yml` (the URL registry).
+2. `GET`s the production URL + `health_path` for each, retrying once on
+   timeout so Cloud Run cold starts don't trigger false negatives.
+3. Writes a markdown health table to `$GITHUB_STEP_SUMMARY` (visible in
+   the Actions run UI).
+4. Auto-opens a single issue titled `Health alert: DA portfolio service(s)
+   down` when anything fails, and auto-closes it when everything is green
+   again. One issue total, not one per run — no inbox spam.
+
+When a URL changes (new custom domain, Vercel rename, etc.), update
+`ops/urls.yml` first; the health cron and any workflow that reads the
+registry will pick up the change on the next run.
+
+Local probe (no CI):
+
+```bash
+pip install pyyaml
+python3 ops/health_check.py
+```
 
 ## Production & Quality Standards
 

@@ -2,7 +2,7 @@ name: Deploy AB Test Analysis
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - "projects/03-ab-test-analysis/src/**"
       - "projects/03-ab-test-analysis/public/**"
@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -56,6 +56,10 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+    env:
+      VERCEL_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+      VERCEL_PROD_FLAG: ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -63,19 +67,19 @@ jobs:
         run: npm install -g vercel
 
       - name: Pull Vercel environment
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=${{ env.VERCEL_ENV }} --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: projects/03-ab-test-analysis
 
       - name: Build
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build ${{ env.VERCEL_PROD_FLAG }} --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: projects/03-ab-test-analysis
 
-      - name: Deploy to production
+      - name: Deploy
         id: deploy
         run: |
-          URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          URL=$(vercel deploy --prebuilt ${{ env.VERCEL_PROD_FLAG }} --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "Deployed to: $URL"
+          echo "Deployed ($VERCEL_ENV) to: $URL"
         working-directory: projects/03-ab-test-analysis
 
       - name: Verify deployment
