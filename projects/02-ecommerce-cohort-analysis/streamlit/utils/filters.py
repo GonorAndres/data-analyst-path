@@ -60,7 +60,7 @@ def render_global_filters() -> None:
         )
 
     # -- Segment filter --
-    if has_segments:
+    if has_segments and rfm is not None:
         with cols[2]:
             all_segments = sorted(rfm["segment"].unique().tolist())
             st.multiselect(

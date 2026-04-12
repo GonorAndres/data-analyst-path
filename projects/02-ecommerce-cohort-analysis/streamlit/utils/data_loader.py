@@ -16,7 +16,7 @@ SEGMENT_ES: dict[str, str] = {
     "Potential Loyalist": "Potencial Leal",
     "New": "Nuevos",
     "Promising": "Prometedores",
-    "Need Attention": "Requieren Atencion",
+    "Need Attention": "Requieren Atención",
     "At Risk": "En Riesgo",
     "Hibernating": "Inactivos",
     "Lost": "Perdidos",
