@@ -11,7 +11,7 @@
 # different service name) update this file first, then let workflows pick it up.
 
 schema_version: 1
-updated: 2026-04-12
+updated: 2026-07-12
 
 services:
 
@@ -19,7 +19,9 @@ services:
     project: 00-demo-aestehtics
     kind: vercel
     vercel_project_id: prj_iSVaJs6Sg2s6gIC6pEJIy1h6JUgb
-    production_url: https://demo-aesthetics.vercel.app
+    # Custom domain data-analyst.gonor.me mapped 2026-07-12; the .vercel.app
+    # URL remains as a permanent alias.
+    production_url: https://data-analyst.gonor.me
     health_path: /
     expected_status: [200, 301, 302, 307, 308, 401]
 
