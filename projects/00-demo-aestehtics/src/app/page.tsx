@@ -3,6 +3,83 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { BackendWarmup } from '@/components/olist/BackendWarmup'
 import { ArrowUpRight } from 'lucide-react'
 
+// Índice completo del portafolio DA. Las URLs externas deben coincidir con
+// ops/urls.yml (fuente única de verdad) — actualizar ambos al cambiar dominios.
+const projects = [
+  {
+    href: '/airbnb',
+    external: false,
+    category: 'Análisis exploratorio',
+    title: <>Airbnb CDMX<br />Análisis de Mercado</>,
+    description:
+      'Dinámica de precios, segmentación de anfitriones y patrones de demanda por alcaldía en 10,000+ ofertas en Ciudad de México.',
+    tools: ['Python', 'Next.js', 'Recharts'],
+  },
+  {
+    href: '/olist',
+    external: false,
+    category: 'Análisis exploratorio',
+    title: <>Olist E-Commerce<br />Análisis de Cohortes</>,
+    description:
+      'Retención de clientes, LTV por cohorte y análisis de conversión en el embudo del marketplace más grande de Brasil.',
+    tools: ['Python', 'FastAPI', 'Next.js', 'Recharts'],
+  },
+  {
+    href: 'https://insurance-claims-dashboard-pi.vercel.app',
+    external: true,
+    category: 'Seguros',
+    title: <>Dashboard de<br />Siniestros</>,
+    description:
+      'Frecuencia, severidad y reservas de una cartera de seguros, con resumen ejecutivo y análisis SQL.',
+    tools: ['SQL', 'Python', 'FastAPI', 'Next.js'],
+  },
+  {
+    href: 'https://da-cohort-streamlit-451451662791.us-central1.run.app',
+    external: true,
+    category: 'Producto',
+    title: <>Cohortes<br />E-Commerce</>,
+    description:
+      'Retención por cohortes y segmentación RFM en app interactiva, con el proceso técnico completo integrado.',
+    tools: ['SQL', 'Python', 'Streamlit'],
+  },
+  {
+    href: 'https://ab-test-analysis.vercel.app',
+    external: true,
+    category: 'Producto',
+    title: <>Análisis de<br />Pruebas A/B</>,
+    description:
+      'Diseño y evaluación estadística de un experimento: potencia, significancia e impacto de negocio.',
+    tools: ['Python', 'Next.js', 'FastAPI'],
+  },
+  {
+    href: 'https://executive-kpi-report.vercel.app',
+    external: true,
+    category: 'Operaciones',
+    title: <>Reporte Ejecutivo<br />de KPIs</>,
+    description:
+      'KPIs de negocio automatizados con reportes PDF programados y tablero ejecutivo.',
+    tools: ['Python', 'Next.js', 'FastAPI'],
+  },
+  {
+    href: 'https://financial-portfolio-tracker-iota.vercel.app',
+    external: true,
+    category: 'Finanzas',
+    title: <>Portafolio<br />Financiero</>,
+    description:
+      'Seguimiento de portafolio de inversión: rendimiento, riesgo y métricas financieras en tiempo real.',
+    tools: ['Python', 'Next.js', 'FastAPI'],
+  },
+  {
+    href: 'https://operational-efficiency.vercel.app',
+    external: true,
+    category: 'Operaciones',
+    title: <>Eficiencia<br />Operativa</>,
+    description:
+      'Análisis de procesos y cuellos de botella con minería de procesos y visualización D3.',
+    tools: ['Next.js', 'D3.js', 'FastAPI'],
+  },
+]
+
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-paper dark:bg-[#141414] text-ink dark:text-[#F0EFEB]">
@@ -30,45 +107,35 @@ export default function HomePage() {
         <section className="py-16">
           <p className="font-sans text-xs tracking-widest uppercase text-muted mb-8">Casos de Estudio</p>
           <div className="grid md:grid-cols-2 gap-px bg-border dark:bg-[#2a2a2a]">
-            {/* Airbnb — active */}
-            <Link
-              href="/airbnb"
-              className="bg-paper dark:bg-[#141414] p-8 group hover:bg-surface dark:hover:bg-[#1a1a1a] transition-colors"
-            >
-              <div className="flex items-start justify-between mb-6">
-                <span className="font-sans text-xs tracking-widest uppercase text-accent-amber">Análisis exploratorio</span>
-                <ArrowUpRight size={16} className="text-muted group-hover:text-ink dark:group-hover:text-[#F0EFEB] transition-colors" />
-              </div>
-              <h2 className="font-serif text-3xl leading-tight mb-3">Airbnb CDMX<br />Análisis de Mercado</h2>
-              <p className="font-sans text-sm text-muted leading-relaxed mb-6">
-                Dinámica de precios, segmentación de anfitriones y patrones de demanda por alcaldía en 10,000+ ofertas en Ciudad de México.
-              </p>
-              <div className="flex gap-3 flex-wrap">
-                {['Python', 'Next.js', 'Recharts'].map(t => (
-                  <span key={t} className="font-sans text-xs border border-border dark:border-[#2a2a2a] px-2 py-1">{t}</span>
-                ))}
-              </div>
-            </Link>
-
-            {/* Olist — active */}
-            <Link
-              href="/olist"
-              className="bg-paper dark:bg-[#141414] p-8 group hover:bg-surface dark:hover:bg-[#1a1a1a] transition-colors"
-            >
-              <div className="flex items-start justify-between mb-6">
-                <span className="font-sans text-xs tracking-widest uppercase text-accent-amber">Análisis exploratorio</span>
-                <ArrowUpRight size={16} className="text-muted group-hover:text-ink dark:group-hover:text-[#F0EFEB] transition-colors" />
-              </div>
-              <h2 className="font-serif text-3xl leading-tight mb-3">Olist E-Commerce<br />Análisis de Cohortes</h2>
-              <p className="font-sans text-sm text-muted leading-relaxed mb-6">
-                Retención de clientes, LTV por cohorte y análisis de conversión en el embudo del marketplace más grande de Brasil.
-              </p>
-              <div className="flex gap-3 flex-wrap">
-                {['Python', 'FastAPI', 'Next.js', 'Recharts'].map(t => (
-                  <span key={t} className="font-sans text-xs border border-border dark:border-[#2a2a2a] px-2 py-1">{t}</span>
-                ))}
-              </div>
-            </Link>
+            {projects.map((p, i) => {
+              const cardContent = (
+                <>
+                  <div className="flex items-start justify-between mb-6">
+                    <span className="font-sans text-xs tracking-widest uppercase text-accent-amber">{p.category}</span>
+                    <ArrowUpRight size={16} className="text-muted group-hover:text-ink dark:group-hover:text-[#F0EFEB] transition-colors" />
+                  </div>
+                  <h2 className="font-serif text-3xl leading-tight mb-3">{p.title}</h2>
+                  <p className="font-sans text-sm text-muted leading-relaxed mb-6">
+                    {p.description}
+                  </p>
+                  <div className="flex gap-3 flex-wrap">
+                    {p.tools.map(t => (
+                      <span key={t} className="font-sans text-xs border border-border dark:border-[#2a2a2a] px-2 py-1">{t}</span>
+                    ))}
+                  </div>
+                </>
+              )
+              const cardClass = 'bg-paper dark:bg-[#141414] p-8 group hover:bg-surface dark:hover:bg-[#1a1a1a] transition-colors'
+              return p.external ? (
+                <a key={i} href={p.href} target="_blank" rel="noopener noreferrer" className={cardClass}>
+                  {cardContent}
+                </a>
+              ) : (
+                <Link key={i} href={p.href} className={cardClass}>
+                  {cardContent}
+                </Link>
+              )
+            })}
           </div>
         </section>
 
