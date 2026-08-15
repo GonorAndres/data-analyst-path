@@ -32,6 +32,11 @@ on:
       - "wrangler.jsonc"
       - "e2e/**"
       - ".github/workflows/deploy-hub.yml"
+  # Also run on the PR itself, without deploying. Without this the gate only
+  # fires on push to main/dev -- that is, after the merge decision has already
+  # been made, which is the one moment a deploy gate is no use.
+  pull_request:
+    branches: [main, dev]
   workflow_dispatch:
 
 concurrency:
@@ -42,7 +47,9 @@ jobs:
   build-test-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+    # Pull requests build and test but never deploy, so they need no environment
+    # and no access to its secrets.
+    environment: ${{ github.event_name == 'pull_request' && '' || (github.ref == 'refs/heads/main' && 'production' || 'preview') }}
     permissions:
       contents: read
       deployments: write
@@ -89,6 +96,7 @@ jobs:
 
       - name: Deploy to Cloudflare Pages
         id: deploy
+        if: github.event_name != 'pull_request'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -103,6 +111,7 @@ jobs:
           echo "url=${URL}" >> "$GITHUB_OUTPUT"
 
       - name: Verify the deployment serves every dashboard
+        if: github.event_name != 'pull_request'
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.url }}
         run: |
