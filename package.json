@@ -1,8 +1,23 @@
 {
   "private": true,
   "name": "data-analyst-path",
-  "description": "Root package - Playwright e2e tests only",
+  "description": "Root package - Playwright e2e tests and the Cloudflare Pages toolchain. No dashboard dependencies belong here; each project under projects/ has its own package.json.",
+  "scripts": {
+    "build": "node scripts/build-hub.mjs",
+    "build:fast": "node scripts/build-hub.mjs --no-install",
+    "preview": "wrangler pages dev",
+    "typecheck:functions": "tsc -p functions",
+    "test:e2e": "playwright test --config=e2e/hub.config.ts",
+    "deploy": "wrangler pages deploy dist --project-name=data-analyst-hub"
+  },
   "devDependencies": {
-    "@playwright/test": "^1.52.0"
+    "@cloudflare/workers-types": "^5.20260811.1",
+    "@playwright/test": "^1.52.0",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.20.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "workerd@1.20260811.1": true
   }
 }

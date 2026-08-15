@@ -5,33 +5,46 @@
 #
 # Branch -> environment mapping:
 #   main -> production (deployed + monitored)
-#   dev  -> preview    (Vercel frontends only; API/Streamlit skip deploy)
+#   dev  -> preview    (Pages preview URL; API/Streamlit skip deploy)
 #
-# When a URL changes (custom domain, Vercel rename, Cloud Run redeploy with a
-# different service name) update this file first, then let workflows pick it up.
+# When a URL changes (custom domain, Cloud Run redeploy with a different service
+# name) update this file first, then let workflows pick it up.
 
 schema_version: 1
-updated: 2026-07-12
+updated: 2026-08-15
 
 services:
 
-  - id: demo-aesthetics
-    project: 00-demo-aestehtics
-    kind: vercel
-    vercel_project_id: prj_iSVaJs6Sg2s6gIC6pEJIy1h6JUgb
-    # Custom domain data-analyst.gonor.me mapped 2026-07-12; the .vercel.app
-    # URL remains as a permanent alias.
+  # The six Next.js dashboards used to be six Vercel projects on six hostnames.
+  # They are now one Cloudflare Pages project: each app is built as a static
+  # export and merged into a single tree by scripts/build-hub.mjs, so every
+  # dashboard is a path on this one host. The sub_services below are what used
+  # to be separate top-level entries.
+  - id: portfolio-hub
+    project: projects/00..06 (merged)
+    kind: cloudflare_pages
+    pages_project: data-analyst-hub
     production_url: https://data-analyst.gonor.me
     health_path: /
-    expected_status: [200, 301, 302, 307, 308, 401]
-
-  - id: insurance-claims
-    project: 01-insurance-claims-dashboard
-    kind: vercel
-    vercel_project_id: prj_4W4jqiF2MFMVNL2hbJEUlRF5NquG
-    production_url: https://insurance-claims-dashboard-pi.vercel.app
-    health_path: /
-    expected_status: [200, 301, 302, 307, 308, 401]
+    expected_status: [200]
+    # Trailing slashes are deliberate: the exports are built with
+    # `trailingSlash: true`, so the bare path answers 308 and only the slashed
+    # form is a 200. sub_services are checked strictly against 200.
+    sub_services:
+      - { id: insurance,  path: /insurance/ }
+      - { id: abtest,     path: /abtest/ }
+      - { id: kpi,        path: /kpi/ }
+      - { id: portfolio,  path: /portfolio/ }
+      - { id: operations, path: /operations/ }
+      - { id: airbnb,     path: /airbnb/ }
+      - { id: olist,      path: /olist/ }
+      # The Pages Function that fronts Cloud Run. It has no static fallback --
+      # if it breaks, every dashboard renders empty while still returning 200,
+      # which none of the checks above would catch.
+      - { id: api-proxy,  path: /api/insurance/health }
+      # The PostHog proxy. Blocked or broken, analytics goes silent with no
+      # other symptom.
+      - { id: ingest-proxy, path: /ingest/static/array.js }
 
   - id: cohort-streamlit
     project: 02-ecommerce-cohort-analysis
@@ -42,38 +55,6 @@ services:
     health_path: /_stcore/health
     expected_status: [200]
 
-  - id: ab-test
-    project: 03-ab-test-analysis
-    kind: vercel
-    vercel_project_id: prj_bd4chQuPydvL7VZGUh00aMrWs4eg
-    production_url: https://ab-test-analysis.vercel.app
-    health_path: /
-    expected_status: [200, 301, 302, 307, 308, 401]
-
-  - id: executive-kpi
-    project: 04-executive-kpi-report
-    kind: vercel
-    vercel_project_id: prj_XUdzqOOlVB7WKx8UGJMb4u7rXb2n
-    production_url: https://executive-kpi-report.vercel.app
-    health_path: /
-    expected_status: [200, 301, 302, 307, 308, 401]
-
-  - id: financial-portfolio
-    project: 05-financial-portfolio-tracker
-    kind: vercel
-    vercel_project_id: prj_sRSJiGCR03kYdWqxPpbXow6BFJ0j
-    production_url: https://financial-portfolio-tracker-iota.vercel.app
-    health_path: /
-    expected_status: [200, 301, 302, 307, 308, 401]
-
-  - id: operational-efficiency
-    project: 06-operational-efficiency
-    kind: vercel
-    vercel_project_id: prj_Vb3uLkMTrRma0ZsC8dgWWtqly9Wg
-    production_url: https://operational-efficiency.vercel.app
-    health_path: /
-    expected_status: [200, 301, 302, 307, 308, 401]
-
   - id: portfolio-api
     project: backend
     kind: cloud_run
@@ -83,7 +64,7 @@ services:
     health_path: /health
     expected_status: [200]
     # Sub-services exposed by the consolidated API. Each is curled separately
-    # by the health cron.
+    # by the health cron. These are the origin behind the hub's /api/* proxy.
     sub_services:
       - { id: insurance, path: /insurance/health }
       - { id: olist,     path: /olist/health }

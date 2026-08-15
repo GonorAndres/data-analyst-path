@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "data-analyst-hub",
+
+  // `dist/` is produced by `node scripts/build-hub.mjs`, which builds the six
+  // Next.js dashboards as static exports and merges them into one tree. The
+  // apps already namespace themselves (project 01 at /insurance, 03 at /abtest,
+  // and so on), so the merge needs no basePath -- see the script's header for
+  // the collision rule that keeps it honest.
+  "pages_build_output_dir": "dist",
+
+  // Held one release behind the newest available date so the version of
+  // wrangler installed here can still run `pages dev` locally. Moving it
+  // forward is fine; moving it past what the local binary supports means the
+  // Functions can only be exercised by deploying, which is a poor trade.
+  "compatibility_date": "2026-07-21",
+
+  "vars": {
+    // The consolidated FastAPI service on Cloud Run that functions/api/[[path]].ts
+    // forwards to. Overriding this in the Pages dashboard points the whole site
+    // at a different backend without a rebuild.
+    "API_ORIGIN": "https://da-portfolio-api-451451662791.us-central1.run.app"
+  },
+
+  "observability": { "enabled": true }
+}

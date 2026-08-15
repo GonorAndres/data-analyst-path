@@ -1,0 +1,20 @@
+{
+  // Scoped to the Pages Functions only. Each dashboard under projects/ keeps
+  // its own tsconfig for its Next.js build; nothing here applies to them.
+  //
+  // Wrangler compiles these with esbuild, which strips types without checking
+  // them, so a type error here is invisible at deploy time. `npx tsc -p
+  // functions` is what actually checks them.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["@cloudflare/workers-types"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+  "include": ["**/*.ts"]
+}

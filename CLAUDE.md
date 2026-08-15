@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Comprehensive **Data Analyst portfolio and knowledge base** for an actuarial science graduate (UNAM, Mexico) targeting hybrid DA roles (business/financial/product analyst). The repo combines:
 - **7 end-to-end portfolio projects** spanning real estate, insurance, e-commerce, finance, and operations domains
 - **Knowledge base** documenting the full analyst workflow (stakeholder question -> delivered insights)
-- **Multiple output formats**: Next.js interactive dashboards (Vercel), Streamlit apps (Cloud Run), Jupyter notebooks, automated PDF reports
+- **Multiple output formats**: Next.js interactive dashboards (Cloudflare Pages), Streamlit apps (Cloud Run), Jupyter notebooks, automated PDF reports
 
 This repo is distinct from sibling repos: `data-science/` (ML/predictive modeling) and `data-enginer/` (pipelines/infrastructure). The DA repo focuses on **business storytelling, visualization, and stakeholder communication** -- not model building or ETL infrastructure.
 
@@ -55,7 +55,7 @@ Every project under `projects/` follows this structure:
 
 - **SQL** (PostgreSQL dialect, BigQuery where relevant): Primary analysis language. Window functions, CTEs, multi-table joins.
 - **Python**: pandas, plotly, seaborn, scipy, streamlit. For EDA, automation, and interactive apps.
-- **Next.js + TypeScript**: Primary dashboard framework. Deployed to Vercel with Recharts/D3.js for visualization.
+- **Next.js + TypeScript**: Primary dashboard framework. Built as static exports and merged into one Cloudflare Pages project, with Recharts/D3.js for visualization.
 - **FastAPI**: Backend APIs serving processed data to dashboards. Deployed to Cloud Run as a consolidated service.
 - **Jupyter Notebooks**: For reproducible analytical narratives. Write like blog posts with markdown between code.
 
@@ -81,7 +81,48 @@ psql -d <database> -f projects/<project>/sql/queries.sql
 # Consolidated backend (insurance + olist on single port)
 cd backend && bash dev.sh   # serves on port 8080
 # /insurance/api/v1/* and /olist/api/v1/*
+
+# Frontend hub: build all six dashboards and merge into dist/
+npm run build          # npm ci + next build + merge, per project
+npm run build:fast     # skip npm ci (node_modules already present)
+npm run preview        # wrangler pages dev -- serves dist/ + functions/
+npm run test:e2e       # Playwright against the merged site
+npm run typecheck:functions
 ```
+
+## Consolidated Frontend (the Pages hub)
+
+The six Next.js dashboards are **one** Cloudflare Pages project, `data-analyst-hub`,
+serving `data-analyst.gonor.me`. This mirrors the backend: one service, six
+sub-applications under path prefixes.
+
+| Path | Project | Notes |
+|------|---------|-------|
+| `/` | 00-demo-aestehtics | Owns the root: landing page, `favicon.svg`, `404.html` |
+| `/airbnb`, `/olist` | 00-demo-aestehtics | |
+| `/insurance` | 01-insurance-claims-dashboard | |
+| `/abtest`, `/abtest/notebooks` | 03-ab-test-analysis | |
+| `/kpi` | 04-executive-kpi-report | |
+| `/portfolio` | 05-financial-portfolio-tracker | |
+| `/operations` | 06-operational-efficiency | |
+| `/api/<svc>/*` | `functions/api/[[path]].ts` | Proxies to Cloud Run; `<svc>` checked against a fixed list |
+| `/ingest/*` | `functions/ingest/[[path]].ts` | Same-origin PostHog proxy |
+
+**How the merge works.** Each app builds with `output: 'export'` (production) and
+keeps `rewrites()` for `npm run dev` only — see any `projects/*/next.config.js`.
+No `basePath` is needed because each app already namespaces its routes under its
+target path. `scripts/build-hub.mjs` merges the six `out/` trees into `dist/` and
+**fails the build** if two apps emit the same path with different content.
+
+**Rules when touching a dashboard:**
+- Anything in `public/` must live under the app's own slug (`public/kpi/...`),
+  never at the root — six apps share one origin. Only project 00 owns root assets.
+- Do not add a root `page.tsx` to projects 01/03/04/05/06. `/` belongs to project 00.
+- Keep fetches on the relative `/api/<svc>` default. Setting `NEXT_PUBLIC_*_API_URL`
+  at build time bakes an absolute Cloud Run URL into the bundle and bypasses the
+  proxy; `scripts/build-hub.mjs` strips those vars for exactly this reason.
+- Server-only Next features (route handlers, `next/headers`, `next/image`,
+  `redirect()` in a page) break `output: 'export'`. None are in use today.
 
 ## Consolidated Backend
 
@@ -148,7 +189,7 @@ Every project README must follow `docs/templates/project-readme-template.md`:
 - Differentiated from `data-enginer/docs/`: NO infrastructure, pipelines, or cloud architecture content
 
 ### Output Delivery
-- Next.js dashboards: Deployed to Vercel. Screenshots in `dashboards/screenshots/`. Live URLs in project README.
+- Next.js dashboards: Merged into one Cloudflare Pages project at `data-analyst.gonor.me/<path>`. Screenshots in `dashboards/screenshots/`. Live URLs in project README.
 - Streamlit: App code in project's `streamlit/` folder, deployed to Cloud Run.
 - Notebooks: Renderable via nbviewer/GitHub. Include "View on nbviewer" badge in project README.
 - Reports: PDF exports in `reports/`, source files (if editable) alongside them.
@@ -183,10 +224,10 @@ This pattern adds significant portfolio value -- viewers see the full code, tran
 Two long-lived branches drive two deployment environments. Both are protected
 and require a PR to merge.
 
-| Branch | Environment (GitHub) | Vercel | Cloud Run |
-|--------|----------------------|--------|-----------|
-| `main` | `production`         | `--prod` deploy to canonical domain | deploys to `da-portfolio-api` / `da-cohort-streamlit` |
-| `dev`  | `preview`            | preview deploy (Vercel-assigned URL) | **skipped** — only test job runs |
+| Branch | Environment (GitHub) | Cloudflare Pages | Cloud Run |
+|--------|----------------------|------------------|-----------|
+| `main` | `production`         | publishes to `data-analyst.gonor.me` | deploys to `da-portfolio-api` / `da-cohort-streamlit` |
+| `dev`  | `preview`            | preview deploy (Pages-assigned `*.pages.dev`) | **skipped** — only test job runs |
 
 **Daily flow:**
 
@@ -197,26 +238,25 @@ and require a PR to merge.
 ```
 
 - Feature branches are named by date (`11abril`, `12abril`, ...). Never push to `main` or `dev` directly; protection will reject it.
-- On push to `dev`: Vercel frontends deploy as previews; API / Streamlit run tests but do **not** redeploy Cloud Run (keeps one canonical production service to avoid confusion).
+- On push to `dev`: the hub deploys as a Pages preview; API / Streamlit run tests but do **not** redeploy Cloud Run (keeps one canonical production service to avoid confusion).
 - On push to `main`: everything deploys to production, same as before.
-- The `ops/urls.yml` file is the **single source of truth** for every live URL. Update it when a canonical URL changes (new custom domain, Vercel rename, Cloud Run service rename), then workflows and health checks pick it up.
+- The `ops/urls.yml` file is the **single source of truth** for every live URL. Update it when a canonical URL changes (new custom domain, Cloud Run service rename), then workflows and health checks pick it up.
 
 ### How It Works
 
-Nine workflows: eight deploy workflows (path-filtered) and one health-check
+Four workflows: three deploy workflows (path-filtered) and one health-check
 cron. The deploy workflows share the `main` / `dev` routing described above.
 
 | Workflow | File | Deploys to | Service/Project |
 |----------|------|------------|-----------------|
 | API | `deploy-api.yml` | Cloud Run (main only) | `da-portfolio-api` (port 8080) |
 | Streamlit | `deploy-streamlit.yml` | Cloud Run (main only) | `da-cohort-streamlit` (port 8501) |
-| Demo Aesthetics | `deploy-frontend-demo-aesthetics.yml` | Vercel | Project 00 frontend |
-| Insurance Claims | `deploy-frontend-insurance.yml` | Vercel | Project 01 frontend |
-| A/B Test | `deploy-frontend-abtest.yml` | Vercel | Project 03 frontend |
-| Executive KPI | `deploy-frontend-kpi.yml` | Vercel | Project 04 frontend |
-| Portfolio Tracker | `deploy-frontend-portfolio.yml` | Vercel | Project 05 frontend |
-| Ops Efficiency | `deploy-frontend-ops.yml` | Vercel | Project 06 frontend |
+| Portfolio Hub | `deploy-hub.yml` | Cloudflare Pages | all six Next.js dashboards, merged |
 | Health cron | `ops-health.yml` | -- | curls every URL in `ops/urls.yml` every 6h |
+
+`deploy-hub.yml` replaced six `deploy-frontend-*.yml` workflows. One workflow,
+not six, because the dashboards now share a merged `dist/` tree: building only
+the project that changed would publish a tree missing the other five.
 
 **Merge behavior**: When a PR merges into `main` or `dev`, GitHub evaluates path filters against *all changed files* in that push. Each workflow is independent; multiple can fire in parallel.
 
@@ -236,8 +276,10 @@ GitHub Actions (Workload Identity Federation -- no SA keys)
     +--> deploy-streamlit.yml ---> Cloud Run       +--> test job only (no deploy)
     |    (da-cohort-streamlit :8501)               |
     |                                              |
-    +--> deploy-frontend-*.yml --> Vercel --prod   +--> Vercel preview
-         (6 canonical domains)                         (Vercel-assigned URLs)
+    +--> deploy-hub.yml --------> Cloudflare       +--> Pages preview
+         (data-analyst.gonor.me,   Pages                (*.pages.dev)
+          6 dashboards merged
+          into one dist/ tree)
 
 Separately, ops-health.yml runs every 6h (schedule cron) + on-demand
 (workflow_dispatch). It reads ops/urls.yml, curls each endpoint, writes
@@ -273,6 +315,11 @@ To update data: `gcloud storage cp <local-file> gs://da-portfolio-data-assets/<p
 | `GCP_PROJECT_ID` | `project-ad7a5be2-a1c7-4510-82d` |
 | `GCP_WIF_PROVIDER` | `projects/451451662791/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
 | `GCP_SERVICE_ACCOUNT` | `github-deployer@project-ad7a5be2-a1c7-4510-82d.iam.gserviceaccount.com` |
+| `CLOUDFLARE_ACCOUNT_ID` | `9e88860c389c87f4ec09baa1e9675a61` |
+| `CLOUDFLARE_API_TOKEN` | API token with **Cloudflare Pages: Edit** on this account |
+
+The Vercel secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`) are no longer read by any
+workflow. Leave them until the Vercel projects are decommissioned, then remove.
 
 ### Adding a New Service
 
@@ -304,7 +351,7 @@ Both Dockerfiles use repo root as build context (run `docker build -f <path> .` 
    down` when anything fails, and auto-closes it when everything is green
    again. One issue total, not one per run — no inbox spam.
 
-When a URL changes (new custom domain, Vercel rename, etc.), update
+When a URL changes (new custom domain, Pages project rename, etc.), update
 `ops/urls.yml` first; the health cron and any workflow that reads the
 registry will pick up the change on the next run.
 
@@ -327,17 +374,19 @@ python3 ops/health_check.py
 Playwright tests that run **before** every deploy. They verify the frontend builds and serves correctly **without a backend**.
 
 **Architecture:**
-- Root `package.json` exists solely to provide `@playwright/test` -- do not add app deps here
-- Each project has its own config in `e2e/<name>.config.ts` with the correct `baseURL` port
-- Ports must match `package.json` start scripts: P00/P01=3000, P03=3053, P04=3052, P05=3055, P06=3056, P02=8501
+- Root `package.json` provides `@playwright/test`, `wrangler`, and `typescript` -- do not add app deps here
+- **One config**, `e2e/hub.config.ts`, runs every spec against the merged `dist/`. The six per-project configs are gone along with their ports; they existed only because each dashboard had its own Vercel deployment.
+- The server is `wrangler pages dev`, not a static file server, so the tests see the runtime that actually serves production: Pages URL semantics (trailing slashes, `.html` stripping) and the Functions in `functions/`.
+- `e2e/ecommerce-cohorts.config.ts` stays separate -- Streamlit on Cloud Run (8501) is a different service, not part of this build.
+- `e2e/hub.spec.ts` gates what the per-dashboard specs structurally cannot see: that all six live on one origin, each keeps its own favicon, and no two share a PostHog `app_id`.
 
 **Key constraints (things that broke before):**
 - Tests must NOT assert on backend-dependent data (KPI values, API responses). No backend runs in CI.
 - Use `{ exact: true }` or `getByRole()` to avoid Playwright strict mode violations when text appears multiple times
 - Spanish accented characters (`a` vs `a`) don't match in regex -- use actual accents or match by role
-- `wait-on` uses `tcp:` protocol (not `http://`) to avoid false timeouts from SSR pages returning non-200 without backend
-- Post-deploy verification accepts 200, 401, or 308 (Vercel Deployment Protection returns 401 on non-main branches)
+- Paths are built with `trailingSlash: true`. `/insurance` answers 308 and only `/insurance/` is a 200 -- matters for any check that asserts a strict status code, including `ops/urls.yml` sub_services.
 - API test job uses `curl ... || true` in retry loops to prevent `set -e` from aborting on connection refused
+- `/` is project 00's landing page, not a redirect. Specs must not assert that `/` bounces to a dashboard -- that was true only when each app owned a Vercel root.
 
 **When to update `e2e/*.spec.ts`:**
 - You rename or remove a heading, route, or tab button that a test checks

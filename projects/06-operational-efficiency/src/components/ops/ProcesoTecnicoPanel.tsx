@@ -107,7 +107,7 @@ export function ProcesoTecnicoPanel() {
       <div className="border border-ops-border">
         <iframe
           key={current.id}
-          src={`/notebooks_html/${current.file}`}
+          src={`/operations/notebooks_html/${current.file}`}
           className="w-full border-0"
           style={{ height: '800px', background: '#fff' }}
           title={current.title}

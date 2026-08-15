@@ -42,7 +42,7 @@ export function MethodologyPanel() {
   useEffect(() => {
     setLoading(true)
     setHtml(null)
-    fetch(`/notebooks_html/${activeNotebook}.html`)
+    fetch(`/portfolio/notebooks_html/${activeNotebook}.html`)
       .then((res) => {
         if (!res.ok) throw new Error('Not found')
         return res.text()
@@ -121,7 +121,7 @@ export function MethodologyPanel() {
             Notebook HTML not yet generated.
           </p>
           <p className="font-mono text-xs text-muted-dim">
-            Run: jupyter nbconvert --to html --execute --output-dir=public/notebooks_html notebooks/*.ipynb
+            Run: jupyter nbconvert --to html --execute --output-dir=public/portfolio/notebooks_html notebooks/*.ipynb
           </p>
         </div>
       )}

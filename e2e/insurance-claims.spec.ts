@@ -1,11 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Insurance Claims -- Deploy Gate', () => {
-  test('redirects to /insurance and loads', async ({ page }) => {
-    await page.goto('/');
+  test('loads at /insurance', async ({ page }) => {
+    await page.goto('/insurance');
     await page.waitForLoadState('load');
     await page.waitForTimeout(5000);
-    await expect(page).toHaveURL(/\/insurance/);
     await expect(page.getByRole('heading', { name: /Reservas y Siniestralidad/i })).toBeVisible();
   });
 

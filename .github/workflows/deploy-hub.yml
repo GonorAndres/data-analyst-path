@@ -1,0 +1,134 @@
+name: Deploy Portfolio Hub to Cloudflare Pages
+
+# Replaces the six deploy-frontend-*.yml workflows. The dashboards are no longer
+# six Vercel projects on six hostnames; they are one Cloudflare Pages project
+# serving all of them from data-analyst.gonor.me under their own paths.
+#
+# A single workflow is the point, not an accident of consolidation: the apps
+# share a merged `dist/` tree, so building only the one that changed would
+# publish a tree missing the other five.
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "projects/00-demo-aestehtics/src/**"
+      - "projects/00-demo-aestehtics/public/**"
+      - "projects/01-insurance-claims-dashboard/src/**"
+      - "projects/01-insurance-claims-dashboard/public/**"
+      - "projects/03-ab-test-analysis/src/**"
+      - "projects/03-ab-test-analysis/public/**"
+      - "projects/04-executive-kpi-report/src/**"
+      - "projects/04-executive-kpi-report/public/**"
+      - "projects/05-financial-portfolio-tracker/src/**"
+      - "projects/05-financial-portfolio-tracker/public/**"
+      - "projects/06-operational-efficiency/src/**"
+      - "projects/06-operational-efficiency/public/**"
+      - "projects/*/package.json"
+      - "projects/*/next.config.js"
+      - "projects/*/tailwind.config.ts"
+      - "functions/**"
+      - "scripts/build-hub.mjs"
+      - "wrangler.jsonc"
+      - "e2e/**"
+      - ".github/workflows/deploy-hub.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install root tooling
+        # Playwright and wrangler only. The dashboards' own dependencies are
+        # installed per project by the build script.
+        run: npm ci
+
+      # Six `npm ci` runs plus six `next build` runs. Caching the npm downloads
+      # is worth it; caching node_modules is not, since each project has its own.
+      - name: Cache npm downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('projects/*/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
+
+      - name: Typecheck the Pages Functions
+        # Wrangler compiles Functions with esbuild, which strips types without
+        # checking them -- a type error would otherwise reach production silently.
+        run: npm run typecheck:functions
+
+      - name: Build and merge the six dashboards
+        # Fails loudly if two apps emit the same path with different content --
+        # see the collision rule in scripts/build-hub.mjs.
+        run: node scripts/build-hub.mjs
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Deploy gate tests
+        # Runs against `wrangler pages dev`, the same runtime that serves
+        # production, so Pages URL semantics and the Functions are covered. No
+        # backend runs here; the specs assert only on what renders without data.
+        run: npx playwright test --config=e2e/hub.config.ts
+
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # `main` is the project's production branch, so it publishes to
+          # data-analyst.gonor.me. Any other branch gets a preview URL.
+          npx wrangler pages deploy dist \
+            --project-name=data-analyst-hub \
+            --branch="${GITHUB_REF_NAME}" \
+            --commit-dirty=true | tee deploy.log
+          URL=$(grep -oE 'https://[a-z0-9.-]+\.pages\.dev' deploy.log | tail -1)
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the deployment serves every dashboard
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          # Checked against the deployment URL rather than the custom domain, so
+          # a preview is verified as itself and a production run is verified
+          # before DNS-level caching can mask a bad publish.
+          BASE="${DEPLOY_URL:-https://data-analyst.gonor.me}"
+          echo "Verifying $BASE"
+          FAIL=0
+          for P in / /insurance/ /abtest/ /kpi/ /portfolio/ /operations/ /airbnb/ /olist/; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$BASE$P" || true)
+            if [ "$HTTP" = "200" ]; then
+              echo "PASS $P -> 200"
+            else
+              echo "FAIL $P -> $HTTP"
+              FAIL=1
+            fi
+          done
+          # The API proxy is the piece with no static fallback: if the Function
+          # or its origin is wrong, the dashboards render empty and nothing else
+          # in this workflow would notice.
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$BASE/api/insurance/health" || true)
+          if [ "$HTTP" = "200" ]; then
+            echo "PASS /api/insurance/health -> 200"
+          else
+            echo "FAIL /api/insurance/health -> $HTTP (Cloud Run cold start can exceed 25s)"
+            FAIL=1
+          fi
+          exit $FAIL

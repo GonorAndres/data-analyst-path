@@ -179,7 +179,7 @@ export function TechnicalProcess() {
         className="glass-card overflow-hidden"
       >
         <iframe
-          src={`/notebooks_html/${active.file}`}
+          src={`/kpi/notebooks_html/${active.file}`}
           title={active.title_en}
           className="w-full border-0"
           style={{ height: '135vh' }}

@@ -10,19 +10,18 @@ test.describe('Airbnb CDMX -- Deploy Gate', () => {
   test('landing indexes all 7 portfolio projects', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('load');
-    // 2 internal case studies + 6 external project cards
     await expect(page.getByRole('heading', { level: 2 })).toHaveCount(8);
-    const externalUrls = [
-      'https://insurance-claims-dashboard-pi.vercel.app',
-      'https://da-cohort-streamlit-451451662791.us-central1.run.app',
-      'https://ab-test-analysis.vercel.app',
-      'https://executive-kpi-report.vercel.app',
-      'https://financial-portfolio-tracker-iota.vercel.app',
-      'https://operational-efficiency.vercel.app',
-    ];
-    for (const url of externalUrls) {
-      await expect(page.locator(`a[href="${url}"]`)).toBeVisible();
+
+    // Seven of the eight cards are now internal routes on this same origin --
+    // the merge onto one Cloudflare Pages project is what made them internal.
+    // Only the Olist cohort app is still elsewhere: it is Streamlit on Cloud
+    // Run, not part of this build.
+    for (const path of ['/airbnb', '/olist', '/insurance', '/abtest', '/kpi', '/portfolio', '/operations']) {
+      await expect(page.locator(`a[href^="${path}"]`).first()).toBeVisible();
     }
+    await expect(
+      page.locator('a[href="https://da-cohort-streamlit-451451662791.us-central1.run.app"]'),
+    ).toBeVisible();
   });
 
   test('airbnb case study loads', async ({ page }) => {
