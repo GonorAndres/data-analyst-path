@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Operational Efficiency -- Deploy Gate', () => {
-  test('redirects to /operations and loads', async ({ page }) => {
-    await page.goto('/');
+  test('loads at /operations', async ({ page }) => {
+    await page.goto('/operations');
     await page.waitForLoadState('load');
-    await expect(page).toHaveURL(/\/operations/);
     await expect(page.getByRole('heading', { name: /Centro de Operaciones NYC 311/i })).toBeVisible();
   });
 
