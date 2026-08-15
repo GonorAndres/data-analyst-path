@@ -1,15 +1,30 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  async rewrites() {
-    // INSURANCE_BACKEND_URL is a server-side env var (no NEXT_PUBLIC_ prefix).
-    // Dev: http://localhost:2051  |  Prod: Cloud Run service URL
-    const backend = process.env.INSURANCE_BACKEND_URL || 'http://localhost:2051'
-    return [
-      {
-        source: '/api/insurance/:path*',
-        destination: `${backend}/:path*`,
+
+// Two shapes, one config.
+//
+// Development keeps the rewrite proxy so `npm run dev` reaches a backend on
+// localhost without CORS. Production is a static export: this dashboard is one
+// of six merged into a single Cloudflare Pages project under
+// data-analyst.gonor.me, where a Pages Function -- not Next -- serves /api/*.
+// `rewrites()` has no meaning in a static export, so it must be absent there.
+const isDevelopment = process.env.NODE_ENV === 'development'
+
+const nextConfig = isDevelopment
+  ? {
+      async rewrites() {
+        // INSURANCE_BACKEND_URL is a server-side env var (no NEXT_PUBLIC_ prefix).
+        const backend = process.env.INSURANCE_BACKEND_URL || 'http://localhost:2051'
+        return [
+          {
+            source: '/api/insurance/:path*',
+            destination: `${backend}/:path*`,
+          },
+        ]
       },
-    ]
-  },
-}
+    }
+  : {
+      output: 'export',
+      trailingSlash: true,
+    }
+
 module.exports = nextConfig

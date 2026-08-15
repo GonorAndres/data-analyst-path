@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('A/B Test Lab -- Deploy Gate', () => {
-  test('redirects to /abtest and loads', async ({ page }) => {
-    await page.goto('/');
+  test('loads at /abtest', async ({ page }) => {
+    await page.goto('/abtest');
     await page.waitForLoadState('load');
-    await expect(page).toHaveURL(/\/abtest/);
     await expect(page.getByRole('heading', { name: /A\/B Test Lab/i })).toBeVisible();
   });
 

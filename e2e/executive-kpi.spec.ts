@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Executive KPI Report -- Deploy Gate', () => {
-  test('redirects to /kpi and loads', async ({ page }) => {
-    await page.goto('/');
+  test('loads at /kpi', async ({ page }) => {
+    await page.goto('/kpi');
     await page.waitForLoadState('load');
-    await expect(page).toHaveURL(/\/kpi/);
     await expect(page.getByRole('heading', { name: /Executive KPI Report/i })).toBeVisible();
   });
 

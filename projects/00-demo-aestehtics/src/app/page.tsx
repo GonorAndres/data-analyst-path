@@ -25,8 +25,8 @@ const projects = [
     tools: ['Python', 'FastAPI', 'Next.js', 'Recharts'],
   },
   {
-    href: 'https://insurance-claims-dashboard-pi.vercel.app',
-    external: true,
+    href: '/insurance',
+    external: false,
     category: 'Seguros',
     title: <>Dashboard de<br />Siniestros</>,
     description:
@@ -43,8 +43,8 @@ const projects = [
     tools: ['SQL', 'Python', 'Streamlit'],
   },
   {
-    href: 'https://ab-test-analysis.vercel.app',
-    external: true,
+    href: '/abtest',
+    external: false,
     category: 'Producto',
     title: <>Análisis de<br />Pruebas A/B</>,
     description:
@@ -52,8 +52,8 @@ const projects = [
     tools: ['Python', 'Next.js', 'FastAPI'],
   },
   {
-    href: 'https://executive-kpi-report.vercel.app',
-    external: true,
+    href: '/kpi',
+    external: false,
     category: 'Operaciones',
     title: <>Reporte Ejecutivo<br />de KPIs</>,
     description:
@@ -61,8 +61,8 @@ const projects = [
     tools: ['Python', 'Next.js', 'FastAPI'],
   },
   {
-    href: 'https://financial-portfolio-tracker-iota.vercel.app',
-    external: true,
+    href: '/portfolio',
+    external: false,
     category: 'Finanzas',
     title: <>Portafolio<br />Financiero</>,
     description:
@@ -70,8 +70,8 @@ const projects = [
     tools: ['Python', 'Next.js', 'FastAPI'],
   },
   {
-    href: 'https://operational-efficiency.vercel.app',
-    external: true,
+    href: '/operations',
+    external: false,
     category: 'Operaciones',
     title: <>Eficiencia<br />Operativa</>,
     description:

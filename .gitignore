@@ -53,6 +53,14 @@ node_modules/
 next-env.d.ts
 tsconfig.tsbuildinfo
 
+# Static exports and the merged Cloudflare Pages tree. Each project emits out/
+# (projects 00 and 04 also ignore it locally); scripts/build-hub.mjs merges them
+# into dist/. Both are build products -- only the sources and the merge script
+# are committed.
+projects/*/out/
+/dist/
+.wrangler/
+
 # Playwright MCP logs
 .playwright-mcp/
 

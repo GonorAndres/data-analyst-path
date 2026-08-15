@@ -7,19 +7,19 @@ const NOTEBOOKS = [
     id: '01',
     label: '01 — Data Pipeline',
     description: 'Download, clean, and synthetic enrichment decisions',
-    src: '/notebooks_html/01_data_pipeline.html',
+    src: '/abtest/notebooks_html/01_data_pipeline.html',
   },
   {
     id: '02',
     label: '02 — Exploratory Analysis',
     description: 'Group balance, conversion patterns, Simpson\'s Paradox observation',
-    src: '/notebooks_html/02_eda_exploratory.html',
+    src: '/abtest/notebooks_html/02_eda_exploratory.html',
   },
   {
     id: '03',
     label: '03 — Statistical Analysis',
     description: 'Frequentist, Bayesian, power analysis, sequential monitoring',
-    src: '/notebooks_html/03_statistical_analysis.html',
+    src: '/abtest/notebooks_html/03_statistical_analysis.html',
   },
 ]
 

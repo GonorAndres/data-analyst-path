@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Financial Portfolio Tracker -- Deploy Gate', () => {
-  test('redirects to /portfolio and loads', async ({ page }) => {
-    await page.goto('/');
+  test('loads at /portfolio', async ({ page }) => {
+    await page.goto('/portfolio');
     await page.waitForLoadState('load');
-    await expect(page).toHaveURL(/\/portfolio/);
     await expect(page.getByRole('heading', { name: /Portfolio Tracker/i })).toBeVisible();
   });
 
