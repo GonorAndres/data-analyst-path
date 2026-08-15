@@ -38,6 +38,10 @@ services:
       - { id: operations, path: /operations/ }
       - { id: airbnb,     path: /airbnb/ }
       - { id: olist,      path: /olist/ }
+      # Liveness of the Functions layer itself, with no outbound call. Separates
+      # "the Pages Functions are down" from "the origin behind them is down",
+      # which the two probes below cannot distinguish on their own.
+      - { id: functions,  path: /health }
       # The Pages Function that fronts Cloud Run. It has no static fallback --
       # if it breaks, every dashboard renders empty while still returning 200,
       # which none of the checks above would catch.

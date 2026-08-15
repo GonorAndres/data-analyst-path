@@ -387,6 +387,9 @@ Playwright tests that run **before** every deploy. They verify the frontend buil
 - Paths are built with `trailingSlash: true`. `/insurance` answers 308 and only `/insurance/` is a 200 -- matters for any check that asserts a strict status code, including `ops/urls.yml` sub_services.
 - API test job uses `curl ... || true` in retry loops to prevent `set -e` from aborting on connection refused
 - `/` is project 00's landing page, not a redirect. Specs must not assert that `/` bounces to a dashboard -- that was true only when each app owned a Vercel root.
+- **`webServer.cwd` must stay pinned to the repo root.** Playwright defaults it to the config file's directory (`e2e/`), and wrangler resolves `functions/` relative to its working directory -- so it silently serves `dist/` with no Functions, every `/api/*` and `/ingest/*` 404s into the HTML SPA fallback, and the only visible symptom is a browser console error about `array.js` having MIME type `text/html`. It stays hidden locally whenever a manually started server (launched from the root, with Functions) is already on port 4173.
+- `webServer.url` points at `/health`, a Function, not `/`. Static assets answer before the Functions bundle is ready, so probing `/` declares the server up while the routes half these specs rely on are still 404ing.
+- Node 22+ is required (`engines` in the root `package.json`). wrangler 4.123 refuses to start on Node 20, which takes `wrangler pages dev` -- and therefore the whole gate -- down with it.
 
 **When to update `e2e/*.spec.ts`:**
 - You rename or remove a heading, route, or tab button that a test checks
