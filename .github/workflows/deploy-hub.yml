@@ -59,7 +59,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22, not 20: wrangler 4.123 refuses to start on Node 20, which takes
+          # `wrangler pages dev` down with it and so takes the whole deploy gate
+          # down. The Next builds are happy on either. deploy-streamlit.yml stays
+          # on 20 -- it uses Node only for Playwright and never touches wrangler.
+          node-version: 22
 
       - name: Install root tooling
         # Playwright and wrangler only. The dashboards' own dependencies are

@@ -10,6 +10,9 @@
     "test:e2e": "playwright test --config=e2e/hub.config.ts",
     "deploy": "wrangler pages deploy dist --project-name=data-analyst-hub"
   },
+  "engines": {
+    "node": ">=22"
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260811.1",
     "@playwright/test": "^1.52.0",
