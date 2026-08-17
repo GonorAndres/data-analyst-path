@@ -125,12 +125,22 @@ jobs:
           BASE="${DEPLOY_URL:-https://data-analyst.gonor.me}"
           echo "Verifying $BASE"
           FAIL=0
+          # Pages propagates per asset, so a single check straight after publish
+          # reports whichever routes happen to be live at that instant. A run was
+          # failed once by /portfolio/ answering 404 while its seven siblings
+          # answered 200; it was serving normally a minute later. Retry each path
+          # before believing it.
           for P in / /insurance/ /abtest/ /kpi/ /portfolio/ /operations/ /airbnb/ /olist/; do
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$BASE$P" || true)
+            HTTP=000
+            for ATTEMPT in 1 2 3 4 5 6; do
+              HTTP=$(curl -s -o /dev/null -w "%{http_code}" -H 'Cache-Control: no-cache' --max-time 20 "$BASE$P" || true)
+              [ "$HTTP" = "200" ] && break
+              sleep 10
+            done
             if [ "$HTTP" = "200" ]; then
               echo "PASS $P -> 200"
             else
-              echo "FAIL $P -> $HTTP"
+              echo "FAIL $P -> $HTTP (after 6 attempts over ~60s)"
               FAIL=1
             fi
           done
