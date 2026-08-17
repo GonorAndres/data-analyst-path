@@ -58,8 +58,13 @@ tsconfig.tsbuildinfo
 # into dist/. Both are build products -- only the sources and the merge script
 # are committed.
 projects/*/out/
+projects/*/*/out/
 /dist/
 .wrangler/
+
+# Playwright failure artifacts (screenshots, traces) -- written only when a spec
+# fails, so the directory looks empty until it matters.
+test-results/
 
 # Playwright MCP logs
 .playwright-mcp/

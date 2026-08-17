@@ -162,5 +162,46 @@ if (collisions.length) {
   process.exit(1)
 }
 
+// ---------------------------------------------------------------- routing
+
+/**
+ * Without this file, every request to the site invokes the Functions runtime --
+ * including each hashed JS chunk, font and JSON file, none of which any Function
+ * has an opinion about. Adding `_middleware.ts` made that concrete: it runs on
+ * literally every asset request purely to compare a hostname.
+ *
+ * `exclude` wins over `include`, so the listed prefixes are served straight from
+ * static assets and never reach a Function. `/api/*` and `/ingest/*` are not
+ * excluded and keep working.
+ *
+ * The tradeoff is deliberate: a request for an excluded asset on the
+ * `pages.dev` hostname will not be redirected to the canonical domain. That only
+ * matters for someone deep-linking an asset, and every HTML route -- the ones
+ * that get indexed and shared -- still redirects.
+ */
+const routes = {
+  version: 1,
+  include: ['/*'],
+  exclude: [
+    '/_next/*',
+    '/data/*',
+    '/cohorts/data/*',
+    '/favicon.svg',
+    '/insurance/favicon.svg',
+    '/abtest/favicon.svg',
+    '/kpi/favicon.svg',
+    '/portfolio/favicon.svg',
+    '/operations/favicon.svg',
+    '/cohorts/favicon.svg',
+    '/abtest/notebooks_html/*',
+    '/kpi/notebooks_html/*',
+    '/portfolio/notebooks_html/*',
+    '/operations/notebooks_html/*',
+    '/cohorts/notebooks_html/*',
+  ],
+}
+fs.writeFileSync(path.join(DIST, '_routes.json'), JSON.stringify(routes, null, 2))
+log(`\n_routes.json: ${routes.exclude.length} static prefixes bypass the Functions runtime`)
+
 log(`\nOK: ${copied} files, ${deduped} identical duplicates skipped, 0 collisions.`)
 log(`dist/ ready at ${DIST}`)
