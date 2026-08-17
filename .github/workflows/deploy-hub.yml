@@ -147,11 +147,22 @@ jobs:
           # The API proxy is the piece with no static fallback: if the Function
           # or its origin is wrong, the dashboards render empty and nothing else
           # in this workflow would notice.
-          HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$BASE/api/insurance/health" || true)
+          # Cloud Run runs at min-instances=0. A container that has been idle can
+          # take longer to answer its first request than any single timeout worth
+          # setting, so this retries rather than asserting once -- it failed a
+          # production run on exactly that, then answered in 0.3s by hand a
+          # minute later.
+          HTTP=000
+          for ATTEMPT in 1 2 3 4 5; do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$BASE/api/insurance/health" || true)
+            [ "$HTTP" = "200" ] && break
+            echo "  /api/insurance/health -> $HTTP (attempt $ATTEMPT, cold start)"
+            sleep 15
+          done
           if [ "$HTTP" = "200" ]; then
             echo "PASS /api/insurance/health -> 200"
           else
-            echo "FAIL /api/insurance/health -> $HTTP (Cloud Run cold start can exceed 25s)"
+            echo "FAIL /api/insurance/health -> $HTTP after 5 attempts"
             FAIL=1
           fi
           exit $FAIL
