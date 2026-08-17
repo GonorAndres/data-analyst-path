@@ -219,34 +219,16 @@ for (const rel of walk(DIST)) {
 }
 log(`\ncanonical: ${stamped} pages stamped with ${CANONICAL_ORIGIN}`)
 
-/**
- * Keeps static assets out of the Functions runtime. Without this, every hashed
- * chunk, font and JSON file reaches a Function that has no opinion about it.
- * `exclude` wins over `include`; `/api/*` and `/ingest/*` stay included.
+/*
+ * There is deliberately no _routes.json here.
+ *
+ * One was added while `functions/_middleware.ts` existed, because that
+ * middleware really did put every static asset through the Functions runtime.
+ * With the middleware gone, Pages generates its own routing from the functions/
+ * directory -- covering /api/*, /ingest/* and /health and nothing else -- so
+ * static assets already bypass Functions. A hand-written _routes.json would only
+ * be another thing to keep in sync with the file tree.
  */
-const routes = {
-  version: 1,
-  include: ['/*'],
-  exclude: [
-    '/_next/*',
-    '/data/*',
-    '/cohorts/data/*',
-    '/favicon.svg',
-    '/insurance/favicon.svg',
-    '/abtest/favicon.svg',
-    '/kpi/favicon.svg',
-    '/portfolio/favicon.svg',
-    '/operations/favicon.svg',
-    '/cohorts/favicon.svg',
-    '/abtest/notebooks_html/*',
-    '/kpi/notebooks_html/*',
-    '/portfolio/notebooks_html/*',
-    '/operations/notebooks_html/*',
-    '/cohorts/notebooks_html/*',
-  ],
-}
-fs.writeFileSync(path.join(DIST, '_routes.json'), JSON.stringify(routes, null, 2))
-log(`_routes.json: ${routes.exclude.length} static prefixes bypass the Functions runtime`)
 
 log(`\nOK: ${copied} files, ${deduped} identical duplicates skipped, 0 collisions.`)
 log(`dist/ ready at ${DIST}`)
