@@ -19,9 +19,9 @@ const projects = [
     href: '/olist',
     external: false,
     category: 'Análisis exploratorio',
-    title: <>Olist E-Commerce<br />Análisis de Cohortes</>,
+    title: <>Olist E-Commerce<br />Embudo y Conversión</>,
     description:
-      'Retención de clientes, LTV por cohorte y análisis de conversión en el embudo del marketplace más grande de Brasil.',
+      'Conversión por etapa del embudo, categorías y desempeño de vendedores en el marketplace más grande de Brasil.',
     tools: ['Python', 'FastAPI', 'Next.js', 'Recharts'],
   },
   {
@@ -34,13 +34,13 @@ const projects = [
     tools: ['SQL', 'Python', 'FastAPI', 'Next.js'],
   },
   {
-    href: 'https://da-cohort-streamlit-451451662791.us-central1.run.app',
-    external: true,
+    href: '/cohorts',
+    external: false,
     category: 'Producto',
-    title: <>Cohortes<br />E-Commerce</>,
+    title: <>Cohortes y RFM<br />E-Commerce</>,
     description:
-      'Retención por cohortes y segmentación RFM en app interactiva, con el proceso técnico completo integrado.',
-    tools: ['SQL', 'Python', 'Streamlit'],
+      'Por qué sólo el 3% de los clientes vuelve a comprar: retención por cohortes, supervivencia Kaplan-Meier, segmentos RFM y factores de activación.',
+    tools: ['SQL', 'Python', 'Next.js', 'Recharts'],
   },
   {
     href: '/abtest',

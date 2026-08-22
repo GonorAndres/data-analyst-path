@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Gates the thing the per-dashboard specs cannot see: that all six dashboards
+ * Gates the thing the per-dashboard specs cannot see: that all seven dashboards
  * are served from one origin, each from its own path, with its own identity
  * intact.
  *
@@ -12,6 +12,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Portfolio hub -- Deploy Gate', () => {
   const dashboards = [
     { path: '/insurance', title: /Reservas y Siniestralidad/i },
+    { path: '/cohorts', title: /Análisis de Cohortes/i },
     { path: '/abtest', title: /A\/B Test Lab/i },
     { path: '/kpi', title: /Executive KPI Report/i },
     { path: '/portfolio', title: /Portfolio Tracker/i },
@@ -55,10 +56,29 @@ test.describe('Portfolio hub -- Deploy Gate', () => {
       ['/kpi', '/kpi/favicon.svg'],
       ['/portfolio', '/portfolio/favicon.svg'],
       ['/operations', '/operations/favicon.svg'],
+      ['/cohorts', '/cohorts/favicon.svg'],
     ];
     for (const [path, icon] of expected) {
       await page.goto(path);
       await expect(page.locator(`link[rel="icon"][href="${icon}"]`)).toHaveCount(1);
+    }
+  });
+
+  // /cohorts is the only dashboard whose data ships inside dist/ rather than
+  // coming from Cloud Run, so it is the only one where the gate can assert on a
+  // rendered figure without a backend. Worth doing: the JSON sits under a path
+  // that the repo's global `*.json` ignore rule silently excluded at first, which
+  // builds and deploys perfectly and serves a dashboard with no numbers in it.
+  test('/cohorts renders figures from its bundled JSON', async ({ page }) => {
+    await page.goto('/cohorts');
+    await expect(page.getByText('93,358', { exact: true })).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('/cohorts sub-pages are all exported', async ({ page }) => {
+    for (const sub of ['retencion', 'segmentos', 'geografia', 'metodologia', 'notebooks']) {
+      const response = await page.goto(`/cohorts/${sub}/`);
+      expect(response?.status(), `/cohorts/${sub}/`).toBe(200);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     }
   });
 
@@ -74,6 +94,7 @@ test.describe('Portfolio hub -- Deploy Gate', () => {
       ['/kpi', 'executive-kpi-report'],
       ['/portfolio', 'financial-portfolio-tracker'],
       ['/operations', 'operational-efficiency'],
+      ['/cohorts', 'ecommerce-cohorts'],
     ] as const) {
       await page.goto(path);
       const html = await page.content();
@@ -83,6 +104,6 @@ test.describe('Portfolio hub -- Deploy Gate', () => {
       expect(html).not.toContain("api_host:'https://us.i.posthog.com'");
       seen.add(appId);
     }
-    expect(seen.size).toBe(6); // no two dashboards sharing an app_id
+    expect(seen.size).toBe(7); // no two dashboards sharing an app_id
   });
 });
