@@ -21,8 +21,14 @@ __pycache__/
 !package.json
 !package-lock.json
 !tsconfig.json
-# Static JSON data for portfolio dashboards
+# Static JSON data for portfolio dashboards. These are build *inputs*, not
+# artifacts: the dashboards fetch them at runtime and CI never regenerates them
+# (the parquet they come from lives in GCS and is only pulled for the API and
+# Streamlit images). Left to the `*.json` rule above they are silently skipped by
+# `git add`, the local build looks fine, and CI publishes a dashboard with no data.
 !projects/00-demo-aestehtics/public/data/**/*.json
+!projects/02-ecommerce-cohort-analysis/web/public/cohorts/data/*.json
+!projects/02-ecommerce-cohort-analysis/web/src/data/*.json
 
 # Power BI temp files
 *.pbix.tmp

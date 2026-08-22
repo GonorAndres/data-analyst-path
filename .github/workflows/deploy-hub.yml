@@ -2,11 +2,12 @@ name: Deploy Portfolio Hub to Cloudflare Pages
 
 # Replaces the six deploy-frontend-*.yml workflows. The dashboards are no longer
 # six Vercel projects on six hostnames; they are one Cloudflare Pages project
-# serving all of them from data-analyst.gonor.me under their own paths.
+# serving all of them from data-analyst.gonor.me under their own paths. Project
+# 02 later joined them at /cohorts, replacing a Streamlit service on Cloud Run.
 #
 # A single workflow is the point, not an accident of consolidation: the apps
 # share a merged `dist/` tree, so building only the one that changed would
-# publish a tree missing the other five.
+# publish a tree missing the other six.
 
 on:
   push:
@@ -16,6 +17,13 @@ on:
       - "projects/00-demo-aestehtics/public/**"
       - "projects/01-insurance-claims-dashboard/src/**"
       - "projects/01-insurance-claims-dashboard/public/**"
+      # Project 02's app is nested in web/, so the projects/*/ globs below miss
+      # it -- it needs its own entries, including the JSON it renders from.
+      - "projects/02-ecommerce-cohort-analysis/web/src/**"
+      - "projects/02-ecommerce-cohort-analysis/web/public/**"
+      - "projects/02-ecommerce-cohort-analysis/web/package.json"
+      - "projects/02-ecommerce-cohort-analysis/web/next.config.js"
+      - "projects/02-ecommerce-cohort-analysis/web/tailwind.config.ts"
       - "projects/03-ab-test-analysis/src/**"
       - "projects/03-ab-test-analysis/public/**"
       - "projects/04-executive-kpi-report/src/**"
@@ -70,13 +78,17 @@ jobs:
         # installed per project by the build script.
         run: npm ci
 
-      # Six `npm ci` runs plus six `next build` runs. Caching the npm downloads
-      # is worth it; caching node_modules is not, since each project has its own.
+      # Seven `npm ci` runs plus seven `next build` runs. Caching the npm
+      # downloads is worth it; caching node_modules is not, since each project
+      # has its own.
       - name: Cache npm downloads
         uses: actions/cache@v4
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('projects/*/package-lock.json') }}
+          # Both globs: project 02's lockfile is at projects/*/web/, which the
+          # single-level pattern does not match, so a change there would reuse a
+          # stale cache key.
+          key: ${{ runner.os }}-npm-${{ hashFiles('projects/*/package-lock.json', 'projects/*/web/package-lock.json') }}
           restore-keys: ${{ runner.os }}-npm-
 
       - name: Typecheck the Pages Functions
@@ -84,7 +96,7 @@ jobs:
         # checking them -- a type error would otherwise reach production silently.
         run: npm run typecheck:functions
 
-      - name: Build and merge the six dashboards
+      - name: Build and merge the seven dashboards
         # Fails loudly if two apps emit the same path with different content --
         # see the collision rule in scripts/build-hub.mjs.
         run: node scripts/build-hub.mjs
@@ -130,7 +142,7 @@ jobs:
           # failed once by /portfolio/ answering 404 while its seven siblings
           # answered 200; it was serving normally a minute later. Retry each path
           # before believing it.
-          for P in / /insurance/ /abtest/ /kpi/ /portfolio/ /operations/ /airbnb/ /olist/; do
+          for P in / /insurance/ /cohorts/ /abtest/ /kpi/ /portfolio/ /operations/ /airbnb/ /olist/; do
             HTTP=000
             for ATTEMPT in 1 2 3 4 5 6; do
               HTTP=$(curl -s -o /dev/null -w "%{http_code}" -H 'Cache-Control: no-cache' --max-time 20 "$BASE$P" || true)
@@ -163,6 +175,17 @@ jobs:
             echo "PASS /api/insurance/health -> 200"
           else
             echo "FAIL /api/insurance/health -> $HTTP after 5 attempts"
+            FAIL=1
+          fi
+          # /cohorts is the one dashboard whose data ships in the deployment
+          # rather than coming from Cloud Run, and the repo's global `*.json`
+          # ignore rule once excluded it -- which builds, deploys and serves a
+          # dashboard with no numbers on it. Cheap to rule out here.
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$BASE/cohorts/data/meta.json" || true)
+          if [ "$HTTP" = "200" ]; then
+            echo "PASS /cohorts/data/meta.json -> 200"
+          else
+            echo "FAIL /cohorts/data/meta.json -> $HTTP (dashboard would render empty)"
             FAIL=1
           fi
           exit $FAIL

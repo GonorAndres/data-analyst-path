@@ -11,15 +11,16 @@
 # name) update this file first, then let workflows pick it up.
 
 schema_version: 1
-updated: 2026-08-15
+updated: 2026-08-17
 
 services:
 
-  # The six Next.js dashboards used to be six Vercel projects on six hostnames.
+  # The Next.js dashboards used to be six Vercel projects on six hostnames.
   # They are now one Cloudflare Pages project: each app is built as a static
   # export and merged into a single tree by scripts/build-hub.mjs, so every
   # dashboard is a path on this one host. The sub_services below are what used
-  # to be separate top-level entries.
+  # to be separate top-level entries. Project 02 joined them at /cohorts once its
+  # Streamlit service was rebuilt as a static export.
   - id: portfolio-hub
     project: projects/00..06 (merged)
     kind: cloudflare_pages
@@ -32,6 +33,7 @@ services:
     # form is a 200. sub_services are checked strictly against 200.
     sub_services:
       - { id: insurance,  path: /insurance/ }
+      - { id: cohorts,    path: /cohorts/ }
       - { id: abtest,     path: /abtest/ }
       - { id: kpi,        path: /kpi/ }
       - { id: portfolio,  path: /portfolio/ }
@@ -49,6 +51,12 @@ services:
       # The PostHog proxy. Blocked or broken, analytics goes silent with no
       # other symptom.
       - { id: ingest-proxy, path: /ingest/static/array.js }
+      # /cohorts is the only dashboard whose data ships inside the deployment
+      # rather than coming from the API, so it has a failure mode none of the
+      # others do: the page serves 200 with no numbers on it. The repo's global
+      # `*.json` ignore rule excluded these files at first, which is exactly how
+      # that happens.
+      - { id: cohorts-data, path: /cohorts/data/meta.json }
 
   - id: cohort-streamlit
     project: 02-ecommerce-cohort-analysis

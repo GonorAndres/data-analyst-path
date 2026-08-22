@@ -2,7 +2,7 @@
 
 > **Analyst Flavor:** Financial | **Tools:** Python, Next.js, FastAPI | **Status:** Complete
 
-**Live demo:** [financial-portfolio-tracker-iota.vercel.app](https://financial-portfolio-tracker-iota.vercel.app)
+**Live demo:** [data-analyst.gonor.me/portfolio](https://data-analyst.gonor.me/portfolio/)
 
 ## Business Question
 
@@ -56,7 +56,7 @@ This project builds a full-stack analytics dashboard that tracks a 6-ETF portfol
 
 ### Interactive Dashboard
 
-The dashboard at [financial-portfolio-tracker-iota.vercel.app](https://financial-portfolio-tracker-iota.vercel.app) provides 8 tabs:
+The dashboard at [data-analyst.gonor.me/portfolio](https://data-analyst.gonor.me/portfolio/) provides 8 tabs:
 
 | Tab | Content |
 |-----|---------|
