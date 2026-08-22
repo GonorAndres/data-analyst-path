@@ -12,16 +12,26 @@ test.describe('Airbnb CDMX -- Deploy Gate', () => {
     await page.waitForLoadState('load');
     await expect(page.getByRole('heading', { level: 2 })).toHaveCount(8);
 
-    // Seven of the eight cards are now internal routes on this same origin --
-    // the merge onto one Cloudflare Pages project is what made them internal.
-    // Only the Olist cohort app is still elsewhere: it is Streamlit on Cloud
-    // Run, not part of this build.
-    for (const path of ['/airbnb', '/olist', '/insurance', '/abtest', '/kpi', '/portfolio', '/operations']) {
+    // Every card is now an internal route on this origin. The last holdout was
+    // the Olist cohort app, which ran as Streamlit on Cloud Run and was linked by
+    // its raw run.app URL; it was rebuilt as a static export at /cohorts, so the
+    // portfolio no longer points anyone at infrastructure.
+    const paths = [
+      '/airbnb',
+      '/olist',
+      '/insurance',
+      '/cohorts',
+      '/abtest',
+      '/kpi',
+      '/portfolio',
+      '/operations',
+    ];
+    for (const path of paths) {
       await expect(page.locator(`a[href^="${path}"]`).first()).toBeVisible();
     }
-    await expect(
-      page.locator('a[href="https://da-cohort-streamlit-451451662791.us-central1.run.app"]'),
-    ).toBeVisible();
+    // No card may point off-origin: an external href here would mean a dashboard
+    // was left behind by the consolidation.
+    await expect(page.locator('main a[href^="http"]')).toHaveCount(0);
   });
 
   test('airbnb case study loads', async ({ page }) => {

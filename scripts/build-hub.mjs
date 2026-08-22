@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Builds the six Next.js dashboards as static exports and merges them into a
+ * Builds the seven Next.js dashboards as static exports and merges them into a
  * single `dist/` tree for one Cloudflare Pages project.
  *
  * The apps already namespace themselves -- project 01's content lives at
@@ -11,7 +11,7 @@
  * The merge is where this could go wrong silently. Two apps can emit a file at
  * the same path; if the contents differ, one overwrites the other and that app
  * breaks at runtime with no build error. Webpack's content-hashed chunk names
- * should make it impossible, but "should" is not a guarantee to hang six
+ * should make it impossible, but "should" is not a guarantee to hang seven
  * dashboards on, so every collision with differing content is a hard failure
  * unless it is a root file project 00 is expected to win.
  *
@@ -31,16 +31,22 @@ import { fileURLToPath } from 'node:url'
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DIST = path.join(REPO, 'dist')
 
-// Order matters only for reporting; the collision check is order-independent.
-// Project 00 is last so its root files land after everyone else's have been
-// considered, which keeps the "project 00 wins the root" rule a single branch.
+// Order is reporting order for every app except the last one, where it is
+// load-bearing: project 00 must stay at the end. The ROOT_OWNED rule resolves a
+// clash on `404.html` and friends by skipping every app whose slug is not null,
+// so 00 has to arrive after the others have already claimed those paths. Move it
+// up and the branch inverts -- 00's root files get skipped and another app's win.
 const APPS = [
   { dir: '01-insurance-claims-dashboard', slug: 'insurance' },
+  // Project 02's Next app is nested one level deeper: the project directory also
+  // holds the notebooks, the parquet pipeline and the retired Streamlit app, so
+  // the web app lives in its own `web/` rather than at the project root.
+  { dir: '02-ecommerce-cohort-analysis/web', slug: 'cohorts' },
   { dir: '03-ab-test-analysis', slug: 'abtest' },
   { dir: '04-executive-kpi-report', slug: 'kpi' },
   { dir: '05-financial-portfolio-tracker', slug: 'portfolio' },
   { dir: '06-operational-efficiency', slug: 'operations' },
-  { dir: '00-demo-aestehtics', slug: null }, // owns `/`
+  { dir: '00-demo-aestehtics', slug: null }, // owns `/`; must stay last
 ]
 
 // Files every Next build emits at the root of `out/`. They legitimately differ
