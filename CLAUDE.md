@@ -23,7 +23,7 @@ data-analyst/
 ├── projects/                    # 7 portfolio projects (each self-contained)
 │   ├── 00-demo-aestehtics/              # Next.js + Recharts (Airbnb CDMX, zero-backend)
 │   ├── 01-insurance-claims-dashboard/   # Next.js + FastAPI + SQL (actuarial domain)
-│   ├── 02-ecommerce-cohort-analysis/    # SQL + Python + Streamlit (product analyst angle)
+│   ├── 02-ecommerce-cohort-analysis/    # SQL + Python + Next.js (product analyst angle)
 │   ├── 03-ab-test-analysis/             # Python + Next.js + FastAPI (statistical rigor)
 │   ├── 04-executive-kpi-report/         # Python + Next.js + FastAPI (SaaS KPI automation)
 │   ├── 05-financial-portfolio-tracker/  # Next.js + FastAPI + yfinance (finance + analytics)
@@ -92,8 +92,8 @@ npm run typecheck:functions
 
 ## Consolidated Frontend (the Pages hub)
 
-The six Next.js dashboards are **one** Cloudflare Pages project, `data-analyst-hub`,
-serving `data-analyst.gonor.me`. This mirrors the backend: one service, six
+The seven Next.js dashboards are **one** Cloudflare Pages project, `data-analyst-hub`,
+serving `data-analyst.gonor.me`. This mirrors the backend: one service, several
 sub-applications under path prefixes.
 
 | Path | Project | Notes |
@@ -101,6 +101,7 @@ sub-applications under path prefixes.
 | `/` | 00-demo-aestehtics | Owns the root: landing page, `favicon.svg`, `404.html` |
 | `/airbnb`, `/olist` | 00-demo-aestehtics | |
 | `/insurance` | 01-insurance-claims-dashboard | |
+| `/cohorts`, `/cohorts/{retencion,segmentos,geografia,metodologia,notebooks}` | 02-ecommerce-cohort-analysis/**web** | Zero-backend: reads static JSON from `public/cohorts/data/` |
 | `/abtest`, `/abtest/notebooks` | 03-ab-test-analysis | |
 | `/kpi` | 04-executive-kpi-report | |
 | `/portfolio` | 05-financial-portfolio-tracker | |
@@ -111,13 +112,27 @@ sub-applications under path prefixes.
 **How the merge works.** Each app builds with `output: 'export'` (production) and
 keeps `rewrites()` for `npm run dev` only — see any `projects/*/next.config.js`.
 No `basePath` is needed because each app already namespaces its routes under its
-target path. `scripts/build-hub.mjs` merges the six `out/` trees into `dist/` and
+target path. `scripts/build-hub.mjs` merges the seven `out/` trees into `dist/` and
 **fails the build** if two apps emit the same path with different content.
+
+Project 02 is the odd one out in two ways, both of which need their own handling:
+its Next app lives at `projects/02-ecommerce-cohort-analysis/**web**/` rather than
+at the project root (the project also holds notebooks, parquet and the retired
+Streamlit app), so `projects/*/…` globs miss it — `deploy-hub.yml` carries
+explicit path filters and a second cache-key glob for it. And it has no backend:
+its data is committed JSON under `public/cohorts/data/`, which the repo's global
+`*.json` ignore rule excluded until `.gitignore` gained an explicit negation.
 
 **Rules when touching a dashboard:**
 - Anything in `public/` must live under the app's own slug (`public/kpi/...`),
-  never at the root — six apps share one origin. Only project 00 owns root assets.
-- Do not add a root `page.tsx` to projects 01/03/04/05/06. `/` belongs to project 00.
+  never at the root — seven apps share one origin. Only project 00 owns root assets.
+- Do not add a root `page.tsx` to projects 01/02/03/04/05/06. `/` belongs to project 00.
+- **Charts: ≤3 simultaneous series per chart, or facet into small multiples.** The
+  seven `--series-*` hues pass the dataviz validator on *adjacent pairs only* —
+  three of them are blues, and `#2563EB`/`#7C3AED` are ΔE 0.4 apart under
+  deuteranopia. Validate the exact coexisting set with
+  `validate_palette.js "<hex,...>" --pairs all` in both modes before shipping.
+  See the comment block atop `projects/02-.../web/src/app/globals.css`.
 - Keep fetches on the relative `/api/<svc>` default. Setting `NEXT_PUBLIC_*_API_URL`
   at build time bakes an absolute Cloud Run URL into the bundle and bypasses the
   proxy; `scripts/build-hub.mjs` strips those vars for exactly this reason.
@@ -211,7 +226,7 @@ This pattern adds significant portfolio value -- viewers see the full code, tran
 |---|---------|---------------|---------------|---------------|
 | 00 | Airbnb CDMX: Market Analysis | Real Estate/Analytics | Next.js, Recharts, Static JSON | Next.js dashboard (zero-backend) |
 | 01 | Insurance Claims Dashboard | Financial/Insurance | Next.js, SQL, Python, FastAPI | Next.js dashboard + executive summary |
-| 02 | E-Commerce Cohort Analysis | Product/Growth | SQL, Python, Streamlit | Jupyter notebook + Streamlit app |
+| 02 | E-Commerce Cohort Analysis | Product/Growth | SQL, Python, Next.js, Recharts | Next.js dashboard (zero-backend) + notebooks |
 | 03 | A/B Test Analysis | Product/Growth | Python, Next.js, FastAPI | Next.js dashboard + statistical analysis |
 | 04 | Executive KPI Report | Business/General | Python, Next.js, FastAPI | Next.js dashboard + automated PDF reports |
 | 05 | Financial Portfolio Tracker | Financial | Python, Next.js, FastAPI | Next.js dashboard + notebooks |

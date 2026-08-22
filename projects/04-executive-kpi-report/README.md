@@ -2,7 +2,7 @@
 
 > **Analyst Flavor:** Business/General | **Tools:** Python, Next.js, FastAPI | **Status:** Complete
 
-**Live demo:** [executive-kpi-report.vercel.app](https://executive-kpi-report.vercel.app)
+**Live demo:** [data-analyst.gonor.me/kpi](https://data-analyst.gonor.me/kpi/)
 
 ## Business Question
 
@@ -72,7 +72,7 @@ This project simulates the work a data analyst would do at a mid-market B2B SaaS
 
 ### Interactive Dashboard
 
-The dashboard at [executive-kpi-report.vercel.app](https://executive-kpi-report.vercel.app) provides:
+The dashboard at [data-analyst.gonor.me/kpi](https://data-analyst.gonor.me/kpi/) provides:
 
 - **Overview tab**: Composite health score (0--100), 12 KPI cards with sparklines and traffic-light status (green/yellow/red), auto-generated executive commentary
 - **Revenue tab**: MRR waterfall breakdown (new, expansion, contraction, churned), ARR trend vs target, revenue by segment over time, net revenue retention trend

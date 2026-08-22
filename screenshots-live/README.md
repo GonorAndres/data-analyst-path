@@ -6,6 +6,14 @@ Captured with Playwright MCP against the production URLs on 2026-04-12.
 Refresh instructions live in the main `CLAUDE.md` under "Environments
 & Branching"; the URL registry they are taken from is `ops/urls.yml`.
 
+> **The URLs below are the hosts these were captured from, not where the
+> dashboards live now.** All six moved onto one Cloudflare Pages project at
+> `data-analyst.gonor.me/<path>` after this gallery was taken, and the old hosts
+> now answer 308 to their new path — so the links still work, they just do not
+> name the current home. They are left as recorded provenance; the mapping is in
+> `ops/vercel-redirects/redirects.json`. Re-capturing this gallery should switch
+> them to the `data-analyst.gonor.me` paths.
+
 | File | Project | Live URL | What it shows |
 |------|---------|----------|---------------|
 | `00_portfolio_hub.png` | 00 demo-aesthetics | https://demo-aesthetics.vercel.app | Editorial typography landing — the hub that links every project |
