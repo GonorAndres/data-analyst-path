@@ -26,7 +26,23 @@ export default defineConfig({
   webServer: process.env.BASE_URL
     ? undefined
     : {
-        command: 'npx wrangler pages dev --port 4173 --ip 127.0.0.1',
+        // API_ORIGIN points the /api/* proxy at a closed port so the gate is
+        // hermetic. Without it the Function's default origin is the real Cloud
+        // Run service, so CI reaches out to production on every /api/* call --
+        // which is slow (min-instances=0, so each spec eats a cold start) and,
+        // worse, unstable: workerd took a fatal partway through roughly half of
+        // all runs, and every spec after it reported ERR_CONNECTION_REFUSED.
+        // It always struck just after the insurance specs, the only ones that
+        // exercise /api/*, so the blame landed on whichever spec ran next --
+        // /operations, alphabetically -- and looked like a broken dashboard.
+        //
+        // Nothing is lost by cutting the origin. These specs are forbidden from
+        // asserting on backend data (no backend runs in CI), the try/catch in
+        // functions/api/[[path]].ts turns a refused connection into a clean 504,
+        // and that is the same path the dashboards' ColdStartBanner already
+        // handles. Port 9 is discard: it refuses immediately rather than hanging.
+        command:
+          'npx wrangler pages dev --port 4173 --ip 127.0.0.1 --binding API_ORIGIN=http://127.0.0.1:9',
 
         // Both of the settings below exist because of the same failure, and
         // neither is optional.
