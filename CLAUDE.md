@@ -108,6 +108,7 @@ sub-applications under path prefixes.
 | `/operations` | 06-operational-efficiency | |
 | `/api/<svc>/*` | `functions/api/[[path]].ts` | Proxies to Cloud Run; `<svc>` checked against a fixed list |
 | `/ingest/*` | `functions/ingest/[[path]].ts` | Same-origin PostHog proxy |
+| *(every request)* | `functions/_middleware.ts` | 301s the bare `data-analyst-hub.pages.dev` apex to `data-analyst.gonor.me`, path and query preserved. Exact hostname match, so `dev.*` and `<hash>.*` previews are untouched and stay testable. |
 
 **How the merge works.** Each app builds with `output: 'export'` (production) and
 keeps `rewrites()` for `npm run dev` only — see any `projects/*/next.config.js`.
@@ -253,7 +254,7 @@ and require a PR to merge.
 ```
 
 - Feature branches are named by date (`11abril`, `12abril`, ...). Never push to `main` or `dev` directly; protection will reject it.
-- On push to `dev`: the hub deploys as a Pages preview; API / Streamlit run tests but do **not** redeploy Cloud Run (keeps one canonical production service to avoid confusion).
+- On push to `dev`: the hub deploys as a Pages preview; the API runs tests but does **not** redeploy Cloud Run (keeps one canonical production service to avoid confusion). The cohort redirect only ever deploys from `main` -- there is nothing in it to test.
 - On push to `main`: everything deploys to production, same as before.
 - The `ops/urls.yml` file is the **single source of truth** for every live URL. Update it when a canonical URL changes (new custom domain, Cloud Run service rename), then workflows and health checks pick it up.
 
@@ -265,7 +266,7 @@ cron. The deploy workflows share the `main` / `dev` routing described above.
 | Workflow | File | Deploys to | Service/Project |
 |----------|------|------------|-----------------|
 | API | `deploy-api.yml` | Cloud Run (main only) | `da-portfolio-api` (port 8080) |
-| Streamlit | `deploy-streamlit.yml` | Cloud Run (main only) | `da-cohort-streamlit` (port 8501) |
+| Cohort redirect | `deploy-cohort-redirect.yml` | Cloud Run (main only) | `da-cohort-streamlit` (port 8080) |
 | Portfolio Hub | `deploy-hub.yml` | Cloudflare Pages | all six Next.js dashboards, merged |
 | Health cron | `ops-health.yml` | -- | curls every URL in `ops/urls.yml` every 6h |
 
@@ -288,8 +289,9 @@ GitHub Actions (Workload Identity Federation -- no SA keys)
     |     /olist /insurance /abtest /kpi           |
     |     /portfolio /ops + /health)               |
     |                                              |
-    +--> deploy-streamlit.yml ---> Cloud Run       +--> test job only (no deploy)
-    |    (da-cohort-streamlit :8501)               |
+    +--> deploy-cohort-redirect --> Cloud Run      +--> (no job: main only)
+    |    (da-cohort-streamlit :8080,               |
+    |     nginx, 308 -> /cohorts/)                 |
     |                                              |
     +--> deploy-hub.yml --------> Cloudflare       +--> Pages preview
          (data-analyst.gonor.me,   Pages                (*.pages.dev)
@@ -319,7 +321,7 @@ Parquet data files live in `gs://da-portfolio-data-assets` and are downloaded du
 |----------|-------------------|---------|
 | `olist-backend/*` | `projects/00-demo-aestehtics/backend/data/` | API (olist) |
 | `insurance-processed/*` | `projects/01-insurance-claims-dashboard/data/processed/` | API (insurance) |
-| `cohort-processed/*` | `projects/02-ecommerce-cohort-analysis/data/processed/` | Streamlit |
+| `cohort-processed/*` | `projects/02-ecommerce-cohort-analysis/data/processed/` | project 02's local pipeline only -- no CI job pulls it since the Streamlit service was retired |
 
 To update data: `gcloud storage cp <local-file> gs://da-portfolio-data-assets/<prefix>/` then re-trigger the workflow.
 
@@ -340,7 +342,7 @@ workflow. Leave them until the Vercel projects are decommissioned, then remove.
 
 To deploy a new project to Cloud Run:
 1. Create a `Dockerfile` in the project folder (build context is repo root)
-2. Copy `deploy-streamlit.yml`, change `SERVICE_NAME`, `paths`, Dockerfile path, and port
+2. Copy `deploy-api.yml`, change `SERVICE_NAME`, `paths`, Dockerfile path, and port
 3. Push to the same Artifact Registry repo (`da-portfolio-api`) -- no new GCP setup needed
 
 ### Dockerfiles
@@ -348,9 +350,14 @@ To deploy a new project to Cloud Run:
 | Service | Dockerfile | Build context | Port |
 |---------|-----------|---------------|------|
 | Consolidated API | `backend/Dockerfile` | repo root | 8080 |
-| Cohort Streamlit | `projects/02-ecommerce-cohort-analysis/Dockerfile` | repo root | 8501 |
+| Cohort redirect | `ops/cohort-redirect/Dockerfile` | `ops/cohort-redirect` | 8080 |
 
-Both Dockerfiles use repo root as build context (run `docker build -f <path> .` from root).
+The API Dockerfile uses repo root as build context (run `docker build -f <path> .`
+from root). The redirect image is self-contained and builds from its own folder.
+
+`projects/02-ecommerce-cohort-analysis/Dockerfile` still builds the retired
+Streamlit app. No workflow references it; it is kept alongside `streamlit/` as a
+record of the first implementation.
 
 ### Health Monitoring
 
@@ -392,7 +399,7 @@ Playwright tests that run **before** every deploy. They verify the frontend buil
 - Root `package.json` provides `@playwright/test`, `wrangler`, and `typescript` -- do not add app deps here
 - **One config**, `e2e/hub.config.ts`, runs every spec against the merged `dist/`. The six per-project configs are gone along with their ports; they existed only because each dashboard had its own Vercel deployment.
 - The server is `wrangler pages dev`, not a static file server, so the tests see the runtime that actually serves production: Pages URL semantics (trailing slashes, `.html` stripping) and the Functions in `functions/`.
-- `e2e/ecommerce-cohorts.config.ts` stays separate -- Streamlit on Cloud Run (8501) is a different service, not part of this build.
+- There is no longer a second config. `e2e/ecommerce-cohorts.{config,spec}.ts` covered the Streamlit app on Cloud Run; that app was rebuilt into the hub at `/cohorts`, so its specs went with it and `hub.config.ts` no longer needs a `testIgnore`.
 - `e2e/hub.spec.ts` gates what the per-dashboard specs structurally cannot see: that all six live on one origin, each keeps its own favicon, and no two share a PostHog `app_id`.
 
 **Key constraints (things that broke before):**

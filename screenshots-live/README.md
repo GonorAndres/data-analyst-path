@@ -7,12 +7,18 @@ Refresh instructions live in the main `CLAUDE.md` under "Environments
 & Branching"; the URL registry they are taken from is `ops/urls.yml`.
 
 > **The URLs below are the hosts these were captured from, not where the
-> dashboards live now.** All six moved onto one Cloudflare Pages project at
+> dashboards live now.** They all moved onto one Cloudflare Pages project at
 > `data-analyst.gonor.me/<path>` after this gallery was taken, and the old hosts
 > now answer 308 to their new path — so the links still work, they just do not
 > name the current home. They are left as recorded provenance; the mapping is in
 > `ops/vercel-redirects/redirects.json`. Re-capturing this gallery should switch
 > them to the `data-analyst.gonor.me` paths.
+>
+> The two project-02 rows are provenance in a stronger sense: they were captured
+> from a Streamlit app that no longer exists. It was rebuilt as a static export
+> at `/cohorts` with a different layout, so those two shots cannot be re-taken —
+> only replaced. The old service still answers at the URL below, but only as a
+> 308 to `/cohorts/`.
 
 | File | Project | Live URL | What it shows |
 |------|---------|----------|---------------|
@@ -20,7 +26,7 @@ Refresh instructions live in the main `CLAUDE.md` under "Environments
 | `00_airbnb_cdmx_kpis.png` | 00 demo-aesthetics | https://demo-aesthetics.vercel.app/airbnb | Airbnb CDMX KPI row (27,051 listings, MXN 1,793, 4.75/5, 16 dias/mes) |
 | `01_reserves_kpis.png` | 01 insurance | https://insurance-claims-dashboard-pi.vercel.app | P&C actuarial KPIs ($155M reserves, 67.2% loss ratio, 97.2% combined, $20M IBNR) |
 | `01_development_triangle.png` | 01 insurance | https://insurance-claims-dashboard-pi.vercel.app | Chain-ladder development triangle (cumulative paid losses by accident year x lag) |
-| `02_cohort_app_hero.png` | 02 cohort | https://da-cohort-streamlit-451451662791.us-central1.run.app | Olist cohort app landing (91,358 customers, navigation table) |
+| `02_cohort_app_hero.png` | 02 cohort | https://da-cohort-streamlit-451451662791.us-central1.run.app | Olist cohort app landing (93,358 customers, navigation table) |
 | `02_retention_heatmap.png` | 02 cohort | https://da-cohort-streamlit-451451662791.us-central1.run.app/retencion_cohortes | Retention heatmap: cohort month x months-since-first-purchase |
 | `03_abtest_ship_it.png` | 03 ab-test | https://ab-test-analysis.vercel.app | A/B Test Lab SHIP IT verdict banner with p-value and lift |
 | `04_kpi_overview.png` | 04 executive kpi | https://executive-kpi-report.vercel.app | NovaCRM SaaS KPIs (Business Health 70, MRR $969K, ARR $11.6M, sparklines) |
