@@ -25,8 +25,14 @@
 
 The Streamlit app under `streamlit/` is **retired**. It was rebuilt as a Next.js
 static export served at `data-analyst.gonor.me/cohorts`, merged into the portfolio
-hub by `scripts/build-hub.mjs`. Keep `streamlit/` for reference until the Cloud Run
-service is deleted; do not add features to it.
+hub by `scripts/build-hub.mjs`. Do not add features to it.
+
+The Cloud Run service is not being deleted, so `streamlit/` and the project's
+`Dockerfile` stay as a record of the first implementation. `da-cohort-streamlit`
+now runs nginx from `ops/cohort-redirect/` and answers 308 to `/cohorts/` for
+every path -- its run.app URL was linked from gonor.me, the blog and this repo's
+README for months, and deleting the service would 404 all of it. Nothing in CI
+builds the Streamlit image any more.
 
 - Dev: `cd web && npm run dev` -> http://localhost:3052/cohorts
 - No backend. Everything is read from `web/public/cohorts/data/*.json`.

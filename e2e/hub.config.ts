@@ -17,10 +17,11 @@ import { baseConfig } from './shared.config';
  */
 export default defineConfig({
   ...baseConfig,
+  // Every spec in here runs against the merged dist/. The Streamlit cohort app
+  // used to be the one exception -- a separate Cloud Run service with its own
+  // config -- but it was rebuilt into the hub at /cohorts, so there is nothing
+  // left to exclude.
   testDir: '.',
-  // Everything except the Streamlit cohort app, which is a separate Cloud Run
-  // service with its own config and is not part of this build.
-  testIgnore: 'ecommerce-cohorts.spec.ts',
   use: { ...baseConfig.use, baseURL: process.env.BASE_URL || 'http://127.0.0.1:4173' },
   webServer: process.env.BASE_URL
     ? undefined

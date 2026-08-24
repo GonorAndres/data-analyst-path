@@ -106,4 +106,32 @@ test.describe('Portfolio hub -- Deploy Gate', () => {
     }
     expect(seen.size).toBe(7); // no two dashboards sharing an app_id
   });
+
+  // functions/_middleware.ts runs ahead of every asset on this origin, so a bug
+  // in it takes the whole hub down rather than just the redirect. These drive it
+  // through wrangler with an explicit Host header, which is the only way to
+  // reach the branch without deploying: the config's baseURL is 127.0.0.1.
+  test('the pages.dev apex 301s to the custom domain, previews do not', async ({ request, baseURL }) => {
+    const origin = baseURL ?? 'http://127.0.0.1:4173';
+
+    const apex = await request.get(`${origin}/cohorts/segmentos/?x=1`, {
+      headers: { Host: 'data-analyst-hub.pages.dev' },
+      maxRedirects: 0,
+    });
+    expect(apex.status()).toBe(301);
+    // Path and query preserved -- a deep link has to land on the same page.
+    expect(apex.headers()['location']).toBe(
+      'https://data-analyst.gonor.me/cohorts/segmentos/?x=1',
+    );
+
+    // An exact-hostname check, never endsWith('.pages.dev'): redirecting the
+    // preview subdomains would make every preview impossible to test.
+    for (const host of ['dev.data-analyst-hub.pages.dev', 'data-analyst.gonor.me']) {
+      const res = await request.get(`${origin}/health`, {
+        headers: { Host: host },
+        maxRedirects: 0,
+      });
+      expect(res.status(), host).toBe(200);
+    }
+  });
 });

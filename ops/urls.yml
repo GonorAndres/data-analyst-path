@@ -58,12 +58,26 @@ services:
       # that happens.
       - { id: cohorts-data, path: /cohorts/data/meta.json }
 
-  - id: cohort-streamlit
+  # No longer a dashboard. Project 02 was rebuilt as a static export inside the
+  # hub (see `cohorts` above), and this service now runs nginx and answers 308
+  # to https://data-analyst.gonor.me/cohorts/ for every path.
+  #
+  # It stays deployed rather than being deleted because this URL was linked from
+  # gonor.me, from the blog in two languages and from this repo's README for
+  # months; a deleted Cloud Run service answers 404, which destroys those links
+  # instead of forwarding them. The service name is unchanged for the same
+  # reason -- the hostname is derived from it.
+  - id: cohort-redirect
     project: 02-ecommerce-cohort-analysis
     kind: cloud_run
     gcp_service: da-cohort-streamlit
     region: us-central1
     production_url: https://da-cohort-streamlit-451451662791.us-central1.run.app
+    # Still Streamlit's health path, which is deliberate on two counts: it is
+    # what Cloud Run's own probe already points at, and it is the one route the
+    # redirect config answers directly. Probing `/` here would prove less, not
+    # more -- health_check.py's urlopen follows redirects, so a `/` probe would
+    # report on the hub rather than on this service.
     health_path: /_stcore/health
     expected_status: [200]
 
