@@ -24,6 +24,14 @@ from portfolio_backend.main import app as portfolio_app  # noqa: E402
 
 app = FastAPI(title="DA Portfolio API", version="1.0.0")
 
+# Only localhost. The dashboards reach this service through the hub's
+# `/api/<svc>` Pages Function, which is a server-side fetch -- no browser origin
+# is involved, so CORS never applies to production traffic. These entries exist
+# purely so each backend can be driven from `npm run dev` on its own port.
+#
+# `https://*.vercel.app` used to sit in this list. Starlette matches
+# `allow_origins` exactly and needs `allow_origin_regex` for patterns, so that
+# string never matched anything even while the Vercel deployments were live.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -33,7 +41,6 @@ app.add_middleware(
         "http://localhost:3053",
         "http://localhost:3055",
         "http://localhost:3056",
-        "https://*.vercel.app",
     ],
     allow_methods=["GET"],
     allow_headers=["*"],

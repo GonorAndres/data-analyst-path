@@ -26,13 +26,24 @@ This is defined in `next.config.js` using `rewrites()`. The proxy destination is
 OLIST_BACKEND_URL=http://localhost:2050
 ```
 
-**Production checklist (Vercel + Cloud Run):**
-1. Deploy FastAPI backend to Cloud Run — get the service URL (e.g. `https://olist-api-xxxx-uc.a.run.app`)
-2. In Vercel project settings → Environment Variables, add:
-   - `OLIST_BACKEND_URL` = `https://olist-api-xxxx-uc.a.run.app` (server-side only, no NEXT_PUBLIC_)
-3. Do NOT set `NEXT_PUBLIC_OLIST_API_URL` in production — the proxy handles routing and keeps the Cloud Run URL private from the client bundle.
-4. Ensure Cloud Run allows unauthenticated requests OR add an `Authorization` header in the `olistFetcher` via a server-side secret.
-5. The `BackendWarmup` component on the homepage fires `GET /api/olist/health` on first load — this wakes the Cloud Run container before the user navigates to `/olist`.
+**Production:** there is nothing to configure. This app is no longer its own
+Vercel deployment with its own backend URL; it is built as a static export and
+merged into the `data-analyst-hub` Cloudflare Pages project by
+`scripts/build-hub.mjs`, and it owns the root of `data-analyst.gonor.me`.
+
+- `rewrites()` in `next.config.js` applies to `npm run dev` only. A static export
+  has no server, so in production `/api/olist/*` is answered by the hub's
+  `functions/api/[[path]].ts`, which proxies to the consolidated Cloud Run
+  service at `/olist`.
+- Do **not** set `NEXT_PUBLIC_OLIST_API_URL`. The relative `/api/olist` default is
+  what routes through that proxy; an absolute URL bypasses it and bakes a Cloud
+  Run hostname into the client bundle. `build-hub.mjs` strips the variable from
+  the build env precisely so this cannot happen by accident.
+- `OLIST_BACKEND_URL` is a dev-only variable now — it feeds the `rewrites()`
+  destination. In production the origin lives in the Pages Function instead.
+- The `BackendWarmup` component fires `GET /api/olist/health` on first load,
+  waking the Cloud Run container before the user reaches `/olist`. It still
+  matters: the service runs at `min-instances=0`.
 
 ## Consolidated Backend
 
