@@ -25,7 +25,6 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3052",
         "http://localhost:3053",
-        "https://*.vercel.app",
     ],
     allow_methods=["GET"],
     allow_headers=["*"],

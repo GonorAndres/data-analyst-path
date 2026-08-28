@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Comprehensive **Data Analyst portfolio and knowledge base** for an actuarial science graduate (UNAM, Mexico) targeting hybrid DA roles (business/financial/product analyst). The repo combines:
 - **7 end-to-end portfolio projects** spanning real estate, insurance, e-commerce, finance, and operations domains
 - **Knowledge base** documenting the full analyst workflow (stakeholder question -> delivered insights)
-- **Multiple output formats**: Next.js interactive dashboards (Cloudflare Pages), Streamlit apps (Cloud Run), Jupyter notebooks, automated PDF reports
+- **Multiple output formats**: Next.js interactive dashboards (Cloudflare Pages), Jupyter notebooks, automated PDF reports
 
 This repo is distinct from sibling repos: `data-science/` (ML/predictive modeling) and `data-enginer/` (pipelines/infrastructure). The DA repo focuses on **business storytelling, visualization, and stakeholder communication** -- not model building or ETL infrastructure.
 
@@ -45,16 +45,15 @@ Every project under `projects/` follows this structure:
 ├── data/processed/    # Cleaned data
 ├── sql/               # SQL queries with comments explaining business context
 ├── notebooks/         # Numbered: 01_cleaning.ipynb, 02_eda.ipynb, 03_analysis.ipynb
-├── dashboards/        # .pbix files + screenshots/ folder + PBI Service links
+├── dashboards/        # screenshots/ folder for the README and the gallery
 ├── reports/           # PDF exports, slide decks, executive summaries
-├── streamlit/         # Streamlit app code (where applicable)
 └── requirements.txt   # Project-specific dependencies (if different from root)
 ```
 
 ## Tech Stack
 
 - **SQL** (PostgreSQL dialect, BigQuery where relevant): Primary analysis language. Window functions, CTEs, multi-table joins.
-- **Python**: pandas, plotly, seaborn, scipy, streamlit. For EDA, automation, and interactive apps.
+- **Python**: pandas, plotly, seaborn, scipy. For EDA, automation, and the pre-aggregation pipelines behind the dashboards.
 - **Next.js + TypeScript**: Primary dashboard framework. Built as static exports and merged into one Cloudflare Pages project, with Recharts/D3.js for visualization.
 - **FastAPI**: Backend APIs serving processed data to dashboards. Deployed to Cloud Run as a consolidated service.
 - **Jupyter Notebooks**: For reproducible analytical narratives. Write like blog posts with markdown between code.
@@ -68,9 +67,6 @@ pip install -r requirements.txt
 
 # Run a Jupyter notebook
 jupyter notebook projects/<project>/notebooks/
-
-# Run a Streamlit app
-streamlit run projects/<project>/streamlit/app.py
 
 # Run an R script
 Rscript projects/<project>/analysis.R
@@ -159,12 +155,20 @@ A unified FastAPI entry point at `backend/main.py` mounts all project backends u
 - **Consolidated**: `cd backend && bash dev.sh` (port 8080)
 - **Docker**: `docker build -f backend/Dockerfile -t da-portfolio-api . && docker run -p 8080:8080 da-portfolio-api`
 
-**Frontend env var adjustment** (no code changes needed):
+**Frontend env var adjustment** (no code changes needed). These feed each app's
+`rewrites()`, which exists for `npm run dev` only:
+
 | Mode | `INSURANCE_BACKEND_URL` | `OLIST_BACKEND_URL` |
 |------|-------------------------|---------------------|
 | Standalone | `http://localhost:2051` | `http://localhost:2050` |
 | Consolidated | `http://localhost:8080/insurance` | `http://localhost:8080/olist` |
-| Production | `https://da-api-xxx.run.app/insurance` | `https://da-api-xxx.run.app/olist` |
+
+**There is no production row.** A static export has no server to run `rewrites()`,
+so in production `/api/<svc>/*` is answered by `functions/api/[[path]].ts`, which
+holds the Cloud Run origin itself (`API_ORIGIN`, defaulting to the URL in
+`ops/urls.yml`). Setting these variables at build time changes nothing; setting
+`NEXT_PUBLIC_*_API_URL` actively breaks the arrangement, which is why
+`scripts/build-hub.mjs` strips it.
 
 ## Conventions
 
@@ -206,20 +210,25 @@ Every project README must follow `docs/templates/project-readme-template.md`:
 
 ### Output Delivery
 - Next.js dashboards: Merged into one Cloudflare Pages project at `data-analyst.gonor.me/<path>`. Screenshots in `dashboards/screenshots/`. Live URLs in project README.
-- Streamlit: App code in project's `streamlit/` folder, deployed to Cloud Run.
 - Notebooks: Renderable via nbviewer/GitHub. Include "View on nbviewer" badge in project README.
 - Reports: PDF exports in `reports/`, source files (if editable) alongside them.
 
-### Technical Process Page (Notebook-in-Streamlit Pattern)
-For Streamlit projects with supporting Jupyter notebooks, embed the full analytical pipeline as a browsable page inside the dashboard:
-1. Convert notebooks to HTML: `jupyter nbconvert --to html --output-dir=streamlit/notebooks_html notebooks/*.ipynb`
-2. Store HTML files in `streamlit/notebooks_html/` (committed to git, included in Docker image)
-3. Create a "Proceso Técnico" page that renders each notebook in a scrollable `streamlit.components.v1.html()` iframe
-4. Each tab shows one notebook with a description card explaining inputs/outputs
-5. Re-export HTML whenever notebooks are re-run to keep outputs fresh
-6. Update `.dockerignore` with `!**/notebooks_html` if `**/notebooks` is ignored
+### Technical Process Page (published notebooks)
+Where a dashboard has supporting notebooks, publish them inside it as a browsable
+page rather than linking out to GitHub:
+1. Convert to HTML: `jupyter nbconvert --to html --output-dir=public/<slug>/notebooks notebooks/*.ipynb`
+2. Commit the HTML under the app's own `public/` slug -- seven apps share one origin
+3. Render each in an iframe on a "Proceso Técnico" route, one tab per notebook,
+   each with a card explaining its inputs and outputs
+4. Re-export whenever the notebooks are re-run, so the published outputs match
 
-This pattern adds significant portfolio value -- viewers see the full code, transformations, and intermediate results behind every dashboard visualization without leaving the app.
+Projects 02 and 03 both do this. It adds real portfolio value -- viewers see the
+code, transformations and intermediate results behind every figure without
+leaving the site.
+
+This replaced a Streamlit-specific version of the same pattern
+(`streamlit.components.v1.html()` in a `streamlit/notebooks_html/` folder), which
+went away with the last Streamlit app.
 
 ## Portfolio Project Summaries
 

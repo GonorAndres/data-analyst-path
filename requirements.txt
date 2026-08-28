@@ -9,7 +9,9 @@ seaborn>=0.13
 matplotlib>=3.8
 
 # Interactive apps
-streamlit>=1.30
+# streamlit intentionally absent: no app in this repo uses it any more.
+# Project 02 was rebuilt as a Next.js static export and its retired
+# streamlit/ folder keeps its own requirements.txt for reference.
 jupyter>=1.0
 notebook>=7.0
 
