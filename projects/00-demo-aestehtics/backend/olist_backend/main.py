@@ -8,7 +8,7 @@ app = FastAPI(title="Olist API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3050", "https://*.vercel.app"],
+    allow_origins=["http://localhost:3000", "http://localhost:3050"],
     allow_methods=["GET"],
     allow_headers=["*"],
 )

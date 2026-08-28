@@ -18,11 +18,22 @@ app = FastAPI(
     description="Real-time portfolio analytics: risk, returns, Monte Carlo, efficient frontier.",
 )
 
+# Matches the other five backends: localhost only, GET only. This was the one
+# outlier, and it was open in a way the others never were --
+# `allow_origins=["*"]` together with `allow_credentials=True` makes Starlette
+# echo the caller's own Origin back with `Allow-Credentials: true`, so any site
+# could make credentialed requests to it. Nothing needed that: the dashboard
+# reaches this service through the hub's `/api/portfolio` Pages Function, a
+# server-side fetch where no browser origin is involved at all.
+#
+# Port 3055 is this project's own `npm run dev`; 3000 is the Next.js default.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3055",
+    ],
+    allow_methods=["GET"],
     allow_headers=["*"],
 )
 
