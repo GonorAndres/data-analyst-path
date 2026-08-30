@@ -1,0 +1,215 @@
+% =============================================================================
+% PREAMBLE -- Portfolio Deep-Dive Reference Document
+% =============================================================================
+
+\documentclass[12pt, a4paper, openany]{book}
+
+% --- Geometry & Spacing ---
+\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=2.5cm, headheight=15pt]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% --- Typography ---
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{lmodern}
+
+% --- Math ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+
+% --- Tables ---
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{tabularx}
+
+% --- Graphics ---
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, calc, shapes.geometric, decorations.pathreplacing}
+
+% --- Colors ---
+\usepackage[dvipsnames]{xcolor}
+\definecolor{codeblue}{HTML}{2563EB}
+\definecolor{codebg}{HTML}{F8FAFC}
+\definecolor{challengecolor}{HTML}{7C3AED}
+\definecolor{interviewcolor}{HTML}{059669}
+\definecolor{decisioncolor}{HTML}{D97706}
+\definecolor{insightcolor}{HTML}{2563EB}
+\definecolor{linkblue}{HTML}{1D4ED8}
+
+% --- Code Listings ---
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{gray!30},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=4,
+  keywordstyle=\color{codeblue}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{OliveGreen},
+  columns=flexible,
+  keepspaces=true,
+  xleftmargin=1.5em,
+  framexleftmargin=1em,
+}
+
+\lstdefinestyle{python}{
+  language=Python,
+  morekeywords={self, True, False, None, as, with, yield, async, await, f},
+}
+
+\lstdefinestyle{sql}{
+  language=SQL,
+  morekeywords={OVER, PARTITION, ROWS, UNBOUNDED, PRECEDING, FOLLOWING, NTILE, ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, FILTER, LATERAL, ILIKE, COALESCE, EXTRACT, EPOCH},
+}
+
+\lstdefinestyle{typescript}{
+  language=Java, % base syntax
+  morekeywords={const, let, interface, type, export, import, from, async, await, return, function, default, typeof, keyof, extends, implements, as, readonly},
+  morecomment=[l]{//},
+  morestring=[b]`,
+}
+
+\lstdefinestyle{yaml}{
+  basicstyle=\ttfamily\small,
+  morecomment=[l]{\#},
+  morekeywords={true, false, null, on, off},
+}
+
+\lstdefinestyle{dockerfile}{
+  basicstyle=\ttfamily\small,
+  morekeywords={FROM, RUN, COPY, WORKDIR, EXPOSE, CMD, ENV, ARG, ENTRYPOINT, ADD, LABEL, USER, VOLUME, HEALTHCHECK},
+  morecomment=[l]{\#},
+}
+
+% --- tcolorbox environments ---
+\usepackage[most]{tcolorbox}
+
+% Challenge Box -- deep conceptual questions
+\newtcolorbox{challengebox}[1][]{
+  enhanced,
+  colback=challengecolor!5,
+  colframe=challengecolor!80,
+  coltitle=white,
+  fonttitle=\bfseries,
+  title={Challenge Question},
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  arc=2pt,
+  boxrule=1pt,
+  #1
+}
+
+% Interview Box -- interview-style questions
+\newtcolorbox{interviewbox}[1][]{
+  enhanced,
+  colback=interviewcolor!5,
+  colframe=interviewcolor!80,
+  coltitle=white,
+  fonttitle=\bfseries,
+  title={Interview Question},
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  arc=2pt,
+  boxrule=1pt,
+  #1
+}
+
+% Decision Box -- architectural/design decisions
+\newtcolorbox{decisionbox}[1][]{
+  enhanced,
+  colback=decisioncolor!5,
+  colframe=decisioncolor!80,
+  coltitle=white,
+  fonttitle=\bfseries,
+  title={Decision Justification},
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  arc=2pt,
+  boxrule=1pt,
+  #1
+}
+
+% Key Insight Box
+\newtcolorbox{keyinsight}[1][]{
+  enhanced,
+  colback=insightcolor!5,
+  colframe=insightcolor!80,
+  coltitle=white,
+  fonttitle=\bfseries,
+  title={Key Insight},
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  arc=2pt,
+  boxrule=1pt,
+  #1
+}
+
+% --- Lists ---
+\usepackage{enumitem}
+\setlist{nosep, leftmargin=1.5em}
+
+% --- Headers & Footers ---
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE]{\small\itshape\leftmark}
+\fancyhead[RO]{\small\itshape\rightmark}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Plain style for chapter opening pages
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+% --- Hyperlinks ---
+\usepackage[
+  colorlinks=true,
+  linkcolor=linkblue,
+  citecolor=linkblue,
+  urlcolor=linkblue,
+  bookmarks=true,
+  bookmarksnumbered=true,
+]{hyperref}
+
+% --- Bibliography ---
+\usepackage[numbers, sort&compress]{natbib}
+
+% --- Custom Commands ---
+
+% File path reference
+\newcommand{\filepath}[1]{\texttt{\small #1}}
+
+% Code reference with line number
+\newcommand{\coderef}[2]{\texttt{\small #1:#2}}
+
+% Mathematical operators
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\Cov}{Cov}
+\DeclareMathOperator{\Corr}{Corr}
+\DeclareMathOperator{\E}{\mathbb{E}}
+\DeclareMathOperator{\Prob}{\mathbb{P}}
+
+% Shortcut for bold math
+\newcommand{\bvec}[1]{\boldsymbol{#1}}
+\newcommand{\bmat}[1]{\mathbf{#1}}
+
+% Section file reference (appears in margin or inline)
+\newcommand{\sourcefiles}[1]{%
+  \par\noindent\textcolor{gray}{\small\textbf{Source files:} #1}\par\medskip%
+}
+
+% Horizontal rule
+\newcommand{\sectionrule}{\par\noindent\rule{\textwidth}{0.4pt}\par}

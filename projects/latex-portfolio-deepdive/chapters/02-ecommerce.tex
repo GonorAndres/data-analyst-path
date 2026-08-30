@@ -1,0 +1,950 @@
+% =============================================================================
+% CHAPTER 02 -- E-Commerce Cohort Analysis (Olist)
+% =============================================================================
+
+\chapter{E-Commerce Cohort Analysis}
+\label{ch:ecommerce}
+
+\sourcefiles{%
+  \filepath{projects/02-ecommerce-cohort-analysis/} ---
+  notebooks (4), SQL scripts (5), Streamlit app (6 pages)
+}
+
+This chapter documents the analytical work behind the Olist Brazilian E-Commerce
+cohort analysis. The central business question is deceptively simple: with only
+3\% of customers making a repeat purchase, what distinguishes the returning
+minority? The project delivers statistical rigour --- survival curves, odds ratios,
+Gini coefficients --- through a multi-layer stack of SQL, Python notebooks, and a
+Streamlit executive dashboard deployed to Cloud Run.
+
+% -----------------------------------------------------------------------------
+\section{Business Context}
+\label{sec:ecom-context}
+% -----------------------------------------------------------------------------
+
+\subsection{The 3\% Repeat Purchase Problem}
+
+Olist is a Brazilian marketplace intermediary: sellers list products on Olist's
+platform and Olist handles the customer-facing experience. The dataset covers
+99,441 orders placed between September 2016 and October 2018. Of 93,358 unique
+customers, only 2,801 --- roughly 3.0\% --- ever placed a second delivered order.
+
+This figure is the analytical anchor of the entire project. It frames every
+downstream analysis as a search for signal within extreme class imbalance.
+Repeat customers are worth \textbf{1.92x} a one-time customer in \emph{total}
+revenue (R\$309 against R\$161), but the reason is order count, not basket size:
+they place roughly 2.1 orders. \emph{Per order} they spend \textbf{0.91x} as much
+(R\$146 against R\$161), and their first order is about 10\% smaller than a
+one-and-done customer's. The high spenders are disproportionately the ones who
+never come back, which inverts the naive reading --- retention is valuable
+because of frequency, not because returning customers are richer.
+
+\begin{keyinsight}
+A 3\% base rate means that standard accuracy metrics are meaningless for
+classification tasks. Any model predicting ``never repeat'' would achieve 97\%
+accuracy while being analytically useless. The project therefore avoids binary
+classification in favour of survival analysis (which respects censoring) and
+logistic regression odds ratios (which quantify relative risk between groups).
+\end{keyinsight}
+
+\subsection{The \texttt{customer\_id} vs.\ \texttt{customer\_unique\_id} Distinction}
+
+Olist's schema contains two customer identifiers that are easily confused:
+
+\begin{itemize}
+  \item \texttt{customer\_id}: generated per order. A single person placing three
+    orders will have three distinct \texttt{customer\_id} values.
+  \item \texttt{customer\_unique\_id}: the true person-level identifier, stable
+    across all orders.
+\end{itemize}
+
+Using \texttt{customer\_id} directly would cause three critical errors: (1) it
+would inflate the apparent customer count, (2) every order would appear as a
+first purchase, and (3) the repeat rate would compute to zero by construction.
+All SQL scripts and Python code in this project join through
+\texttt{customer\_id} only to resolve the link to \texttt{customer\_unique\_id},
+then group exclusively on the latter.
+
+\begin{lstlisting}[style=sql, caption={Wrong vs.\ correct customer grouping}]
+-- WRONG: one row per order, not per person
+SELECT customer_id, COUNT(*) AS orders
+FROM olist_orders
+GROUP BY customer_id;
+
+-- CORRECT: one row per real customer
+SELECT c.customer_unique_id, COUNT(*) AS orders
+FROM olist_orders  o
+JOIN olist_customers c ON o.customer_id = c.customer_id
+GROUP BY c.customer_unique_id;
+\end{lstlisting}
+
+\subsection{Olist Marketplace Model}
+
+Because Olist is an intermediary, the customer experience depends on three
+parties: Olist (platform, review system, logistics coordination), the individual
+seller (product quality, dispatch time), and the carrier. This creates a
+confounding structure for causal claims: a poor delivery experience may reflect
+the seller, the carrier, or geographic distance --- not Olist platform quality
+per se. The analysis treats delivery days and review scores as observed outcomes
+without attributing causality to any single party.
+
+% -----------------------------------------------------------------------------
+\section{Olist Dataset}
+\label{sec:ecom-data}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{streamlit/pages/5\_metodologia.py} (tab ``Fuente de Datos''),
+  \filepath{notebooks/01\_data\_ingestion\_cleaning.ipynb}
+}
+
+\subsection{Nine CSV Files, One Analytical Table}
+
+The raw dataset consists of nine CSV files joined into a single master table
+(\filepath{data/processed/orders\_enriched.parquet}) during notebook 01. The
+join graph is star-shaped: \texttt{olist\_orders} is the central fact table,
+with dimension tables for customers, items, payments, reviews, products, sellers,
+geolocation, and a category translation lookup.
+
+\begin{table}[h]
+\centering
+\caption{Olist dataset files and approximate row counts}
+\label{tab:olist-files}
+\begin{tabular}{llr}
+\toprule
+\textbf{CSV file} & \textbf{Content} & \textbf{Rows (approx.)} \\
+\midrule
+\texttt{olist\_orders\_dataset.csv}         & Orders: status, timestamps, customer\_id & 99,441 \\
+\texttt{olist\_order\_items\_dataset.csv}   & Line items: price, freight, seller       & 112,650 \\
+\texttt{olist\_customers\_dataset.csv}      & customer\_id $\to$ unique\_id, state     & 99,441 \\
+\texttt{olist\_products\_dataset.csv}       & Category, dimensions, weight             & 32,951 \\
+\texttt{olist\_sellers\_dataset.csv}        & Seller state and city                    & 3,095 \\
+\texttt{olist\_order\_payments\_dataset.csv}& Payment type, value, instalments         & 103,886 \\
+\texttt{olist\_order\_reviews\_dataset.csv} & Review score 1--5, free text             & 100,000 \\
+\texttt{olist\_geolocation\_dataset.csv}    & ZIP $\to$ lat/lon                        & 1,000,163 \\
+\texttt{product\_category\_name\_translation.csv} & Portuguese $\to$ English category  & 71 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The enriched parquet adds 30 derived columns including \texttt{delivery\_days},
+\texttt{is\_late\_delivery}, \texttt{cohort\_month}, \texttt{months\_since\_cohort},
+and aggregated payment totals. The analysis filters to 96,478 delivered orders
+only; cancelled, unavailable, and invoiced orders are excluded because their
+customer journey is incomplete.
+
+\subsection{Right-Censoring Problem}
+
+The observation window closes at October 2018. Any customer who made their first
+purchase in, say, August 2018 has had at most two months to return. We cannot
+observe whether they return in November 2018 or later. This is right-censoring
+in the survival analysis sense: the event (second purchase) may have happened
+after the observation period ended.
+
+\begin{decisionbox}
+Three approaches were considered for handling censoring:
+\begin{enumerate}
+  \item \textbf{Ignore it}: count non-repeaters as definitive churners. This
+    underestimates the true repeat rate for recent cohorts.
+  \item \textbf{Truncate}: only analyse cohorts old enough to have a full 12-month
+    window. This wastes 40\%+ of the data and introduces selection bias toward early cohorts.
+  \item \textbf{Kaplan-Meier} (chosen): treat non-repeaters as right-censored
+    observations. This correctly accounts for the fact that recent customers have
+    had less time to return, without discarding them.
+\end{enumerate}
+The Kaplan-Meier approach is implemented via the \texttt{lifelines} library.
+The \texttt{event\_observed} column is 1 for confirmed repeaters and 0 for
+right-censored customers.
+\end{decisionbox}
+
+% -----------------------------------------------------------------------------
+\section{Cohort Retention}
+\label{sec:ecom-cohorts}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{sql/01\_cohort\_assignment.sql},
+  \filepath{sql/02\_retention\_matrix.sql},
+  \filepath{notebooks/03\_cohort\_retention.ipynb},
+  \filepath{streamlit/pages/2\_retencion\_cohortes.py}
+}
+
+\subsection{Cohort Assignment Logic}
+
+A cohort is defined by the month of a customer's first \emph{delivered} order.
+The SQL implementation uses two CTEs: \texttt{customer\_first\_purchase} computes
+the minimum \texttt{order\_purchase\_timestamp} per \texttt{customer\_unique\_id},
+and \texttt{cohort\_assignment} computes \texttt{months\_since\_cohort} for every
+subsequent order.
+
+\begin{lstlisting}[style=sql, caption={Cohort assignment and tenure calculation (from \filepath{sql/01\_cohort\_assignment.sql})}]
+customer_first_purchase AS (
+    SELECT customer_unique_id,
+           MIN(order_purchase_timestamp) AS first_purchase_date
+    FROM delivered_orders
+    GROUP BY customer_unique_id
+),
+cohort_assignment AS (
+    SELECT d.customer_unique_id,
+           DATE_TRUNC('month', fp.first_purchase_date) AS cohort_month,
+           (EXTRACT(YEAR FROM AGE(
+               DATE_TRUNC('month', d.order_purchase_timestamp),
+               DATE_TRUNC('month', fp.first_purchase_date)
+           )) * 12
+           + EXTRACT(MONTH FROM AGE(
+               DATE_TRUNC('month', d.order_purchase_timestamp),
+               DATE_TRUNC('month', fp.first_purchase_date)
+           )))::INT AS months_since_cohort
+    FROM delivered_orders AS d
+    JOIN customer_first_purchase AS fp
+      ON d.customer_unique_id = fp.customer_unique_id
+)
+\end{lstlisting}
+
+Note that \texttt{DATE\_TRUNC} is applied before \texttt{AGE} to ensure tenure
+is measured in whole months, not fractional months. The final \texttt{SELECT}
+also adds \texttt{ROW\_NUMBER() OVER (PARTITION BY customer\_unique\_id ORDER BY
+order\_purchase\_timestamp)} to assign a sequential order number, which is used
+downstream to isolate first orders in the activation analysis.
+
+\subsection{Retention Matrix Construction}
+
+The retention matrix pivots cohort-month pairs into a wide format using
+\texttt{CASE-WHEN} expressions. Each cell reports the percentage of the cohort's
+customers who placed a delivered order in that period:
+
+\begin{equation}
+\text{Retention}_{c,k} = \frac{\left|\{u \in C_c : \text{purchase in month } k\}\right|}{|C_c|}
+\label{eq:retention}
+\end{equation}
+
+where $C_c$ is the set of customers in cohort $c$ and $k$ is the number of months
+since cohort formation. By construction, $\text{Retention}_{c,0} = 100\%$ for
+all cohorts.
+
+\begin{lstlisting}[style=sql, caption={Retention matrix pivot (excerpt from \filepath{sql/02\_retention\_matrix.sql})}]
+SELECT
+    s.cohort_month,
+    s.cohort_size,
+    ROUND(MAX(CASE WHEN m.months_since_cohort = 0
+        THEN m.active_customers * 100.0 / s.cohort_size END), 2) AS month_0,
+    ROUND(MAX(CASE WHEN m.months_since_cohort = 1
+        THEN m.active_customers * 100.0 / s.cohort_size END), 2) AS month_1,
+    ROUND(MAX(CASE WHEN m.months_since_cohort = 2
+        THEN m.active_customers * 100.0 / s.cohort_size END), 2) AS month_2
+    -- ... through month_11
+FROM cohort_sizes AS s
+LEFT JOIN monthly_activity AS m ON s.cohort_month = m.cohort_month
+GROUP BY s.cohort_month, s.cohort_size
+ORDER BY s.cohort_month;
+\end{lstlisting}
+
+\subsection{Count-Based vs.\ Revenue-Based Retention}
+
+The Streamlit dashboard (page 2) offers a toggle between two retention modes:
+
+\begin{itemize}
+  \item \textbf{Count-based}: the number of distinct customers active in month $k$
+    divided by cohort size. Stored in \filepath{data/processed/cohort\_retention\_matrix.parquet}.
+  \item \textbf{Revenue-based}: the total payment value from returning customers in
+    month $k$ divided by month-0 revenue. Stored in
+    \filepath{data/processed/cohort\_revenue\_retention.parquet}.
+\end{itemize}
+
+Revenue retention amplifies the signal of high-value returners. A cohort where
+one high-spend customer returns could show high revenue retention but low count
+retention. The divergence between the two modes is itself informative: large
+gaps suggest that repeat purchases are concentrated among a few high-value
+customers rather than broadly distributed.
+
+The Streamlit code normalises both matrices identically:
+\begin{lstlisting}[style=python, caption={Normalisation to retention percentages (\filepath{streamlit/pages/2\_retencion\_cohortes.py}, line~90)}]
+data_pct = data.div(data.iloc[:, 0], axis=0) * 100
+\end{lstlisting}
+
+% -----------------------------------------------------------------------------
+\section{Kaplan-Meier Survival Analysis}
+\label{sec:ecom-km}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{notebooks/03\_cohort\_retention.ipynb},
+  \filepath{streamlit/pages/2\_retencion\_cohortes.py} (tab ``Kaplan-Meier''),
+  \filepath{streamlit/pages/5\_metodologia.py} (tab ``Supervivencia Kaplan-Meier'')
+}
+
+\subsection{Estimator Definition}
+
+The Kaplan-Meier (KM) estimator computes the probability that the event of
+interest --- here, a second purchase --- has \emph{not} yet occurred by time $t$.
+In this project, $S(t)$ is the probability that a customer has not returned
+within $t$ days of their first purchase:
+
+\begin{equation}
+\hat{S}(t) = \prod_{t_i \leq t} \left(1 - \frac{d_i}{n_i}\right)
+\label{eq:km}
+\end{equation}
+
+where:
+\begin{itemize}
+  \item $t_i$ are the ordered distinct event times (days when second purchases occurred),
+  \item $d_i$ is the number of second purchases at time $t_i$ (``deaths''),
+  \item $n_i$ is the number of customers still at risk at time $t_i$ (neither
+    purchased again nor censored before $t_i$).
+\end{itemize}
+
+\subsection{Preparing the Survival Dataset}
+
+The \texttt{survival\_data.parquet} file contains one row per customer with two
+key columns:
+
+\begin{lstlisting}[style=python, caption={Survival data construction (from \filepath{streamlit/pages/5\_metodologia.py})}]
+survival["duration_days"] = np.where(
+    survival["is_repeat_customer"],
+    (survival["second_purchase_date"] - survival["first_purchase_date"]).dt.days,
+    (DATASET_END_DATE - survival["first_purchase_date"]).dt.days,
+)
+survival["event_observed"] = survival["is_repeat_customer"].astype(int)
+\end{lstlisting}
+
+For the 97\% of customers who never returned, \texttt{event\_observed = 0}
+and \texttt{duration\_days} measures how long we watched them without seeing a
+repeat purchase --- the censoring time, not the time-to-event.
+
+\subsection{Fitting the Model in Streamlit}
+
+The dashboard fits a \texttt{KaplanMeierFitter} from the \texttt{lifelines}
+library (version \texttt{>=0.29}) interactively:
+
+\begin{lstlisting}[style=python, caption={KM fitting, originally in \filepath{streamlit/pages/2\_retencion\_cohortes.py}; now precomputed by \filepath{data-pipeline/05\_build\_web\_json.py}}]
+from lifelines import KaplanMeierFitter
+
+kmf = KaplanMeierFitter()
+kmf.fit(
+    durations=survival_clean["duration_days"],
+    event_observed=survival_clean["event_observed"],
+)
+km_df = kmf.survival_function_.reset_index()
+ci = kmf.confidence_interval_survival_function_.reset_index()
+median_surv = kmf.median_survival_time_   # returns inf: S(t) never reaches 0.5
+\end{lstlisting}
+
+\begin{keyinsight}
+That last line is a trap worth naming. \texttt{median\_survival\_time\_} returns
+\texttt{inf} on this dataset, because $\hat{S}(t)$ plateaus near 0.95 and never
+crosses 0.5. Printing it as ``the median'' produces a headline figure that does
+not exist. The quotable statistic is conditional on returning, and has to be
+computed separately over the uncensored rows.
+\end{keyinsight}
+
+The dashboard also supports segmented KM curves: the user selects
+\texttt{payment\_type} or \texttt{customer\_state} as a stratification variable,
+and the page fits a separate KM curve per group. This directly supports the
+log-rank test finding that voucher payers have statistically different survival
+curves from credit card and boleto payers.
+
+\subsection{Interpreting the Curve in Context}
+
+For Olist, $\hat{S}(t)$ starts at 1.0 (all customers are ``surviving'' ---
+i.e., have not yet reordered) and decays slowly, plateauing near 0.95. The decay
+\emph{decelerates but never stops}: the curve loses 1.23 percentage points in the
+first quarter and roughly 0.6 points in every quarter thereafter, out to two
+years.
+
+\begin{keyinsight}
+This corrects an earlier reading of this same dataset, which described reorder
+probability as ``practically nil'' after six months. The curve does not support
+that. Repurchase keeps trickling in for the full two-year observation window; it
+merely slows. The distinction matters for the recommendation, because a
+six-month cutoff would write off customers who are still converting.
+\end{keyinsight}
+
+Because $\hat{S}(t)$ never crosses 0.5, \textbf{the median survival time does not
+exist} --- it is undefined, not merely uninterpretable. What can be quoted is a
+conditional statistic: among the 3\% who \emph{did} return, the median wait was
+\textbf{82 days}. That is a different quantity and must be labelled as such.
+
+\begin{keyinsight}
+The KM curve shows where the density is, not where the opportunity ends. Among
+customers who returned, the median wait was 82 days and 27\% came back within
+30 --- so the first quarter is the right place to concentrate an intervention.
+But since the curve keeps declining for two years, a later touch is not wasted
+effort, and framing day 90 as a cutoff would be a misreading of the same data
+that motivates the campaign.
+\end{keyinsight}
+
+% -----------------------------------------------------------------------------
+\section{RFM Segmentation}
+\label{sec:ecom-rfm}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{sql/03\_rfm\_segmentation.sql},
+  \filepath{notebooks/04\_rfm\_ltv\_activation.ipynb},
+  \filepath{streamlit/pages/3\_segmentos\_clientes.py} (tabs ``Distribucion'' through ``Lorenz'')
+}
+
+\subsection{RFM Dimensions and Quintile Scoring}
+
+RFM scores every customer on three behavioural dimensions relative to the
+analysis reference date (one day after the last observed purchase):
+
+\begin{table}[h]
+\centering
+\caption{RFM dimension definitions and scoring direction}
+\label{tab:rfm-dims}
+\begin{tabular}{llll}
+\toprule
+\textbf{Dimension} & \textbf{Metric} & \textbf{Direction} & \textbf{Score 5 means} \\
+\midrule
+Recency (R)   & Days since last purchase  & Lower is better  & Most recent 20\%  \\
+Frequency (F) & Count of distinct orders  & Higher is better & Top 20\% by orders \\
+Monetary (M)  & Total lifetime spend (R\$) & Higher is better & Top 20\% by revenue \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Quintile scoring uses \texttt{NTILE(5)} in PostgreSQL. Recency requires reversed
+ordering because fewer days since last purchase is better:
+
+\begin{lstlisting}[style=sql, caption={Quintile scoring in \filepath{sql/03\_rfm\_segmentation.sql}}]
+NTILE(5) OVER (ORDER BY recency_days DESC)  AS r_score,  -- 5=most recent
+NTILE(5) OVER (ORDER BY frequency ASC)      AS f_score,
+NTILE(5) OVER (ORDER BY monetary ASC)       AS m_score
+\end{lstlisting}
+
+\subsection{Seven Segment Definitions}
+
+Score combinations are mapped to seven business segments through a \texttt{CASE}
+statement. The segment rules below are implemented identically in both SQL
+(\filepath{sql/03\_rfm\_segmentation.sql}) and Python
+(\filepath{streamlit/pages/5\_metodologia.py}):
+
+\begin{table}[h]
+\centering
+\caption{RFM segment assignment rules}
+\label{tab:rfm-segments}
+\begin{tabular}{llll}
+\toprule
+\textbf{Segment (English)} & \textbf{R score} & \textbf{F score} & \textbf{M score} \\
+\midrule
+Champions                 & $\geq 4$  & $\geq 4$  & $\geq 4$  \\
+Loyal Customers           & any       & $\geq 4$  & $\geq 3$  \\
+Potential Loyalists       & $\geq 4$  & 2--3      & any       \\
+New Customers             & $\geq 4$  & 1         & any       \\
+At Risk                   & 2--3      & $\geq 3$  & any       \\
+Hibernating               & 2--3      & 1--2      & any       \\
+Lost                      & 1         & any       & any       \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Why RFM over K-Means for This Use Case}
+
+\begin{decisionbox}
+K-Means clustering was considered as an alternative segmentation approach.
+Three arguments favour RFM quintiles for this dataset:
+\begin{enumerate}
+  \item \textbf{Interpretability}: Business stakeholders can understand and act
+    on ``Champions'' and ``At Risk'' segments. K-Means cluster labels are
+    arbitrary without post-hoc labelling.
+  \item \textbf{Class imbalance}: With 97\% single-purchase customers, K-Means
+    on raw RFM values would produce clusters dominated by F=1 customers with
+    little sub-group differentiation. Quintile scoring spreads customers across
+    scores regardless of the raw distribution.
+  \item \textbf{Operational directness}: Each segment maps to a specific
+    marketing action (reactivation for ``At Risk'', retention for ``Champions'').
+    K-Means clusters require interpretation before action; RFM segments are
+    pre-labelled for action.
+\end{enumerate}
+The downside of NTILE-based RFM is that quintile boundaries are not stable: they
+shift if the customer base grows. For production use, fixed absolute thresholds
+(e.g., R$<$30 days = score 5) would be more stable but require domain calibration.
+\end{decisionbox}
+
+% -----------------------------------------------------------------------------
+\section{Activation Analysis}
+\label{sec:ecom-activation}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{sql/04\_ltv\_activation.sql} (Part 2),
+  \filepath{notebooks/04\_rfm\_ltv\_activation.ipynb},
+  \filepath{streamlit/pages/3\_segmentos\_clientes.py} (tab ``Activacion'')
+}
+
+\subsection{Logistic Regression Setup}
+
+The activation analysis estimates the association between first-order
+characteristics and the probability of making a repeat purchase. The binary
+outcome is \texttt{is\_repeat} (1 if two or more delivered orders, 0 otherwise).
+The model is a standard logistic regression:
+
+\begin{equation}
+\log\!\left(\frac{p}{1-p}\right) = \beta_0 + \beta_1 x_1 + \cdots + \beta_k x_k
+\label{eq:logistic}
+\end{equation}
+
+where $p = \Prob(\text{repeat} = 1 \mid \mathbf{x})$ and predictors $x_i$
+include payment type (dummy-coded), first-order value (continuous), item count
+(categorical), and product category (top categories dummy-coded). The model is
+fitted with \texttt{statsmodels} (\texttt{Logit} class) to obtain coefficient
+estimates with standard errors and Wald test $p$-values.
+
+\subsection{Odds Ratios and Their Interpretation}
+
+Each logistic regression coefficient $\hat{\beta}_i$ is exponentiated to yield
+an odds ratio:
+
+\begin{equation}
+\widehat{\text{OR}}_i = \exp(\hat{\beta}_i)
+\label{eq:odds-ratio}
+\end{equation}
+
+An odds ratio greater than 1 indicates that the feature is associated with
+higher odds of repeat purchase, holding other features constant. The stored
+artefact \filepath{data/processed/activation\_coefficients.parquet} contains
+columns \texttt{feature}, \texttt{odds\_ratio}, \texttt{p\_value},
+\texttt{ci\_lower}, and \texttt{ci\_upper} (95\% Wald confidence intervals on
+the log-odds scale, exponentiated).
+
+\begin{keyinsight}
+\textbf{Voucher OR = 1.42}: customers who paid their first order with a voucher
+(gift card or discount code) have 1.42 times the odds of returning compared to
+other payment methods, after controlling for order value, item count, and
+category. This is the strongest statistically significant predictor in the model.
+
+Business interpretation: voucher users may have lower price sensitivity or may
+have been acquired through promotional channels that attract higher-intent buyers.
+The recommendation is to expand voucher/discount programmes targeting first-time
+buyers.
+\end{keyinsight}
+
+The dashboard renders the odds ratios on a log$_2$ scale (forest plot style)
+so that symmetric bar lengths represent equivalent fold-changes above and below
+the null (OR = 1). Green bars indicate significantly positive associations
+($p < 0.05$, OR $> 1$); red bars indicate significantly negative associations.
+
+\subsection{SQL Activation Rate Table}
+
+The SQL script \filepath{sql/04\_ltv\_activation.sql} (Part 2) computes raw
+repeat rates by feature group --- a fast univariate view complementing the
+multivariate logistic regression. It uses a \texttt{UNION ALL} to stack results
+for payment type, item count bucket, and order value quartile:
+
+\begin{lstlisting}[style=sql, caption={Activation rates by payment type (excerpt from \filepath{sql/04\_ltv\_activation.sql})}]
+SELECT
+    'payment_type'                       AS feature,
+    first_payment_type                   AS feature_value,
+    COUNT(*)                             AS customers,
+    SUM(is_repeat)                       AS repeat_customers,
+    ROUND(100.0 * SUM(is_repeat) / COUNT(*), 2) AS repeat_rate_pct
+FROM first_order_features
+GROUP BY first_payment_type
+\end{lstlisting}
+
+% -----------------------------------------------------------------------------
+\section{Revenue Concentration: Lorenz Curve and Gini Coefficient}
+\label{sec:ecom-lorenz}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{streamlit/pages/3\_segmentos\_clientes.py} (tab ``Lorenz''),
+  \filepath{notebooks/04\_rfm\_ltv\_activation.ipynb}
+}
+
+\subsection{Lorenz Curve Construction}
+
+The Lorenz curve plots cumulative revenue share against cumulative customer
+share, both sorted from lowest to highest spender. At point $(p, L(p))$, the
+bottom $p$ fraction of customers account for $L(p)$ fraction of total revenue.
+Perfect equality would yield $L(p) = p$ (the diagonal).
+
+The Python implementation in \filepath{streamlit/pages/3\_segmentos\_clientes.py}
+computes the curve directly from the \texttt{total\_revenue} column of
+\texttt{rfm\_segments.parquet}:
+
+\begin{lstlisting}[style=python, caption={Lorenz curve and Gini calculation (\filepath{streamlit/pages/3\_segmentos\_clientes.py}, lines~329--335)}]
+revenue_sorted = np.sort(rfm_raw["total_revenue"].values)
+n = len(revenue_sorted)
+cum_revenue = np.cumsum(revenue_sorted) / revenue_sorted.sum()
+cum_population = np.arange(1, n + 1) / n
+
+gini = 1 - 2 * np.trapezoid(cum_revenue, cum_population)
+\end{lstlisting}
+
+\subsection{Gini Coefficient Formula}
+
+The Gini coefficient is twice the area between the Lorenz curve and the
+line of equality:
+
+\begin{equation}
+G = 1 - 2 \int_0^1 L(p)\,\mathrm{d}p
+\label{eq:gini}
+\end{equation}
+
+In the discrete implementation, the integral is approximated with the trapezoidal
+rule (\texttt{np.trapezoid} in NumPy $\geq$ 2.0, falling back to \texttt{np.trapz}
+for earlier versions). $G = 0$ means perfect equality; $G = 1$ means one customer
+holds all revenue.
+
+\subsection{Business Interpretation}
+
+The Olist customer revenue distribution is highly concentrated. Quantifying the
+top-20\% contribution directly:
+
+\begin{lstlisting}[style=python, caption={Top-20\% revenue share calculation}]
+top_20_rev = cum_revenue[int(0.8 * n)]
+top_20_share = (1 - top_20_rev) * 100  # % held by top 20%
+\end{lstlisting}
+
+The Champions segment (R $\geq 4$, F $\geq 4$, M $\geq 4$) --- approximately
+0.1\% of customers --- generates outsized lifetime value (R\$\,545 per customer
+at 12 months vs.\ R\$\,160 average). This concentration justifies a differentiated
+retention programme for the top revenue tier.
+
+\subsection{LTV Curves by Segment}
+
+Cumulative LTV is computed in \filepath{sql/04\_ltv\_activation.sql} (Part 1)
+using a running sum window function:
+
+\begin{lstlisting}[style=sql, caption={Cumulative LTV per customer (from \filepath{sql/04\_ltv\_activation.sql})}]
+SUM(cr.monthly_revenue) OVER (
+    PARTITION BY cr.cohort_month
+    ORDER BY cr.months_since_cohort
+    ROWS UNBOUNDED PRECEDING
+) / cs.cohort_size  AS ltv_per_customer
+\end{lstlisting}
+
+The Streamlit page loads \filepath{data/processed/ltv\_curves.parquet} via
+\texttt{load\_ltv\_curves()} and renders a multi-line chart with one series per
+RFM segment, coloured by the shared categorical palette from
+\filepath{streamlit/utils/charts.py}.
+
+% -----------------------------------------------------------------------------
+\section{Dashboard Architecture: From Streamlit to a Static Export}
+\label{sec:ecom-streamlit}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{streamlit/app.py},
+  \filepath{streamlit/utils/data\_loader.py},
+  \filepath{streamlit/utils/filters.py},
+  \filepath{streamlit/pages/} (6 page files)
+}
+
+This dashboard was built twice, and the reason for the rebuild is the most
+transferable thing in the chapter. The first implementation was a six-page
+Streamlit app on Cloud Run; the second is a six-page Next.js static export served
+from the portfolio hub at \texttt{data-analyst.gonor.me/cohorts}, with no backend
+at all. Both sections below are kept: the Streamlit design is described first
+because the rebuild only became visible \emph{through} it.
+
+\subsection{First Implementation: Streamlit Page Structure}
+
+The original dashboard was a six-page Streamlit multi-page app launched via:
+\begin{lstlisting}[style=dockerfile, caption={Run command (from \filepath{Dockerfile})}]
+CMD ["streamlit", "run", "streamlit/app.py",
+     "--server.port=8501", "--server.address=0.0.0.0",
+     "--server.headless=true"]
+\end{lstlisting}
+
+\begin{table}[h]
+\centering
+\caption{Streamlit pages and their analytical content}
+\label{tab:streamlit-pages}
+\begin{tabular}{lll}
+\toprule
+\textbf{Page file} & \textbf{Title} & \textbf{Key content} \\
+\midrule
+\texttt{1\_resumen\_ejecutivo.py}   & Resumen Ejecutivo    & KPI cards, revenue trend, retention funnel \\
+\texttt{2\_retencion\_cohortes.py}  & Retención por Cohortes & Heatmaps, KM survival, cohort comparator \\
+\texttt{3\_segmentos\_clientes.py}  & Segmentos de Clientes & RFM scatter, LTV, activation OR, Lorenz \\
+\texttt{4\_analisis\_geografico.py} & Análisis Geográfico  & State rankings, delivery-retention scatter \\
+\texttt{5\_metodologia.py}          & Metodología          & Definitions, calculation logic, data docs \\
+\texttt{6\_proceso\_tecnico.py}     & Proceso Técnico      & Embedded Jupyter notebooks as HTML iframes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Data Loading and Caching (Streamlit)}
+
+All data loading was centralised in \filepath{streamlit/utils/data\_loader.py}.
+Each parquet file has a dedicated \texttt{@st.cache\_data} function so that
+repeated page navigations do not trigger re-reads from disk. The eight loader
+functions are:
+
+\begin{lstlisting}[style=python, caption={Cached loaders in \filepath{streamlit/utils/data\_loader.py}}]
+@st.cache_data
+def load_orders()          -> pd.DataFrame | None: ...  # orders_enriched.parquet
+def load_customers()       -> pd.DataFrame | None: ...  # customers_summary.parquet
+def load_cohort_retention()-> pd.DataFrame | None: ...  # cohort_retention_matrix.parquet
+def load_cohort_revenue()  -> pd.DataFrame | None: ...  # cohort_revenue_retention.parquet
+def load_survival()        -> pd.DataFrame | None: ...  # survival_data.parquet
+def load_rfm()             -> pd.DataFrame | None: ...  # rfm_segments.parquet
+def load_ltv_curves()      -> pd.DataFrame | None: ...  # ltv_curves.parquet
+def load_activation()      -> pd.DataFrame | None: ...  # activation_coefficients.parquet
+\end{lstlisting}
+
+Functions \texttt{load\_rfm()} and \texttt{load\_ltv\_curves()} additionally
+apply \texttt{\_translate\_segments()} to map English segment names to their
+Spanish equivalents for display (e.g., ``Champions'' $\to$ ``Alto Valor'').
+
+\subsection{Global Filter System --- and What It Revealed}
+
+Filters were maintained in \texttt{st.session\_state} and applied by helper
+functions in \filepath{streamlit/utils/filters.py}. Three global filters are
+available:
+
+\begin{enumerate}
+  \item \textbf{Date range} (\texttt{date\_start} / \texttt{date\_end}): applied
+    to orders via \texttt{apply\_date\_filter()} and to customers via
+    \texttt{apply\_date\_filter\_customers()} (which filters on
+    \texttt{cohort\_month} rather than \texttt{order\_purchase\_timestamp}).
+  \item \textbf{Minimum cohort size} (\texttt{min\_cohort\_size}, default 50):
+    \texttt{apply\_cohort\_size\_filter()} removes cohorts with fewer than
+    \texttt{min\_cohort\_size} customers in month 0 from the retention matrices.
+  \item \textbf{RFM segment selection} (\texttt{selected\_segments}):
+    \texttt{apply\_segment\_filter()} subsets the RFM dataframe to selected segments.
+\end{enumerate}
+
+Active filters are shown via \texttt{render\_active\_filter\_badges()}, which
+renders coloured HTML badges without recomputing any data.
+
+\begin{keyinsight}
+Read those three filters again and note what none of them does: recompute
+anything from the 96,478 delivered orders. A date range \emph{selects columns} of
+an already-aggregated retention matrix; a minimum cohort size \emph{drops rows}
+from it; a segment selection \emph{subsets} an RFM table that was scored once,
+offline. Every one is a projection over a precomputed aggregate.
+
+That is the entire argument for the rebuild. A stateful Python server is only
+required when a user action changes the computation. Here it never did --- so the
+server was doing nothing that a browser could not do over a small JSON payload,
+while costing a container, a cold start, and a second design language on the
+same domain.
+\end{keyinsight}
+
+\subsection{Second Implementation: Zero-Backend Static Export}
+
+The rebuild pre-aggregates 36\,MB of parquet into \textbf{276\,KB of JSON}
+(roughly 38\,KB gzipped) via \filepath{data-pipeline/05\_build\_web\_json.py}, and
+ships a Next.js application compiled with \texttt{output: 'export'}. The six
+pages, the filters and the interactivity all survive; the Cloud Run service does
+not.
+
+\begin{table}[h]
+\centering
+\caption{What moved where in the rebuild}
+\label{tab:ecom-rebuild}
+\begin{tabular}{lll}
+\toprule
+\textbf{Concern} & \textbf{Streamlit} & \textbf{Static export} \\
+\midrule
+Aggregation      & per request, in Python & once, in the build pipeline \\
+Filter state     & \texttt{st.session\_state} & React state in the browser \\
+Kaplan--Meier    & fitted per page load & precomputed, shipped as points \\
+Transport        & Cloud Run HTTP & static JSON under \texttt{public/cohorts/data/} \\
+Notebooks        & \texttt{components.v1.html} iframe & same HTML, served statically \\
+Cold start       & $\sim$10\,s & none \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two consequences are worth stating because they generalise beyond this project:
+
+\begin{enumerate}
+  \item \textbf{Correctness has to be proved, not assumed.} Moving the
+    computation from request time to build time means a silent divergence between
+    the parquet and the published JSON would be invisible.
+    \filepath{data-pipeline/06\_verify\_parity.py} re-derives every published
+    figure from the parquet and checks the Kaplan--Meier curve and both
+    confidence bounds against \texttt{lifelines}. It cannot run in CI, because
+    the parquet lives only in GCS.
+  \item \textbf{The data became a build input, not an artifact.} The repository's
+    global \texttt{*.json} ignore rule excluded the very files the dashboard
+    renders from. The build still succeeded and would have deployed a dashboard
+    with no numbers on it --- a failure mode that returns HTTP 200. It is now
+    covered by an explicit negation in \filepath{.gitignore}, a gate test
+    asserting a rendered figure, and a health probe on
+    \texttt{/cohorts/data/meta.json}.
+\end{enumerate}
+
+\subsection{Publishing the Notebooks (``Proceso Técnico'')}
+
+Page 6 publishes the analytical pipeline inside the dashboard itself. The four
+Jupyter notebooks are pre-converted to static HTML using:
+
+\begin{lstlisting}[style=dockerfile, caption={Notebook export command}]
+jupyter nbconvert --to html \
+  --output-dir=streamlit/notebooks_html \
+  notebooks/*.ipynb
+\end{lstlisting}
+
+The HTML files are committed to git. Under Streamlit they were
+\texttt{COPY}-ed into the Docker image and rendered with
+\texttt{streamlit.components.v1.html()}:
+
+\begin{lstlisting}[style=python, caption={Notebook rendering in \filepath{streamlit/pages/6\_proceso\_tecnico.py}, lines~113--116}]
+with open(path, "r", encoding="utf-8") as f:
+    html_content = f.read()
+
+components.html(html_content, height=800, scrolling=True)
+\end{lstlisting}
+
+The static export keeps the pattern and drops the container: the same HTML now
+lives under the app's own \texttt{public/} slug and is rendered in a plain
+\texttt{<iframe>}. Either way, each tab shows one notebook with a description
+card explaining its inputs and outputs, giving portfolio reviewers full
+visibility into the analytical pipeline without leaving the dashboard.
+
+\begin{keyinsight}
+Assets must live under the application's own slug
+(\texttt{public/cohorts/\ldots}), never at the root. Seven dashboards share one
+origin in the merged hub, and a root-level asset from one of them would collide
+with another's. See Chapter~\ref{ch:infrastructure}.
+\end{keyinsight}
+
+% -----------------------------------------------------------------------------
+\section{SQL Scripts Reference}
+\label{sec:ecom-sql}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{sql/01\_cohort\_assignment.sql},
+  \filepath{sql/02\_retention\_matrix.sql},
+  \filepath{sql/03\_rfm\_segmentation.sql},
+  \filepath{sql/04\_ltv\_activation.sql},
+  \filepath{sql/05\_geographic\_retention.sql}
+}
+
+The five SQL scripts are written for PostgreSQL and share a common structure:
+delivered orders are always the base CTE (filtering \texttt{order\_status =
+'delivered'}), and \texttt{customer\_unique\_id} is consistently used as the
+person-level key.
+
+\begin{table}[h]
+\centering
+\caption{SQL scripts, key techniques, and business questions}
+\label{tab:sql-scripts}
+\begin{tabularx}{\textwidth}{lXl}
+\toprule
+\textbf{Script} & \textbf{Business question answered} & \textbf{Key technique} \\
+\midrule
+\texttt{01\_cohort\_assignment.sql} &
+  Which cohort does each customer belong to? &
+  \texttt{ROW\_NUMBER()}, \texttt{DATE\_TRUNC}, \texttt{AGE} \\
+\texttt{02\_retention\_matrix.sql} &
+  What \% of each cohort returns each month? &
+  \texttt{CASE-WHEN} pivot, \texttt{COUNT(DISTINCT)} \\
+\texttt{03\_rfm\_segmentation.sql} &
+  How do customers segment by RFM? &
+  \texttt{NTILE(5)}, \texttt{CASE} segment mapping \\
+\texttt{04\_ltv\_activation.sql} &
+  What drives repeat purchase (activation)? &
+  Running \texttt{SUM() OVER}, \texttt{DISTINCT ON}, \texttt{UNION ALL} \\
+\texttt{05\_geographic\_retention.sql} &
+  Which states retain better and why? &
+  \texttt{FILTER (WHERE ...)}, \texttt{RANK() OVER} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The geographic retention script uses the \texttt{FILTER} aggregate modifier
+to compute on-time delivery rate and repeat customer count in a single pass:
+
+\begin{lstlisting}[style=sql, caption={Conditional aggregation with FILTER (from \filepath{sql/05\_geographic\_retention.sql})}]
+ROUND(100.0 * COUNT(*) FILTER (
+    WHERE d.order_delivered_customer_date <= d.order_estimated_delivery_date
+) / COUNT(*), 2)                           AS on_time_pct,
+
+COUNT(DISTINCT customer_unique_id) FILTER (
+    WHERE order_count >= 2
+)                                          AS repeat_customers
+\end{lstlisting}
+
+States with fewer than 50 customers are filtered out of the ranking to avoid
+noise from low sample sizes (\texttt{WHERE total\_customers >= 50}).
+
+% -----------------------------------------------------------------------------
+\section{Key Findings Summary}
+\label{sec:ecom-findings}
+% -----------------------------------------------------------------------------
+
+\begin{table}[h]
+\centering
+\caption{Key quantitative findings from the Olist analysis}
+\label{tab:ecom-findings}
+\begin{tabular}{lll}
+\toprule
+\textbf{Finding} & \textbf{Value} & \textbf{Implication} \\
+\midrule
+Repeat purchase rate          & 3.0\%   & Extreme retention challenge \\
+Repeat customer total revenue & 1.92x   & Driven by 2.1 orders, not basket size \\
+Repeat customer \emph{per order}  & 0.91x   & Returning buyers spend \emph{less} per order \\
+Voucher payment OR            & 1.42    & Expand voucher first-order incentives \\
+Late delivery rate            & 8.1\%   & Delivery accuracy is a retention lever \\
+Median wait among returners   & 82 days & Concentrate, do not cut off, at Q1 \\
+Champions LTV (12 months)     & R\$\,545 vs.\ R\$\,160 avg & Prioritise top segment \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% -----------------------------------------------------------------------------
+\section{Challenge and Interview Questions}
+\label{sec:ecom-questions}
+% -----------------------------------------------------------------------------
+
+\begin{challengebox}
+\textbf{Retention matrix normalisation.} The retention matrix is constructed by
+dividing each row by its month-0 count. What happens if a customer places two
+orders in month 0? Are they counted twice in the denominator? Trace through the
+SQL in \texttt{02\_retention\_matrix.sql} to determine how this is handled.
+\end{challengebox}
+
+\begin{challengebox}
+\textbf{Censoring bias direction.} The dataset ends in October 2018. For cohorts
+formed in September 2018, customers have had at most two months to reorder. In
+which direction does ignoring censoring bias the estimated repeat rate --- and
+for which cohorts is the bias largest?
+\end{challengebox}
+
+\begin{challengebox}
+\textbf{Gini coefficient edge case.} If all customers have exactly equal revenue,
+$G = 0$. If one customer holds all revenue, $G = 1$. Verify that the discrete
+trapezoidal approximation in the code converges to these limits for $n = 100$
+customers.
+\end{challengebox}
+
+\begin{challengebox}
+\textbf{NTILE stability.} The RFM scores are computed as quintiles of the current
+customer base. If 10,000 new customers join with low recency scores, how do the
+quintile boundaries shift, and what happens to existing Champions?
+\end{challengebox}
+
+\begin{interviewbox}
+\textbf{Why Kaplan-Meier rather than a simple proportion?} A hiring manager asks:
+``Why not just compute repeat rate as 2801 / 93358 = 3\%?'' Explain in two sentences
+what information the KM curve adds that the simple proportion does not.
+\end{interviewbox}
+
+\begin{interviewbox}
+\textbf{Interpreting OR = 1.42.} Explain to a non-technical product manager what
+it means that voucher payment has an odds ratio of 1.42 for repeat purchase.
+Avoid the word ``odds''. Frame it in terms of risk or probability.
+\end{interviewbox}
+
+\begin{interviewbox}
+\textbf{Confounding in the activation analysis.} A colleague points out that
+voucher users may also have placed higher-value first orders, and higher order
+value is itself associated with return probability. How does the multivariate
+logistic regression address this concern, and what residual confounding might
+remain?
+\end{interviewbox}
+
+\begin{interviewbox}
+\textbf{Lorenz curve business case.} The Gini coefficient shows high revenue
+concentration. A VP asks: ``Should we focus on acquiring more Champions or on
+converting Hibernating customers?'' Walk through the data-driven argument for
+each position and state which you would recommend.
+\end{interviewbox}

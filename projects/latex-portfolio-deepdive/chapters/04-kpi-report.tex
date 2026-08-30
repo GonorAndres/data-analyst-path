@@ -1,0 +1,646 @@
+% =============================================================================
+% CHAPTER 04 -- Executive KPI Report
+% Project: NovaCRM SaaS dashboard with anomaly detection, forecasting,
+%          and automated bilingual PDF report generation.
+% =============================================================================
+
+\chapter{Executive KPI Report}
+\label{ch:kpi}
+
+\section{Business Context}
+\label{sec:kpi-context}
+
+\sourcefiles{%
+  \filepath{projects/04-executive-kpi-report/README.md},
+  \filepath{data-pipeline/01\_generate\_saas\_data.py}
+}
+
+Executives at B2B SaaS companies live and die by a handful of metrics: is revenue growing, are customers staying, and is the unit economics engine working? The problem is that most companies produce these numbers manually -- an analyst pulls SQL, pastes into Excel, formats a slide deck, and emails a PDF every month. The process takes two days, is prone to copy-paste errors, and the result is stale by the time it lands in inboxes.
+
+This project builds an automated alternative. The fictional company \textbf{NovaCRM} is a mid-market B2B SaaS firm in the \$5M--\$12M ARR range. The system:
+\begin{enumerate}
+  \item Generates 24 months of reproducible synthetic data with deliberate business events injected.
+  \item Computes the full SaaS metric suite: MRR waterfall, NRR, churn rates, unit economics, engagement, and financial health.
+  \item Runs anomaly detection across all KPIs to surface statistically unusual months.
+  \item Produces 6-period forecasts with confidence intervals using Holt-Winters exponential smoothing.
+  \item Exposes everything through a FastAPI backend consumed by a Next.js dashboard.
+  \item Generates a downloadable bilingual (English / Spanish) PDF report on demand.
+\end{enumerate}
+
+\begin{keyinsight}
+The key insight motivating automated KPI reporting is that \textbf{the value is not in the numbers but in the signal extraction}. A static table of MRR values tells an executive nothing. A report that says ``churn spiked 2.3 standard deviations above the 6-month baseline in July 2024, coinciding with the pricing change'' is actionable. Automation makes signal extraction reproducible and timely.
+\end{keyinsight}
+
+% -----------------------------------------------------------------------------
+\section{Data Generation}
+\label{sec:kpi-data}
+
+\sourcefiles{%
+  \filepath{data-pipeline/01\_generate\_saas\_data.py}
+}
+
+Because no real SaaS company would share their internal KPI data, the project uses a deterministic synthetic generator. The seed \texttt{np.random.default\_rng(42)} ensures every run produces identical numbers, which is critical for a portfolio project where reviewers must be able to reproduce charts independently.
+
+\subsection{Company Parameters}
+
+NovaCRM starts in January 2024 with:
+\begin{itemize}
+  \item MRR: \$420,000 (ARR \(\approx\) \$5.0M)
+  \item 310 total customers across three segments: \textbf{Starter} (55\% of logos, 15\% of MRR), \textbf{Professional} (30\% logos, 40\% MRR), and \textbf{Enterprise} (15\% logos, 45\% MRR).
+  \item NPS baseline: 45
+  \item DAU: 4,800 / MAU: 14,500
+\end{itemize}
+
+The revenue-to-customer ratio illustrates a classic SaaS pattern: Enterprise customers are few in number but disproportionately large in revenue, making their churn economically devastating compared with Starter churn.
+
+\subsection{Seasonality Function}
+
+Business acquisition follows a seasonal pattern encoded in \texttt{\_seasonal\_factor()}:
+
+\begin{lstlisting}[style=python, caption={Seasonal multiplier for new business.}]
+def _seasonal_factor(month_dt: pd.Timestamp) -> float:
+    m = month_dt.month
+    if m == 12:
+        return 0.65              # holiday stall
+    if m in (6, 7, 8):
+        return 0.80 + RNG.uniform(-0.03, 0.03)
+    if m in (1, 2, 3):
+        return 1.10 + RNG.uniform(-0.03, 0.03)  # Q1 budget flush
+    return 1.0 + RNG.uniform(-0.05, 0.05)
+\end{lstlisting}
+
+December drops to 65\% of baseline -- decision-makers are on holiday and budget approvals stall. Q1 surges 10\% above baseline because companies deploy freshly approved budgets. Summer runs 20\% below baseline. This mirrors empirically observed B2B seasonality.
+
+\subsection{Injected Business Events}
+
+Two events are deliberately baked into the simulation:
+
+\begin{description}
+  \item[Q3 2024 -- Pricing change churn spike.] July 2024 receives a \texttt{pricing\_severity} of 1.0 (full impact), August 0.6, September 0.25. This adds up to 2\% to the monthly revenue churn rate, up to 2\% to logo churn, spikes support tickets by 25\%, and drops NPS by up to 10 points.
+  \item[Q2 2025 -- Product launch growth bump.] May 2025 gets \texttt{launch\_severity} = 1.0. New MRR inflates by 40\%, expansion MRR by 70\%, CAC drops by up to \$1,500 due to inbound demand, and NPS gains up to 8 points.
+\end{description}
+
+These events serve a dual purpose: they make the data narratively interesting (something actually happened), and they validate the anomaly detection system -- a detector that misses a 2\% churn spike is not useful.
+
+\subsection{MRR Waterfall Components}
+
+Each month, MRR evolves through four components:
+
+\begin{align}
+  \text{MRR}_{t} = \text{MRR}_{t-1} + \text{New}_{t} + \text{Expansion}_{t} - \text{Contraction}_{t} - \text{Churned}_{t}
+\end{align}
+
+The generation targets a long-run NRR of approximately 108\%, achieved through:
+\begin{itemize}
+  \item Expansion rate: \(\approx 3.0\%\) of MRR/month (growing slowly as Enterprise share increases)
+  \item Revenue churn rate: \(\approx 2.0\%\) of MRR/month
+  \item Contraction rate: \(\approx 0.6\%\) of MRR/month
+  \item Net monthly retention ratio: \(\approx 1.007\), which annualises to \(1.007^{12} \approx 1.087\)
+\end{itemize}
+
+\begin{decisionbox}
+Why simulate rather than use a public dataset? Public SaaS datasets either lack the metric granularity needed (most share only revenue-level data), or they contain real customer information that creates privacy concerns. Simulation allows full control over the narrative arc: specific events at specific months, with known ground truth to validate the detection algorithms. The trade-off is that reviewers must trust the generation logic -- which is why the seed and all parameters are fully documented.
+\end{decisionbox}
+
+% -----------------------------------------------------------------------------
+\section{SaaS Metrics Deep-Dive}
+\label{sec:kpi-metrics}
+
+\sourcefiles{%
+  \filepath{data-pipeline/02\_compute\_kpis.py},
+  \filepath{backend/kpi\_backend/routers/overview.py}
+}
+
+\subsection{Revenue Metrics}
+
+\paragraph{MRR and ARR.}
+Monthly Recurring Revenue is the sum of all contracted monthly subscription fees. Annual Recurring Revenue is simply \(\text{ARR} = 12 \times \text{MRR}\). Both exclude one-time fees, professional services revenue, and variable usage charges. The generator produces MRR ranging from \$420K at start to approximately \$780K--\$900K by December 2025.
+
+\paragraph{MRR Waterfall.}
+The waterfall decomposition in \texttt{analytics\_engine.mrr\_waterfall()} breaks MRR movement into five labelled components:
+
+\begin{equation}
+  \underbrace{\text{Ending MRR}}_{\text{result}} =
+  \underbrace{\text{Starting MRR}}_{\text{base}} +
+  \underbrace{\text{New}}_{\text{new logos}} +
+  \underbrace{\text{Expansion}}_{\text{upsell/seat growth}} -
+  \underbrace{\text{Contraction}}_{\text{downgrades}} -
+  \underbrace{\text{Churned}}_{\text{cancellations}}
+\end{equation}
+
+This decomposition is essential for diagnosis. A flat MRR trend could hide a healthy expansion engine completely offset by churn -- or vice versa. The waterfall reveals which lever needs attention.
+
+\paragraph{Net Revenue Retention (NRR).}
+NRR measures revenue retained and grown from the existing customer base, excluding new logos:
+
+\begin{equation}
+  \text{NRR} = \frac{\text{MRR}_{\text{start}} + \text{Expansion} - \text{Contraction} - \text{Churned}}{\text{MRR}_{\text{start}}}
+\end{equation}
+
+The generator computes a monthly retention ratio and annualises it: \(\text{NRR}_{\text{annual}} = r_{\text{monthly}}^{12}\). NRR $> 1.0$ (or \(>100\%\)) means the existing customer base is growing on its own, without any new logos. SaaS companies with NRR \(\geq 120\%\) can grow ARR even with zero new customer acquisition.
+
+\begin{table}[h]
+\centering
+\caption{NRR benchmarks for B2B SaaS companies.}
+\begin{tabular}{lll}
+\toprule
+\textbf{NRR} & \textbf{Interpretation} & \textbf{Traffic Light} \\
+\midrule
+$\geq 120\%$ & Best-in-class (e.g.\ Snowflake, Datadog) & Green \\
+$110$--$120\%$ & Healthy -- expansion offsets churn well & Green \\
+$100$--$110\%$ & Adequate -- moderate expansion & Yellow \\
+$< 100\%$    & Contracting existing base & Red \\
+\bottomrule
+\end{tabular}
+\label{tab:nrr-benchmarks}
+\end{table}
+
+NovaCRM targets NRR = 110\% (\texttt{NRR\_TARGET = 1.10}). The Enterprise segment alone runs at \(\approx 112\%\) due to seat expansion and upsell; Starter customers run below 100\% because they churn faster than they expand.
+
+\subsection{Customer Metrics}
+
+\paragraph{Logo Churn Rate.}
+Logo churn counts the fraction of customers who cancelled in a period:
+\begin{equation}
+  \text{Logo Churn} = \frac{\text{Customers Churned}_{t}}{\text{Customers at Start of Period}_{t}}
+\end{equation}
+
+The generator uses a beginning-of-period denominator: \texttt{total\_customers + churned\_customers}. Segment baselines are: Starter 5.5\%/month, Professional 3.0\%/month, Enterprise 1.2\%/month. These reflect the empirical reality that smaller, cheaper customers are easier to cancel.
+
+\paragraph{Revenue Churn Rate.}
+Revenue churn measures the fraction of MRR lost to cancellations, not counting downgrades:
+\begin{equation}
+  \text{Revenue Churn} = \frac{\text{Churned MRR}_{t}}{\text{MRR}_{t-1}}
+\end{equation}
+
+Revenue churn exceeding logo churn signals that larger (more valuable) accounts are leaving at a higher rate -- a critical warning sign. The \texttt{generate\_customer\_commentary()} function in \filepath{commentary.py} explicitly flags this condition when \(\text{Revenue Churn} - \text{Logo Churn} > 0.01\).
+
+\paragraph{LTV:CAC Ratio.}
+Customer Lifetime Value divided by Customer Acquisition Cost is the fundamental unit economics check:
+\begin{align}
+  \text{LTV} &= \frac{\text{ARPU} \times 12}{\text{Logo Churn Rate}} \times \text{Gross Margin} \\
+  \text{LTV:CAC} &= \frac{\text{LTV}}{\text{CAC}}
+\end{align}
+
+The simplified formula assumes constant ARPU and churn. Gross margin adjustment (the project uses 80\%) accounts for the fact that not all revenue flows to the bottom line. Industry benchmarks: LTV:CAC $\geq 3\times$ is healthy; $\geq 5\times$ is excellent; $< 1\times$ means the business loses money on every customer it acquires.
+
+\paragraph{Payback Period.}
+The number of months to recover CAC from a customer's gross profit:
+\begin{equation}
+  \text{Payback Months} = \frac{\text{CAC}}{\text{ARPU}}
+\end{equation}
+
+NovaCRM targets payback under 12 months. During the product launch (Q2 2025), inbound demand reduces CAC by up to \$1,500 and payback shortens accordingly.
+
+\subsection{The Rule of 40}
+
+The Rule of 40 is a heuristic balance between growth and profitability. SaaS companies that score $\geq 40$ are considered healthy; below 40 indicates over-investment in growth without corresponding efficiency, or stagnation:
+
+\begin{equation}
+  \text{Rule of 40} = \text{Revenue Growth Rate (annualised, \%)} + \text{Gross Margin (\%)} \geq 40
+\end{equation}
+
+The generator computes it as:
+\begin{lstlisting}[style=python, caption={Rule of 40 computation in 01\_generate\_saas\_data.py.}]
+annualized_growth = (mrr / mrr_prev - 1) * 12
+rule_of_40 = annualized_growth + gross_margin   # both as ratios
+rule_of_40_pct = rule_of_40 * 100               # as percentage points
+\end{lstlisting}
+
+A company growing MRR at 2\% per month (\(\approx 27\%\) annualised) with 78\% gross margin scores \(27 + 78 = 105\), well above 40 -- the margin subsidises modest growth. A company growing 50\% but at 0\% margin still scores 50, which passes the test.
+
+% -----------------------------------------------------------------------------
+\section{Anomaly Detection}
+\label{sec:kpi-anomaly}
+
+\sourcefiles{%
+  \filepath{backend/kpi\_backend/analytics\_engine.py},
+  \filepath{backend/kpi\_backend/routers/anomalies.py},
+  \filepath{notebooks/03\_anomaly\_detection.ipynb}
+}
+
+\subsection{Z-Score Method}
+
+The z-score measures how many standard deviations a value lies from the global mean of the series:
+
+\begin{equation}
+  z_i = \frac{x_i - \bar{x}}{\sigma}
+\end{equation}
+
+The implementation in \texttt{detect\_anomalies\_zscore()} scans any series and flags values where $|z_i| \geq \theta$, with $\theta = 2.0$ as the default threshold:
+
+\begin{lstlisting}[style=python, caption={Z-score detection in analytics\_engine.py.}]
+def detect_anomalies_zscore(series, index_labels=None, threshold=2.0):
+    if series.empty or series.std() == 0:
+        return []
+    mean = series.mean()
+    std = series.std()
+    zscores = (series - mean) / std
+    anomalies = []
+    for i, z in enumerate(zscores):
+        if abs(z) >= threshold:
+            anomalies.append({
+                "month": str(index_labels.iloc[i]),
+                "value": round(float(series.iloc[i]), 4),
+                "zscore": round(float(z), 4),
+                "severity": anomaly_severity(z),
+            })
+    return anomalies
+\end{lstlisting}
+
+\subsection{IQR Method}
+
+The IQR (Interquartile Range) method defines fences using the data's quartiles:
+
+\begin{align}
+  \text{IQR} &= Q_3 - Q_1 \\
+  \text{Lower fence} &= Q_1 - k \cdot \text{IQR} \\
+  \text{Upper fence} &= Q_3 + k \cdot \text{IQR}
+\end{align}
+
+with $k = 1.5$ (standard Tukey fences). The IQR method is robust to outliers because quartiles resist extreme values -- a single catastrophic month does not inflate $Q_1$ or $Q_3$ the way it inflates $\bar{x}$ and $\sigma$. The implementation computes an approximate z-score for detected outliers to maintain a consistent severity classification across both methods.
+
+\subsection{Dual Method Strategy}
+
+The \texttt{/api/v1/anomalies} endpoint accepts a \texttt{method} parameter accepting \texttt{zscore}, \texttt{iqr}, or \texttt{both}. When both methods run, the router deduplicates by (metric, month) key, keeping the higher severity classification:
+
+\begin{lstlisting}[style=python, caption={Deduplication logic in anomalies router.}]
+seen = set()
+unique_anomalies = []
+for a in all_anomalies:
+    key = (a["metric"], a["month"])
+    if key not in seen:
+        seen.add(key)
+        unique_anomalies.append(a)
+    else:
+        for existing in unique_anomalies:
+            if existing["metric"] == a["metric"] and \
+               existing["month"] == a["month"]:
+                sev_order = {"critical": 3, "warning": 2, "info": 1}
+                if sev_order.get(a["severity"], 0) > \
+                   sev_order.get(existing["severity"], 0):
+                    existing.update(a)
+                break
+\end{lstlisting}
+
+The rationale for running both methods is agreement analysis: when both z-score and IQR flag the same (metric, month) pair, confidence in the anomaly is higher. The notebook analysis showed approximately 80\% overlap at default thresholds, with the union catching known events that either method alone sometimes missed at tight thresholds.
+
+\subsection{Severity Classification}
+
+The \texttt{anomaly\_severity()} function maps z-score magnitude to a three-tier system:
+
+\begin{table}[h]
+\centering
+\caption{Anomaly severity thresholds.}
+\begin{tabular}{lll}
+\toprule
+\textbf{Severity} & \textbf{Condition} & \textbf{Interpretation} \\
+\midrule
+\texttt{info}     & $1.0 \leq |z| < 2.0$  & Notable deviation; monitor \\
+\texttt{warning}  & $2.0 \leq |z| < 3.0$  & Unusual; investigate \\
+\texttt{critical} & $|z| \geq 3.0$        & Extreme; escalate immediately \\
+\bottomrule
+\end{tabular}
+\label{tab:anomaly-severity}
+\end{table}
+
+The July 2024 churn spike (pricing change) produces a z-score of approximately $+2.3$ for logo churn rate, correctly classified as \texttt{warning}. The support ticket spike in the same period may reach $|z| > 3$, triggering a \texttt{critical} alert.
+
+\subsection{Metrics Scanned}
+
+The anomaly router scans twelve metrics: \texttt{mrr}, \texttt{arr}, \texttt{nrr}, \texttt{logo\_churn\_rate}, \texttt{revenue\_churn\_rate}, \texttt{nps}, \texttt{ltv\_cac\_ratio}, \texttt{rule\_of\_40}, \texttt{gross\_margin}, \texttt{dau\_mau\_ratio}, \texttt{cac}, and \texttt{payback\_months}. The broader scan catches positive anomalies (growth accelerations) as well as negative ones -- the Q2 2025 product launch registers as a positive anomaly in new MRR and expansion MRR.
+
+\begin{keyinsight}
+Z-score uses the global 24-month mean and standard deviation. The KPI pipeline (\filepath{data-pipeline/02\_compute\_kpis.py}) also pre-computes \textit{rolling} 6-month z-scores (\texttt{zscore\_\{metric\}} columns). Rolling z-scores adapt to recent trends: a value that was anomalous in month 3 may appear normal by month 18 if the series has shifted. The API uses global z-scores for absolute benchmarking; rolling z-scores are available in the pre-computed parquets for trend-adjusted alerting.
+\end{keyinsight}
+
+% -----------------------------------------------------------------------------
+\section{Forecasting with Holt-Winters}
+\label{sec:kpi-forecast}
+
+\sourcefiles{%
+  \filepath{backend/kpi\_backend/analytics\_engine.py},
+  \filepath{backend/kpi\_backend/routers/forecast.py},
+  \filepath{notebooks/04\_forecasting.ipynb}
+}
+
+\subsection{Model Selection}
+
+With 24 months of data, the viable forecasting options are limited. ARIMA with seasonal components needs at least 2--3 full seasonal cycles. Prophet works but adds a large dependency for marginal accuracy gain on short series. The choice is \textbf{Holt-Winters exponential smoothing with additive trend and no seasonal component}.
+
+The seasonal component is omitted because:
+\begin{enumerate}
+  \item Only 24 months = 2 seasonal cycles, insufficient for reliable seasonal parameter estimation.
+  \item MRR is a cumulative stock variable -- its month-to-month movements are small relative to its level, so seasonality in increments is weak.
+\end{enumerate}
+
+The model equation for $h$-step-ahead forecast:
+\begin{equation}
+  \hat{y}_{t+h} = l_t + h \cdot b_t
+\end{equation}
+
+where the level $l_t$ and trend $b_t$ are updated at each period:
+\begin{align}
+  l_t &= \alpha \cdot y_t + (1 - \alpha)(l_{t-1} + b_{t-1}) \\
+  b_t &= \beta(l_t - l_{t-1}) + (1 - \beta) b_{t-1}
+\end{align}
+
+Parameters $\alpha$ (level smoothing) and $\beta$ (trend smoothing) are optimised by maximum likelihood via \texttt{statsmodels} when available. The implementation in \texttt{exponential\_smoothing\_forecast()} falls back to simple exponential smoothing (no trend, $l_t = \alpha y_t + (1-\alpha) l_{t-1}$) when statsmodels is absent or when the series has fewer than 3 observations.
+
+\subsection{Confidence Interval Construction}
+
+Prediction intervals are approximated from the residual standard error (RSE) with a horizon-dependent widening factor:
+
+\begin{align}
+  w_i &= \text{RSE} \times 1.96 \times \sqrt{1 + 0.1 \cdot i} \\
+  \text{CI}_{i}^{\pm} &= \hat{y}_{t+i} \pm w_i
+\end{align}
+
+where $i \in \{0, 1, \ldots, h-1\}$ is the step index. The $\sqrt{1 + 0.1i}$ factor widens the interval as the horizon increases, reflecting greater uncertainty further into the future.
+
+\begin{lstlisting}[style=python, caption={CI construction in analytics\_engine.py.}]
+residuals = values - fitted
+rse = float(np.std(residuals))
+ci_lower, ci_upper = [], []
+for i in range(periods):
+    width = rse * 1.96 * np.sqrt(1 + i * 0.1)
+    ci_lower.append(round(float(fcast[i] - width), 2))
+    ci_upper.append(round(float(fcast[i] + width), 2))
+\end{lstlisting}
+
+\subsection{Fallback Strategy}
+
+If \texttt{statsmodels} raises any exception (convergence failure, degenerate series, too-short input), the engine falls back to manual simple exponential smoothing with the supplied $\alpha$. The fallback produces flat (no-trend) forecasts, which is conservative but never crashes. This defensive pattern is appropriate for production APIs where a broken forecast is worse than a simple one.
+
+\subsection{Forecast Accuracy (Cross-Validated)}
+
+Notebook 04 runs rolling-origin cross-validation with a minimum of 12 training months and maximum 3-step-ahead forecasts. Typical cross-validated MAPE values are:
+
+\begin{table}[h]
+\centering
+\caption{Holt-Winters cross-validated MAPE by metric and horizon.}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Metric} & \textbf{+1 Month MAPE} & \textbf{+3 Month MAPE} \\
+\midrule
+MRR            & $\approx 1$--$2\%$ & $\approx 3$--$5\%$ \\
+Logo Churn Rate & $\approx 5$--$15\%$ & $\approx 10$--$25\%$ \\
+NPS            & $\approx 3$--$8\%$ & $\approx 5$--$12\%$ \\
+\bottomrule
+\end{tabular}
+\label{tab:forecast-accuracy}
+\end{table}
+
+MRR is the most forecastable because its strong trend dominates over noise. Logo churn is the hardest: the pricing change spike creates large residuals that inflate RSE and widen confidence intervals. The production API forecasts six metrics: \texttt{mrr}, \texttt{logo\_churn\_rate}, \texttt{nps}, \texttt{arr}, \texttt{nrr}, and \texttt{cac}, all using \texttt{exponential\_smoothing\_forecast()} with \texttt{periods=6}.
+
+% -----------------------------------------------------------------------------
+\section{Health Score Composite}
+\label{sec:kpi-health}
+
+\sourcefiles{%
+  \filepath{data-pipeline/02\_compute\_kpis.py},
+  \filepath{backend/kpi\_backend/analytics\_engine.py}
+}
+
+The health score condenses the six most diagnostic SaaS metrics into a single 0--100 number displayed as an animated SVG ring gauge in the dashboard. Two implementations exist: a vectorised pipeline version in \filepath{02\_compute\_kpis.py} and a row-level runtime version in \texttt{analytics\_engine.compute\_health\_score()}.
+
+\subsection{Six-Metric Weighted Composite}
+
+\begin{equation}
+  H = \sum_{k=1}^{6} w_k \cdot s_k \in [0, 100]
+\end{equation}
+
+where $\sum w_k = 1$ and each component score $s_k$ is a linear scaling of the raw metric value between a ``bad'' threshold (score = 0) and a ``good'' threshold (score = 100):
+
+\begin{equation}
+  s(\text{metric}) = \frac{\text{metric} - \text{bad}}{\text{good} - \text{bad}} \times 100, \quad \text{clamped to } [0, 100]
+\end{equation}
+
+For lower-is-better metrics (churn), the scaling is inverted. Table~\ref{tab:health-weights} shows the component definitions.
+
+\begin{table}[h]
+\centering
+\caption{Health score components, weights, and scaling thresholds.}
+\begin{tabular}{llrll}
+\toprule
+\textbf{Component} & \textbf{Metric} & \textbf{Weight} & \textbf{Good} & \textbf{Bad} \\
+\midrule
+MRR Growth Score & MoM MRR growth        & 20\% & $\geq 5\%$/mo    & $\leq 0\%$/mo \\
+NRR Score        & Net Revenue Retention & 20\% & $\geq 115\%$     & $\leq 95\%$ \\
+Churn Score      & Logo churn (inverted) & 15\% & $\leq 2\%$/mo    & $\geq 5\%$/mo \\
+NPS Score        & NPS                   & 15\% & $\geq 55$        & $\leq 25$ \\
+Rule of 40 Score & Rule of 40 (\%)       & 15\% & $\geq 40$        & $\leq 15$ \\
+LTV:CAC Score    & LTV:CAC ratio         & 15\% & $\geq 4.0\times$ & $\leq 1.5\times$ \\
+\midrule
+\multicolumn{2}{l}{Total}               & 100\% & & \\
+\bottomrule
+\end{tabular}
+\label{tab:health-weights}
+\end{table}
+
+\subsection{Traffic Light Classification}
+
+The health score maps to a three-level traffic light used for colour coding throughout the UI and PDF:
+\begin{itemize}
+  \item \textbf{Green}: $H \geq 75$ -- company is healthy.
+  \item \textbf{Yellow}: $50 \leq H < 75$ -- attention required.
+  \item \textbf{Red}: $H < 50$ -- urgent action needed.
+\end{itemize}
+
+The per-metric traffic lights (for KPI cards) use a target comparison rather than fixed thresholds. For higher-is-better metrics: green if $\text{value} / \text{target} \geq 1.0$, yellow if $\geq 0.90$, red otherwise. For lower-is-better metrics (churn), the ratio is inverted -- the \texttt{traffic\_light\_status()} function in \filepath{analytics\_engine.py} handles both directions with a \texttt{higher\_is\_better} flag.
+
+\begin{decisionbox}
+Why 20\% weight on both MRR growth and NRR? SaaS companies fail in two distinct ways: they stop acquiring new customers (MRR growth collapses) or they lose existing ones faster than they can replace them (NRR falls below 100\%). Weighting both equally ensures neither failure mode is masked by the other. Churn, NPS, Rule of 40, and LTV:CAC each take 15\% as secondary signals that corroborate the primary revenue story.
+\end{decisionbox}
+
+% -----------------------------------------------------------------------------
+\section{PDF Report Generation}
+\label{sec:kpi-pdf}
+
+\sourcefiles{%
+  \filepath{backend/kpi\_backend/report\_generator.py},
+  \filepath{backend/kpi\_backend/commentary.py},
+  \filepath{backend/kpi\_backend/routers/report.py}
+}
+
+\subsection{fpdf2 and Kaleido}
+
+The report is generated as a PDF byte stream using \texttt{fpdf2}, a pure-Python PDF library that requires no external binaries. Plotly charts are rasterised to PNG via \texttt{kaleido} (Plotly's headless renderer) and embedded as images.
+
+The \texttt{\_render\_chart\_png()} helper writes a Plotly figure to a temporary file at 700$\times$350 pixels at $2\times$ scale (1400$\times$700 effective resolution). Temporary files are tracked in a list and deleted in the \texttt{finally} block of \texttt{generate\_report()} regardless of whether generation succeeds or fails, preventing disk accumulation.
+
+\subsection{PDF Structure}
+
+The \texttt{\_KPIReport} class subclasses \texttt{FPDF} to inject a consistent header (report title + date on every page) and footer (bilingual page number). The \texttt{generate\_report()} function accepts a \texttt{sections} list so the user can request a partial report:
+
+\begin{table}[h]
+\centering
+\caption{PDF report sections and their default inclusion.}
+\begin{tabular}{lll}
+\toprule
+\textbf{Section ID} & \textbf{Content} & \textbf{Default} \\
+\midrule
+\texttt{cover}              & Title page with period info               & Yes \\
+\texttt{executive\_summary} & 3--5 sentence narrative + health score    & Yes \\
+\texttt{kpi\_dashboard}     & Colour-coded KPI table (7 columns)        & Yes \\
+\texttt{revenue\_analysis}  & Revenue commentary + waterfall chart      & Yes \\
+\texttt{customer\_health}   & Customer narrative (NPS, churn, tickets)  & Yes \\
+\texttt{anomaly\_alerts}    & Anomaly narrative + flagged items table   & Yes \\
+\texttt{forecast}           & Per-metric forecast tables with CI        & Yes \\
+\texttt{recommendations}    & Data-driven action items                  & Yes \\
+\bottomrule
+\end{tabular}
+\label{tab:pdf-sections}
+\end{table}
+
+The ReportPanel component in the Next.js dashboard lets users select a subset of sections via checkboxes, choose the output language, then fetch \texttt{/api/kpi/api/v1/report/generate}. The browser receives a blob and creates a temporary download link using \texttt{window.URL.createObjectURL()}.
+
+\subsection{Bilingual NLG Commentary}
+
+The \filepath{commentary.py} module provides four generators: \texttt{generate\_executive\_summary()}, \texttt{generate\_revenue\_commentary()}, \texttt{generate\_customer\_commentary()}, and \texttt{generate\_anomaly\_narrative()}. All accept \texttt{lang=\textquotesingle en\textquotesingle} or \texttt{lang=\textquotesingle es\textquotesingle}.
+
+Commentary is built from f-string templates with conditional branches based on metric thresholds. The executive summary selects from three tone descriptors based on health score, then composes sentences for MRR direction, churn status, and NPS standing:
+
+\begin{lstlisting}[style=python, caption={Bilingual tone selection in commentary.py.}]
+if health >= 75:
+    tone_en = "strong"
+    tone_es = "solida"
+elif health >= 50:
+    tone_en = "moderate"
+    tone_es = "moderada"
+else:
+    tone_en = "concerning"
+    tone_es = "preocupante"
+\end{lstlisting}
+
+The anomaly narrative generator lists up to three critical anomalies by (metric, month) and reports warning counts as a secondary line. For no anomalies, it returns a clean bill-of-health message in the appropriate language.
+
+\begin{keyinsight}
+Template-based NLG is the right choice for business metrics commentary. LLM-generated commentary would be more fluent but less controllable -- the template guarantees that specific thresholds (``churn exceeded 5\%'') always map to specific language (``flagging potential retention issues''). For a report that executives sign off on and share with investors, predictability matters more than prose quality.
+\end{keyinsight}
+
+% -----------------------------------------------------------------------------
+\section{System Architecture}
+\label{sec:kpi-architecture}
+
+\sourcefiles{%
+  \filepath{backend/kpi\_backend/main.py},
+  \filepath{backend/kpi\_backend/data\_loader.py},
+  \filepath{src/hooks/useKPIAPI.ts}
+}
+
+\subsection{Data Pipeline}
+
+The data pipeline is deliberately simple and linear. There are no orchestration tools, no databases, and no message queues. The flow is:
+
+\begin{enumerate}
+  \item \filepath{data-pipeline/01\_generate\_saas\_data.py} produces \texttt{monthly\_metrics.parquet} and \texttt{segment\_metrics.parquet} (24 rows $\times$ 30 columns each).
+  \item \filepath{data-pipeline/02\_compute\_kpis.py} reads both raw parquets, computes all derived columns (MoM/YoY changes, rolling 3m/6m averages, rolling z-scores, traffic lights, health scores) and writes \texttt{monthly\_kpis.parquet} and \texttt{segment\_kpis.parquet} ($\approx$100+ columns).
+\end{enumerate}
+
+The backend \texttt{data\_loader.py} loads all four parquets at module import time into module-level DataFrames. Every API request reads from in-memory DataFrames rather than disk, giving sub-millisecond data access at the cost of a few MB of memory for 24 rows.
+
+\subsection{FastAPI Backend Routes}
+
+The \texttt{main.py} application mounts six routers under the \texttt{/api/v1} prefix:
+
+\begin{table}[h]
+\centering
+\caption{API endpoints.}
+\begin{tabular}{p{5cm}p{4cm}p{4.5cm}}
+\toprule
+\textbf{Path} & \textbf{File} & \textbf{Returns} \\
+\midrule
+\texttt{GET /api/v1/overview}  & \filepath{routers/overview.py}  & Health score + KPI cards + commentary \\
+\texttt{GET /api/v1/revenue}   & \filepath{routers/revenue.py}   & Waterfall, ARR trend, NRR, segments \\
+\texttt{GET /api/v1/customers} & \filepath{routers/customers.py} & Churn trend, NPS, Lorenz curve \\
+\texttt{GET /api/v1/forecast}  & \filepath{routers/forecast.py}  & Per-metric ES forecasts + CI \\
+\texttt{GET /api/v1/anomalies} & \filepath{routers/anomalies.py} & Flagged anomaly list + summary \\
+\texttt{GET /api/v1/report/generate} & \filepath{routers/report.py} & PDF byte stream \\
+\bottomrule
+\end{tabular}
+\label{tab:api-routes}
+\end{table}
+
+All GET endpoints accept optional query parameters: \texttt{segment} (filter by Starter/Professional/Enterprise), \texttt{start\_month}/\texttt{end\_month} (YYYY-MM range), and \texttt{lang} (en/es). The \texttt{apply\_filters()} utility in \texttt{data\_loader.py} handles all filtering uniformly against pandas Timestamp comparisons.
+
+\subsection{Next.js Frontend Architecture}
+
+The frontend uses Next.js with the App Router. The dashboard lives at \filepath{src/app/kpi/page.tsx} and renders \texttt{<KPIDashboard/>}, which nests two context providers: \texttt{KPIFilterProvider} (segment + date range state) and \texttt{LanguageProvider} (en/es toggle).
+
+API calls are centralised in \filepath{src/hooks/useKPIAPI.ts} using SWR (stale-while-revalidate):
+
+\begin{lstlisting}[style=typescript, caption={SWR hooks for KPI API in useKPIAPI.ts.}]
+export function useOverview(qs: string) {
+  return useSWR<OverviewResponse>(
+    `/api/v1/overview${qs}`, kpiFetcher, swrConfig)
+}
+export function useAnomalies(qs: string) {
+  return useSWR<AnomalyResponse>(
+    `/api/v1/anomalies${qs}`, kpiFetcher, swrConfig)
+}
+\end{lstlisting}
+
+The \texttt{KPIFilterContext} exposes a \texttt{queryString} computed property that all panels pass to their SWR hooks, ensuring all panels stay synchronised when filters change. The \texttt{LanguageContext} wraps the entire dashboard with a \texttt{t(key)} translation function backed by \filepath{src/lib/translations.ts}, supporting bilingual UI display without a runtime i18n library dependency.
+
+The eight navigation tabs (About, Overview, Revenue, Customers, Forecast, Anomalies, Report, Technical Process) map directly to eight panel components, all lazy-loaded on first activation.
+
+% -----------------------------------------------------------------------------
+\section{Challenge and Interview Questions}
+\label{sec:kpi-challenges}
+
+\begin{challengebox}
+\textbf{NRR arithmetic.} A SaaS company starts January with MRR of \$500,000. During the month, new logos add \$40,000, existing customers expand by \$25,000, some customers downgrade (contraction) by \$8,000, and churned customers account for \$18,000 in lost MRR. What is the ending MRR? What is the monthly NRR? What is the annualised NRR?
+
+\smallskip
+\textit{Solution:} Ending MRR $= 500{,}000 + 40{,}000 + 25{,}000 - 8{,}000 - 18{,}000 = \$539{,}000$. Monthly NRR $= (500{,}000 + 25{,}000 - 8{,}000 - 18{,}000) / 500{,}000 = 499{,}000 / 500{,}000 = 0.998$ (99.8\%). Annualised NRR $= 0.998^{12} \approx 97.6\%$. Even though the company grew total MRR by 7.8\% (thanks to new logos), the existing base is contracting -- NRR $< 100\%$ is a warning sign that the company would shrink without new acquisition.
+\end{challengebox}
+
+\begin{challengebox}
+\textbf{Health score computation.} Given the weight table (Table~\ref{tab:health-weights}), compute the health score for a company with: MoM MRR growth = 3\%, NRR = 105\%, logo churn = 3\%, NPS = 42, Rule of 40 = 35, LTV:CAC = 2.8$\times$. Which component contributes the least?
+
+\smallskip
+\textit{Hint:} Scale each metric linearly between its bad and good thresholds, multiply by its weight, and sum. The MRR growth score is $(0.03 - 0.00)/(0.05 - 0.00) \times 100 = 60$, contributing $60 \times 0.20 = 12$ points. NRR score: $(1.05 - 0.95)/(1.15 - 0.95) \times 100 = 50$, contributing 10 points. Churn score (inverted): $(0.05 - 0.03)/(0.05 - 0.02) \times 100 = 66.7$, contributing 10.0 points. NPS: $(42 - 25)/(55 - 25) \times 100 = 56.7$, contributing 8.5 points. Rule of 40: $(35 - 15)/(40 - 15) \times 100 = 80$, contributing 12 points. LTV:CAC: $(2.8 - 1.5)/(4.0 - 1.5) \times 100 = 52$, contributing 7.8 points. Total $H \approx 60.3$, status: yellow. NPS contributes least.
+\end{challengebox}
+
+\begin{interviewbox}
+\textbf{Why use both z-score and IQR?} ``In your anomaly detection system you run both methods. What does each one contribute and when would you drop one of them?''
+
+\smallskip
+\textit{Good answer:} Z-score is fast to interpret (the number directly communicates severity) and easy to threshold, but it assumes approximate normality and is sensitive to outliers -- a single extreme value inflates $\sigma$ and can mask other anomalies. IQR is distribution-free and robust, but gives less granular severity information and may miss asymmetric anomalies. Running both and taking the union gives higher recall; deduplicating and keeping the higher severity prevents alert fatigue. Drop IQR if the series is known to be approximately normal and you need consistent z-score-based severity levels in reports. Drop z-score if the series has heavy tails (e.g.\ support ticket volumes during incident windows) where quartile-based fences are more stable.
+\end{interviewbox}
+
+\begin{interviewbox}
+\textbf{Why not ARIMA or Prophet for forecasting?} ``You chose Holt-Winters with no seasonal component. Wouldn't ARIMA or Prophet give better forecasts?''
+
+\smallskip
+\textit{Good answer:} With only 24 data points, ARIMA with seasonal components requires estimating too many parameters for reliable cross-validation. Prophet is designed for series with hundreds of observations and strong seasonality patterns. Holt-Winters with additive trend captures the dominant signal (upward trend) with just two parameters ($\alpha$, $\beta$) that statsmodels optimises via MLE. Cross-validated MAPE of 1--2\% at 1-month horizon is sufficient for board-level planning; the confidence interval construction is transparent and explainable to non-technical stakeholders. Adding complexity for marginal accuracy gain on 24 data points is a bad trade-off.
+\end{interviewbox}
+
+\begin{challengebox}
+\textbf{Rule of 40 stress test.} NovaCRM reports annualised MRR growth of 18\% and gross margin of 78\%, giving Rule of 40 = 96. A competitor reports Rule of 40 = 42 with 2\% growth and 40\% gross margin. Which company would you rather invest in, and why does the Rule of 40 fail to distinguish them?
+
+\smallskip
+\textit{Hint:} The Rule of 40 is a heuristic that collapses two dimensions into one number. A high-margin, slow-growth company and a low-margin, high-growth company can produce identical scores. The relevant question is whether the growth is durable and whether the margin can expand -- these require LTV:CAC, NRR, and churn analysis, not just the Rule of 40. In this case NovaCRM's 78\% gross margin suggests a scalable SaaS business; the competitor's 40\% margin may indicate high infrastructure or customer success costs that will constrain profitability at scale.
+\end{challengebox}
+
+\begin{challengebox}
+\textbf{Confidence interval interpretation.} The Holt-Winters forecast for MRR at horizon $h=3$ returns a point forecast of \$850,000 with CI (\$810,000, \$890,000). An executive asks: ``Does this mean there is a 95\% chance MRR will be between \$810K and \$890K in three months?'' How do you answer correctly?
+
+\smallskip
+\textit{Answer:} No. A 95\% CI computed from historical residuals is a frequentist statement: if the same model were used repeatedly on similar data, 95\% of such intervals would contain the true value. It is not a probability statement about this specific interval. More practically: the CI does not account for structural breaks (like a pricing change), model misspecification, or the small-sample nature of 24 observations. The interval should be interpreted as a plausible range under business-as-usual conditions, not as a probabilistic guarantee. For a board presentation, framing it as ``our model projects \$850K, with a reasonable range of \$810K--\$890K absent any significant business changes'' is more accurate than quoting the 95\% probability.
+\end{challengebox}
+
+\begin{interviewbox}
+\textbf{Bilingual PDF architecture.} ``How would you scale this system to support ten languages instead of two?''
+
+\smallskip
+\textit{Good answer:} The current template-based NLG in \filepath{commentary.py} has one \texttt{if lang == 'es'} branch per function. Scaling to ten languages requires a different pattern: externalise all string templates into a translation dictionary keyed by \texttt{lang} (like the frontend's \filepath{translations.ts}), and parameterise the commentary functions to select the right template. String interpolation with named variables -- e.g.\ \texttt{templates[lang]['mrr\_growth'].format(pct=..., value=...)} -- scales to any number of languages without code duplication. For the PDF, the font choice must be verified for character support -- fpdf2's built-in Helvetica only covers Latin characters, so Cyrillic or CJK languages would require loading a custom TTF font via \texttt{pdf.add\_font()}.
+\end{interviewbox}
+
+\begin{challengebox}
+\textbf{Lorenz curve and revenue concentration.} The \texttt{customer\_concentration\_lorenz()} function in \filepath{analytics\_engine.py} sorts customer segments by revenue-per-customer and computes a Gini coefficient via trapezoidal integration. Given three segments with revenues \$100K, \$180K, \$220K and customer counts 330, 45, 15 respectively, which segment appears first in the Lorenz sort order and what does the resulting Gini coefficient imply?
+
+\smallskip
+\textit{Solution:} Rev/customer: Starter (\$100K/330 $\approx$ \$303), Professional (\$180K/45 $= \$4{,}000$), Enterprise (\$220K/15 $\approx$ \$14{,}667). Lorenz sort (ascending): Starter, Professional, Enterprise. The 15 Enterprise customers represent 3.8\% of the 390-customer base but contribute 44\% of revenue. The curve bows sharply below the 45-degree equality line, yielding a high Gini coefficient (likely $> 0.50$). This high concentration means Enterprise churn is catastrophically risky -- losing one Enterprise account can equal losing 50 Starter accounts in revenue terms.
+\end{challengebox}
