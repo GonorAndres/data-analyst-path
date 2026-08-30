@@ -1,0 +1,244 @@
+% =============================================================================
+% APPENDIX B -- Glossary
+% =============================================================================
+
+\chapter{Glossary}
+\label{app:glossary}
+
+Key terms organized by domain, with chapter references. Terms marked with an asterisk (*) appear in multiple chapters.
+
+% -----------------------------------------------------------------------------
+\section*{Actuarial \& Insurance}
+% -----------------------------------------------------------------------------
+
+\begin{description}[style=nextline, leftmargin=2em]
+
+\item[\textbf{Accident Year}] The year in which an insured loss event occurred, regardless of when it was reported or paid. Used as the row dimension in loss triangles. \textit{(Ch.~1)}
+
+\item[\textbf{Age-to-Age Factor (ATA)}] The ratio of cumulative losses at successive development lags, used to project future development. Also called a link ratio. \textit{(Ch.~1)}
+
+\item[\textbf{Bornhuetter-Ferguson (BF) Method}] A reserve estimation method that blends observed losses with an a priori expected loss ratio, more stable than Chain-Ladder for immature accident years. \textit{(Ch.~1)}
+
+\item[\textbf{CAS Loss Reserve Database}] Public dataset maintained by the Casualty Actuarial Society containing Schedule P loss triangles across six lines of business. \textit{(Ch.~1)}
+
+\item[\textbf{Chain-Ladder Method}] The standard actuarial reserving technique that uses historical development patterns (ATA factors) to project ultimate losses. \textit{(Ch.~1)}
+
+\item[\textbf{Combined Ratio}] Loss ratio plus expense ratio. Below 100\% indicates underwriting profit. The gold-standard P\&C profitability metric. \textit{(Ch.~1)}
+
+\item[\textbf{Cumulative Development Factor (CDF)}] The product of all remaining ATA factors from a given lag to ultimate; multiplied by current paid losses to project ultimate losses. \textit{(Ch.~1)}
+
+\item[\textbf{Development Lag}] The number of years (or periods) between the accident year and the evaluation date. Column dimension in loss triangles. \textit{(Ch.~1)}
+
+\item[\textbf{Expected Loss Ratio (ELR)}] An a priori assumption about the ratio of losses to premiums, used in the BF method. Typically derived from pricing or industry benchmarks. \textit{(Ch.~1)}
+
+\item[\textbf{Frequency}] Number of claims per unit of exposure. One of the two components of pure premium. \textit{(Ch.~1)}
+
+\item[\textbf{IBNR}] Incurred But Not Reported -- the estimated liability for claims that have occurred but not yet been reported to the insurer. \textit{(Ch.~1)}
+
+\item[\textbf{Line of Business (LOB)}] A category of insurance coverage (e.g., Commercial Auto, Workers' Compensation, Medical Malpractice). \textit{(Ch.~1)}
+
+\item[\textbf{Loss Ratio}] Incurred losses divided by earned premiums. The primary measure of underwriting profitability. \textit{(Ch.~1)}
+
+\item[\textbf{Loss Triangle}] A matrix of cumulative losses indexed by accident year (rows) and development lag (columns), with the lower-right portion unknown. \textit{(Ch.~1)}
+
+\item[\textbf{Pure Premium}] Frequency times severity. The expected loss cost per unit of exposure before loading for expenses. \textit{(Ch.~1)}
+
+\item[\textbf{Severity}] Average cost per claim. The second component of pure premium. \textit{(Ch.~1)}
+
+\item[\textbf{Tail Factor}] A multiplicative factor applied beyond the last observed development lag to account for residual development to ultimate. \textit{(Ch.~1)}
+
+\end{description}
+
+% -----------------------------------------------------------------------------
+\section*{Statistical Testing}
+% -----------------------------------------------------------------------------
+
+\begin{description}[style=nextline, leftmargin=2em]
+
+\item[\textbf{Alpha ($\alpha$)*}] The significance level; the maximum acceptable probability of a Type I error (false positive). Commonly 0.05. \textit{(Ch.~3, 6)}
+
+\item[\textbf{Bonferroni Correction}] Divides the per-test significance level by the number of comparisons to control the family-wise error rate. Conservative. \textit{(Ch.~3, 6)}
+
+\item[\textbf{Cohen's $h$}] An effect size measure for two proportions using the arcsine variance-stabilizing transform. Small $< 0.2$, medium $0.2$--$0.5$, large $> 0.5$. \textit{(Ch.~3)}
+
+\item[\textbf{Confidence Interval (CI)}] A range of values constructed so that, across repeated sampling, a specified fraction (e.g., 95\%) of such intervals contain the true parameter. \textit{(Ch.~3)}
+
+\item[\textbf{Cram\'er's V}] A normalized effect size for chi-squared tests, bounded in $[0, 1]$. \textit{(Ch.~3)}
+
+\item[\textbf{Credible Interval}] Bayesian analog of a CI. A 95\% credible interval means there is a 95\% posterior probability the parameter lies within the interval. \textit{(Ch.~3)}
+
+\item[\textbf{Expected Loss (Bayesian)}] The expected cost of making the wrong decision; $\mathcal{L}_B = \mathbb{E}[\max(\theta_A - \theta_B, 0)]$. Used for Bayesian decision-making. \textit{(Ch.~3)}
+
+\item[\textbf{MDE}] Minimum Detectable Effect -- the smallest treatment effect a test can reliably detect at the specified power and significance level. \textit{(Ch.~3)}
+
+\item[\textbf{O'Brien-Fleming (OBF) Boundaries}] A group sequential testing spending function that uses very conservative early boundaries and nearly standard final boundaries. \textit{(Ch.~3)}
+
+\item[\textbf{Peeking Problem}] The inflation of Type I error rate caused by checking p-values at multiple time points during an experiment without correction. \textit{(Ch.~3)}
+
+\item[\textbf{Power ($1 - \beta$)}] The probability of correctly rejecting the null when a true effect exists. Typically set at 80\% or 90\%. \textit{(Ch.~3)}
+
+\item[\textbf{P(B $>$ A)}] Bayesian posterior probability that the treatment conversion rate exceeds control. Estimated via Monte Carlo. \textit{(Ch.~3)}
+
+\item[\textbf{Sample Ratio Mismatch (SRM)}] A diagnostic test checking whether the observed group split matches the planned allocation. Failure signals randomization bugs. \textit{(Ch.~3)}
+
+\item[\textbf{Sequential Testing}] A framework that allows interim analyses during an experiment while controlling the overall Type I error rate. \textit{(Ch.~3)}
+
+\item[\textbf{Simpson's Paradox}] A phenomenon where an aggregate trend reverses when data is disaggregated by a confounding variable. \textit{(Ch.~3)}
+
+\item[\textbf{Type I Error}] Rejecting the null hypothesis when it is true (false positive). \textit{(Ch.~3)}
+
+\item[\textbf{Type II Error}] Failing to reject the null when it is false (false negative). \textit{(Ch.~3)}
+
+\item[\textbf{Wilson Score Interval}] A confidence interval for proportions that outperforms the Wald interval near 0 and 1, always bounded within $[0,1]$. \textit{(Ch.~2, 3)}
+
+\item[\textbf{Z-test (Two-Proportion)*}] A hypothesis test comparing two independent proportions using the normal approximation to the binomial. \textit{(Ch.~3, 6)}
+
+\end{description}
+
+% -----------------------------------------------------------------------------
+\section*{Financial \& Portfolio}
+% -----------------------------------------------------------------------------
+
+\begin{description}[style=nextline, leftmargin=2em]
+
+\item[\textbf{Alpha (Jensen's)}] The risk-adjusted excess return above the CAPM prediction. Positive alpha indicates outperformance relative to market beta exposure. \textit{(Ch.~5)}
+
+\item[\textbf{Beta}] The sensitivity of portfolio returns to benchmark returns; the OLS slope of portfolio on benchmark. $\beta < 1$ means less volatile than the market. \textit{(Ch.~5)}
+
+\item[\textbf{CAGR}] Compound Annual Growth Rate. Converts total holding-period return into an equivalent constant annual rate. Annualized using 252 trading days. \textit{(Ch.~5)}
+
+\item[\textbf{Calmar Ratio}] CAGR divided by the absolute value of max drawdown. Popular in hedge fund evaluation. \textit{(Ch.~5)}
+
+\item[\textbf{CAPM}] Capital Asset Pricing Model. Predicts expected return as $r_f + \beta(R_m - r_f)$. Single-factor model with strong simplifying assumptions. \textit{(Ch.~5)}
+
+\item[\textbf{CVaR / Expected Shortfall}] The expected loss given that losses exceed VaR. A coherent risk measure satisfying subadditivity, unlike VaR. \textit{(Ch.~5)}
+
+\item[\textbf{Efficient Frontier}] The set of portfolios achieving maximum return for each level of risk (or minimum risk for each return level) under given constraints. \textit{(Ch.~5)}
+
+\item[\textbf{GBM}] Geometric Brownian Motion. An SDE $dS = \mu S\,dt + \sigma S\,dW$ used to model asset price evolution. Ensures positive prices. \textit{(Ch.~5)}
+
+\item[\textbf{Information Ratio}] Active return (portfolio minus benchmark) divided by tracking error. Measures reward per unit of active risk. \textit{(Ch.~5)}
+
+\item[\textbf{Ito's Lemma}] A result in stochastic calculus giving the differential of a function of a stochastic process. Produces the $\mu - \sigma^2/2$ drift correction in GBM. \textit{(Ch.~5)}
+
+\item[\textbf{Maximum Drawdown (MDD)}] The largest peak-to-trough decline in a portfolio's wealth index. A tail risk measure more intuitive than volatility. \textit{(Ch.~5)}
+
+\item[\textbf{Mean-Variance Optimization}] Markowitz's framework for finding portfolios that maximize $\mu_p$ for a given $\sigma_p$ (or minimize $\sigma_p$ for a given $\mu_p$). \textit{(Ch.~5)}
+
+\item[\textbf{Sharpe Ratio}] Excess return per unit of total volatility: $(R_p - r_f)/\sigma_p$. The most widely used risk-adjusted return metric. \textit{(Ch.~5)}
+
+\item[\textbf{SLSQP}] Sequential Least Squares Programming. A constrained nonlinear optimization solver used for portfolio optimization. \textit{(Ch.~5)}
+
+\item[\textbf{Sortino Ratio}] Like Sharpe but uses only downside deviation. More appropriate when the return distribution is asymmetric. \textit{(Ch.~5)}
+
+\item[\textbf{Subadditivity}] A property of coherent risk measures: $\rho(X+Y) \leq \rho(X) + \rho(Y)$. Diversification should not increase measured risk. VaR violates this; CVaR satisfies it. \textit{(Ch.~5)}
+
+\item[\textbf{Tracking Error}] Annualized standard deviation of the return difference between portfolio and benchmark. Measures active risk. \textit{(Ch.~5)}
+
+\item[\textbf{VaR}] Value at Risk. The loss threshold not exceeded with probability $\alpha$. Three methods: parametric (Gaussian), historical (percentile), Monte Carlo. \textit{(Ch.~5)}
+
+\end{description}
+
+% -----------------------------------------------------------------------------
+\section*{SaaS \& Business Metrics}
+% -----------------------------------------------------------------------------
+
+\begin{description}[style=nextline, leftmargin=2em]
+
+\item[\textbf{ARR}] Annual Recurring Revenue. $12 \times \text{MRR}$. The standard SaaS top-line metric for annual planning. \textit{(Ch.~4)}
+
+\item[\textbf{CAC}] Customer Acquisition Cost. Total sales and marketing spend divided by new customers acquired. \textit{(Ch.~4)}
+
+\item[\textbf{Gross Margin}] Revenue minus cost of goods sold, divided by revenue. NovaCRM uses 80\%. \textit{(Ch.~4)}
+
+\item[\textbf{Health Score}] A 0--100 composite index combining six weighted SaaS metrics with linear scaling and traffic-light thresholds. \textit{(Ch.~4)}
+
+\item[\textbf{Logo Churn}] The fraction of customers who cancelled in a period. Segment baselines: Starter 5.5\%, Professional 3\%, Enterprise 1.2\% per month. \textit{(Ch.~4)}
+
+\item[\textbf{LTV}] Customer Lifetime Value. Estimated as $(\text{ARPU} \times 12 / \text{Churn Rate}) \times \text{Gross Margin}$. \textit{(Ch.~4)}
+
+\item[\textbf{LTV:CAC Ratio}] The ratio of lifetime value to acquisition cost. $\geq 3\times$ is healthy; $< 1\times$ means losing money per customer. \textit{(Ch.~4)}
+
+\item[\textbf{MRR}] Monthly Recurring Revenue. Sum of all monthly subscription fees. Excludes one-time charges. \textit{(Ch.~4)}
+
+\item[\textbf{MRR Waterfall}] Decomposition of MRR change into New, Expansion, Contraction, and Churned components. Reveals which lever drives net movement. \textit{(Ch.~4)}
+
+\item[\textbf{NPS}] Net Promoter Score. Promoters (9--10) minus Detractors (0--6) as a percentage. Range: $-100$ to $+100$. \textit{(Ch.~4)}
+
+\item[\textbf{NRR}] Net Revenue Retention. Measures revenue retained and grown from the existing customer base. $> 100\%$ means the base grows without new logos. \textit{(Ch.~4)}
+
+\item[\textbf{Revenue Churn}] Fraction of MRR lost to cancellations. Revenue churn exceeding logo churn signals loss of high-value accounts. \textit{(Ch.~4)}
+
+\item[\textbf{Rule of 40}] Revenue growth rate (\%) plus profit margin (\%) should be $\geq 40$. A heuristic for balancing growth and profitability. \textit{(Ch.~4)}
+
+\end{description}
+
+% -----------------------------------------------------------------------------
+\section*{Customer Analytics}
+% -----------------------------------------------------------------------------
+
+\begin{description}[style=nextline, leftmargin=2em]
+
+\item[\textbf{Cohort}] A group of customers defined by their first purchase month. Used to track retention over time. \textit{(Ch.~2)}
+
+\item[\textbf{Gini Coefficient}] A measure of revenue concentration from the Lorenz curve. 0 = perfect equality, 1 = all revenue from one customer. \textit{(Ch.~2)}
+
+\item[\textbf{Kaplan-Meier Estimator}] A non-parametric survival function estimator that handles right-censored data. Estimates $S(t) = P(\text{no repeat purchase by day } t)$. \textit{(Ch.~2)}
+
+\item[\textbf{Lorenz Curve}] Plots cumulative revenue share vs.\ cumulative customer share (sorted low to high). The area between it and the diagonal is half the Gini. \textit{(Ch.~2)}
+
+\item[\textbf{Odds Ratio}] $\exp(\hat{\beta})$ from logistic regression. OR $> 1$ means the feature is associated with higher odds of the outcome. \textit{(Ch.~2)}
+
+\item[\textbf{Retention Matrix}] A cohort $\times$ period matrix showing the fraction of each cohort still active in each subsequent period. \textit{(Ch.~2)}
+
+\item[\textbf{RFM}] Recency, Frequency, Monetary -- a customer segmentation approach using NTILE scoring on three dimensions. \textit{(Ch.~2)}
+
+\item[\textbf{Right-Censoring}] When the observation window ends before the event of interest occurs. KM handles this; naive counting does not. \textit{(Ch.~2)}
+
+\end{description}
+
+% -----------------------------------------------------------------------------
+\section*{Operations \& Process}
+% -----------------------------------------------------------------------------
+
+\begin{description}[style=nextline, leftmargin=2em]
+
+\item[\textbf{Bottleneck}] An agency--complaint type combination with unusually long resolution times. Identified by ranking mean/median resolution days. \textit{(Ch.~6)}
+
+\item[\textbf{Pareto Analysis}] Applying the 80/20 rule to identify which complaint types account for the majority of volume or delays. \textit{(Ch.~6)}
+
+\item[\textbf{Process Mining}] Analyzing event logs to discover actual process flows. Visualized as a Sankey diagram in this project. \textit{(Ch.~6)}
+
+\item[\textbf{Sankey Diagram}] A flow diagram where link widths are proportional to flow quantities. Used to trace complaint $\to$ agency $\to$ stage $\to$ response. \textit{(Ch.~6)}
+
+\item[\textbf{SLA (Service Level Agreement)}] A target deadline for resolving a service request. Compliance is Cumple/Incumple/Sin SLA. \textit{(Ch.~6)}
+
+\item[\textbf{SODA API}] Socrata Open Data API. Used to paginate and download NYC 311 data at 50K rows per page. \textit{(Ch.~6)}
+
+\end{description}
+
+% -----------------------------------------------------------------------------
+\section*{Technical \& Architecture}
+% -----------------------------------------------------------------------------
+
+\begin{description}[style=nextline, leftmargin=2em]
+
+\item[\textbf{ASGI}] Asynchronous Server Gateway Interface. The Python standard for async web servers; FastAPI runs on ASGI via Uvicorn. \textit{(Ch.~7)}
+
+\item[\textbf{Artifact Registry}] Google Cloud container image registry. Stores Docker images for Cloud Run deployment. \textit{(Ch.~7)}
+
+\item[\textbf{app.mount()}] FastAPI method to mount a sub-application at a path prefix. Used to host 5 project backends on a single service. \textit{(Ch.~7)}
+
+\item[\textbf{Cloud Run}] Google Cloud serverless container platform. Scales to zero; bills per request. Hosts the consolidated API, and a redirect-only container standing in for the retired Streamlit service. \textit{(Ch.~7)}
+
+\item[\textbf{Cold Start}] The latency incurred when Cloud Run spins up a new container instance. Mitigated by \texttt{min-instances=1} for production services. \textit{(Ch.~7)}
+
+\item[\textbf{GCS}] Google Cloud Storage. Parquet data files live in \texttt{gs://da-portfolio-data-assets} and are downloaded at build time. \textit{(Ch.~7)}
+
+\item[\textbf{Path Filters}] GitHub Actions trigger conditions that match changed file paths, enabling selective deployment (only rebuild what changed). \textit{(Ch.~7)}
+
+\item[\textbf{Rewrites (Next.js)}] A \texttt{next.config.js} pattern that proxies API requests through the Next.js server, keeping backend URLs private from the browser. \textit{(Ch.~7)}
+
+\item[\textbf{WIF}] Workload Identity Federation. A keyless authentication method for GitHub Actions to GCP, eliminating service account key management. \textit{(Ch.~7)}
+
+\end{description}

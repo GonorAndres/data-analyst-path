@@ -1,0 +1,38 @@
+% =============================================================================
+% MAIN DOCUMENT -- Portfolio Deep-Dive Reference
+% =============================================================================
+\input{preamble}
+
+\begin{document}
+
+% --- Title Page ---
+\input{titlepage}
+
+% --- Front Matter ---
+\frontmatter
+\tableofcontents
+
+% --- Main Matter ---
+\mainmatter
+
+\input{chapters/00-airbnb}
+\input{chapters/01-insurance}
+\input{chapters/02-ecommerce}
+\input{chapters/03-abtest}
+\input{chapters/04-kpi-report}
+\input{chapters/05-portfolio}
+\input{chapters/06-operations}
+\input{chapters/07-infrastructure}
+
+% --- Back Matter ---
+\backmatter
+
+\appendix
+\input{appendices/appendix-formulas}
+\input{appendices/appendix-glossary}
+
+% --- Bibliography ---
+\bibliographystyle{plainnat}
+\bibliography{bibliography}
+
+\end{document}

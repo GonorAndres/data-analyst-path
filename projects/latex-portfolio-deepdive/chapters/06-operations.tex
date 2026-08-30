@@ -1,0 +1,610 @@
+% =============================================================================
+% CHAPTER 06 -- Operational Efficiency: NYC 311
+% =============================================================================
+
+\chapter{Operational Efficiency: NYC 311}
+\label{ch:operations}
+
+\begin{keyinsight}
+This chapter covers a full-stack operational analytics dashboard built on 3.5 million NYC 311 service requests from calendar year 2024. The project demonstrates bottleneck identification, SLA compliance analysis with formal hypothesis testing, Pareto prioritization, process mining via Sankey flow diagrams, and custom D3.js visualizations that cannot be replicated with standard charting libraries.
+\end{keyinsight}
+
+% -----------------------------------------------------------------------------
+\section{Business Context}
+\label{sec:ops-business-context}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/06-operational-efficiency/README.md}
+}
+
+NYC 311 is the city's non-emergency service request line, handling everything from noise complaints and pothole reports to building violations and street light outages. In 2024, the system processed approximately 3.5 million service requests across more than 30 city agencies. The core business question driving this analysis is:
+
+\begin{quote}
+\textit{Where are the bottlenecks in NYC's 311 service request pipeline, which agencies consistently miss SLA targets, and what resource allocation changes could improve resolution times---enabling city operations managers to prioritize improvement initiatives?}
+\end{quote}
+
+The intended audience is city operations managers and budget analysts who need to justify staffing changes, agency funding decisions, and process improvement programs. The output is not a one-time report but an interactive dashboard with five filter dimensions (agency, complaint type, borough, channel, month) so that any manager can slice to their area of responsibility.
+
+\subsection{Analyst Deliverables}
+
+The project produces four artifacts:
+
+\begin{enumerate}
+  \item A \textbf{Next.js dashboard} with seven tabs (overview, bottleneck, departments, geographic, trends, Pareto, and embedded notebooks).
+  \item A \textbf{FastAPI backend} (port 2056) exposing six analytical endpoints backed by eleven pure functions in \filepath{ops\_engine.py}.
+  \item Four \textbf{Jupyter notebooks} documenting the full analytical narrative from ingestion through process mining.
+  \item A \textbf{three-stage ETL pipeline} that downloads, cleans, and enriches raw data from the Socrata API.
+\end{enumerate}
+
+% -----------------------------------------------------------------------------
+\section{Data Acquisition: Socrata SODA API}
+\label{sec:ops-data-acquisition}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/06-operational-efficiency/data-pipeline/01\_download.py},
+  \filepath{projects/06-operational-efficiency/data-pipeline/02\_clean.py},
+  \filepath{projects/06-operational-efficiency/data-pipeline/03\_enrich.py}
+}
+
+\subsection{Socrata Pagination Strategy}
+
+The NYC Open Data portal exposes the 311 dataset (identifier \texttt{erm2-nwe9}) via the Socrata Open Data API (SODA). The dataset exceeds what can be fetched in a single request, requiring explicit pagination.
+
+\begin{lstlisting}[style=python, caption={Pagination loop in \texttt{01\_download.py}}, label=lst:soda-pagination]
+BASE_URL = "https://data.cityofnewyork.us/resource/erm2-nwe9.json"
+PAGE_LIMIT = 50_000
+
+def build_params(offset: int) -> dict:
+    return {
+        "$select": ", ".join(COLUMNS),
+        "$where": "created_date >= '2024-01-01T00:00:00' "
+                  "AND created_date < '2025-01-01T00:00:00'",
+        "$order": "unique_key",
+        "$limit": PAGE_LIMIT,
+        "$offset": offset,
+    }
+\end{lstlisting}
+
+The loop fetches pages of 50,000 rows ordered by \texttt{unique\_key} to guarantee stable pagination. Each page is fetched with retry logic (up to three attempts, with exponential back-off of \texttt{RETRY\_DELAY\_SECONDS * attempt}) before raising a \texttt{RuntimeError}. Termination occurs when a page returns fewer than \texttt{PAGE\_LIMIT} rows. The complete download takes approximately ten minutes and produces a raw CSV.
+
+Sixteen columns are selected at query time rather than downloading all available fields---a deliberate choice to reduce transfer size and avoid downstream memory pressure when loading into pandas.
+
+\subsection{Data Cleaning (\texttt{02\_clean.py})}
+
+The cleaning stage applies six deterministic transformations in sequence:
+
+\begin{enumerate}
+  \item \textbf{Date parsing}: \texttt{created\_date}, \texttt{closed\_date}, and \texttt{due\_date} are parsed with \texttt{errors=`coerce'} (invalid dates become \texttt{NaT}) and timezone information is stripped to produce timezone-naive UTC timestamps.
+  \item \textbf{Null-date removal}: Rows where \texttt{created\_date} is null are dropped---these cannot be placed on any timeline and are useless for any time-based analysis.
+  \item \textbf{Borough standardization}: Whitespace stripped, title-cased, and the value \texttt{`Unspecified'} mapped to \texttt{null}.
+  \item \textbf{Agency code normalization}: Stripped and uppercased.
+  \item \textbf{Status normalization}: Stripped and title-cased.
+  \item \textbf{Temporal anomaly correction}: Any row where \texttt{closed\_date < created\_date} has \texttt{closed\_date} set to \texttt{NaT}. These are data entry errors that would produce negative resolution times if left uncorrected.
+  \item \textbf{Deduplication}: Duplicate \texttt{unique\_key} values are dropped, keeping the first occurrence.
+\end{enumerate}
+
+Output is written to \texttt{nyc311\_clean.parquet} using PyArrow for efficient columnar storage.
+
+\subsection{Feature Engineering (\texttt{03\_enrich.py})}
+
+The enrichment stage derives ten columns that power all downstream analytics:
+
+\begin{table}[h]
+\centering
+\caption{Engineered columns added by \texttt{03\_enrich.py}}
+\label{tab:ops-enriched-cols}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Column} & \textbf{Description} \\
+\midrule
+\texttt{resolution\_hours} & \texttt{(closed\_date - created\_date)} in hours \\
+\texttt{resolution\_days} & \texttt{resolution\_hours / 24}; null if not closed \\
+\texttt{is\_overdue} & \texttt{True} if \texttt{closed\_date > due\_date}; \texttt{null} if either is missing \\
+\texttt{response\_category} & Bucketed: $<1$ day, 1--3 days, 3--7 days, 7--30 days, $>30$ days \\
+\texttt{created\_month} & \texttt{YYYY-MM} string for monthly grouping \\
+\texttt{created\_dow} & Spanish day name (Lunes, Martes, \ldots, Domingo) \\
+\texttt{created\_hour} & Integer 0--23 \\
+\texttt{complaint\_category} & Top 20 complaint types by frequency; remainder mapped to \texttt{`Otros'} \\
+\texttt{process\_stage} & Status $\to$ \{Abierto, En Progreso, Cerrado, Pendiente, Otro\} \\
+\texttt{sla\_status} & \texttt{Cumple} / \texttt{Incumple} / \texttt{Sin SLA} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The \texttt{complaint\_category} bucketing is intentional: limiting to the top 20 types prevents the Sankey and Pareto visualizations from becoming unreadable while concentrating analytical attention on the complaint types that collectively generate the majority of volume.
+
+% -----------------------------------------------------------------------------
+\section{SLA Compliance Analysis}
+\label{sec:ops-sla}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/06-operational-efficiency/backend/ops\_backend/ops\_engine.py},
+  \filepath{projects/06-operational-efficiency/src/components/ops/SLAVerdictCard.tsx}
+}
+
+\subsection{SLA Definition and Classification}
+
+Service Level Agreements in the 311 dataset are encoded as the \texttt{due\_date} field---the date by which the agency is expected to close the request. Not every complaint type has a defined SLA; many rows have a null \texttt{due\_date}.
+
+The enrichment step classifies every row into one of three states:
+
+\begin{align}
+\texttt{sla\_status} &=
+\begin{cases}
+\texttt{Sin SLA} & \text{if } \texttt{due\_date} = \texttt{null} \\
+\texttt{Cumple} & \text{if } \texttt{due\_date} \neq \texttt{null} \;\wedge\; \texttt{closed\_date} \leq \texttt{due\_date} \\
+\texttt{Incumple} & \text{if } \texttt{due\_date} \neq \texttt{null} \;\wedge\; \texttt{closed\_date} > \texttt{due\_date}
+\end{cases}
+\end{align}
+
+Open requests past their due date are also classified as \texttt{Incumple}:
+
+\begin{lstlisting}[style=python, caption={Open-but-past-due classification in \texttt{03\_enrich.py}}, label=lst:sla-open-overdue]
+open_past_due = (
+    has_due
+    & df["closed_date"].isna()
+    & (pd.Timestamp.now() > df["due_date"])
+)
+df.loc[open_past_due, "sla_status"] = "Incumple"
+\end{lstlisting}
+
+\subsection{Compliance Rate Formula}
+
+The compliance rate is computed only over rows that have a defined SLA (i.e., \texttt{Sin SLA} rows are excluded from the denominator):
+
+\begin{equation}
+C = \frac{\#\{\text{rows where sla\_status} = \texttt{Cumple}\}}{\#\{\text{rows where sla\_status} \in \{\texttt{Cumple}, \texttt{Incumple}\}\}} \times 100
+\label{eq:sla-compliance}
+\end{equation}
+
+In \filepath{ops\_engine.py}, this is the \texttt{\_sla\_rate()} helper used throughout the codebase:
+
+\begin{lstlisting}[style=python, caption={\texttt{\_sla\_rate()} in \texttt{ops\_engine.py}}, label=lst:sla-rate]
+def _sla_rate(group: pd.DataFrame) -> float | None:
+    with_sla = group[group["sla_status"] != "Sin SLA"]
+    if len(with_sla) == 0:
+        return None
+    return round(float((with_sla["sla_status"] == "Cumple").mean()), 4)
+\end{lstlisting}
+
+\subsection{Verdict System}
+
+The \texttt{sla\_verdict()} function maps a numeric compliance rate to a categorical verdict displayed prominently in the dashboard:
+
+\begin{equation}
+\text{Verdict} =
+\begin{cases}
+\texttt{CUMPLE} & C \geq 85\% \\
+\texttt{EN RIESGO} & 70\% \leq C < 85\% \\
+\texttt{INCUMPLE} & C < 70\%
+\end{cases}
+\label{eq:sla-verdict}
+\end{equation}
+
+The \texttt{SLAVerdictCard} React component renders the verdict with color-coded styles---green for CUMPLE, amber for EN RIESGO, red for INCUMPLE---using a drop shadow glow effect proportional to the severity.
+
+\subsection{Statistical Testing: Comparing Agency Compliance Rates}
+
+When comparing two agencies' compliance rates, we are comparing two proportions from independent samples. The appropriate test is a two-proportion z-test:
+
+\begin{equation}
+Z = \frac{\hat{p}_1 - \hat{p}_2}{\sqrt{\hat{p}_{\text{pool}}\,(1-\hat{p}_{\text{pool}})\left(\dfrac{1}{n_1} + \dfrac{1}{n_2}\right)}}
+\label{eq:z-test-proportions}
+\end{equation}
+
+where $\hat{p}_{\text{pool}} = \dfrac{x_1 + x_2}{n_1 + n_2}$ is the pooled proportion, $x_i$ is the count of compliant requests for agency $i$, and $n_i$ is the total requests with a defined SLA.
+
+\subsection{Bonferroni Correction for Multiple Comparisons}
+
+When simultaneously comparing $k$ agencies, running each test at $\alpha = 0.05$ inflates the family-wise error rate. The Bonferroni correction adjusts the per-test threshold:
+
+\begin{equation}
+\alpha_{\text{adj}} = \frac{\alpha}{m}
+\label{eq:bonferroni}
+\end{equation}
+
+where $m$ is the number of pairwise comparisons. For 10 agencies, $m = \binom{10}{2} = 45$, yielding $\alpha_{\text{adj}} = 0.05/45 \approx 0.0011$. This is conservative---the Holm-Bonferroni step-down procedure is a less conservative alternative that maintains the same family-wise error rate guarantee.
+
+\begin{challengebox}
+Why does Bonferroni become increasingly conservative as the number of comparisons grows? Under what conditions would you prefer a false discovery rate (FDR) approach such as Benjamini-Hochberg over Bonferroni for an operational SLA comparison?
+\end{challengebox}
+
+% -----------------------------------------------------------------------------
+\section{Bottleneck Detection}
+\label{sec:ops-bottleneck}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/06-operational-efficiency/backend/ops\_backend/ops\_engine.py},
+  \filepath{projects/06-operational-efficiency/backend/ops\_backend/routers/bottleneck.py}
+}
+
+The \texttt{detect\_bottlenecks()} function identifies the ten agency--complaint-type combinations with the highest average resolution time:
+
+\begin{lstlisting}[style=python, caption={Bottleneck aggregation in \texttt{ops\_engine.py}}, label=lst:bottleneck-agg]
+agg = (
+    work.groupby(["agency_name", "complaint_category"])["resolution_days"]
+    .agg(["mean", "median", "count"])
+    .reset_index()
+)
+agg.columns = [
+    "agency_name", "complaint_category",
+    "avg_days", "median_days", "count"
+]
+agg = agg.sort_values("avg_days", ascending=False).head(10)
+\end{lstlisting}
+
+Each bottleneck record is enriched with the SLA compliance rate for that specific agency--complaint-type subgroup, enabling managers to distinguish between \emph{slow but compliant} cases (SLA targets set generously) and \emph{slow and non-compliant} cases (genuine operational failures).
+
+\begin{keyinsight}
+Sorting by mean resolution time rather than median can misrepresent bottlenecks when resolution time distributions are heavily right-skewed---a single 180-day outlier can dominate the mean. In practice, both statistics are returned to the frontend; the median is the more robust indicator of typical performance.
+\end{keyinsight}
+
+Resolution time percentile statistics (P90, P95) are reported in the analytical notebooks but are not surfaced in the API to keep response payloads lightweight. They can be added via \texttt{numpy.percentile()} calls within the same aggregation block.
+
+% -----------------------------------------------------------------------------
+\section{Pareto Analysis}
+\label{sec:ops-pareto}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/06-operational-efficiency/backend/ops\_backend/ops\_engine.py},
+  \filepath{projects/06-operational-efficiency/src/components/d3/ParetoChart.tsx}
+}
+
+\subsection{Pareto Calculation}
+
+The \texttt{pareto\_analysis()} function builds the cumulative frequency distribution over complaint categories:
+
+\begin{lstlisting}[style=python, caption={Pareto accumulation in \texttt{ops\_engine.py}}, label=lst:pareto-calc]
+vc = df["complaint_category"].value_counts()
+cum_pct = 0.0
+for cat, cnt in vc.items():
+    pct = float(cnt) / total
+    cum_pct += pct
+    items.append({
+        "complaint_type": str(cat),
+        "count": int(cnt),
+        "pct": round(pct * 100, 1),
+        "cumulative_pct": round(cum_pct * 100, 1),
+    })
+\end{lstlisting}
+
+Each item carries its individual percentage and the running cumulative total. The 80\% threshold---the Pareto cutpoint---is rendered as a dashed amber reference line in the D3 visualization.
+
+\subsection{Priority Matrix}
+
+Alongside the Pareto chart, \texttt{priority\_matrix()} produces a scatter dataset placing each complaint type on two axes: volume (x) and average resolution time (y). This quadrant view reveals four actionable categories:
+
+\begin{itemize}
+  \item \textbf{High volume, fast resolution}: Already optimized; maintain current process.
+  \item \textbf{High volume, slow resolution}: Priority 1 for process improvement---small efficiency gains affect the most requests.
+  \item \textbf{Low volume, slow resolution}: Niche problems; investigate but deprioritize versus high-volume quadrant.
+  \item \textbf{Low volume, fast resolution}: Low urgency.
+\end{itemize}
+
+Only complaint types with more than 100 records are included to avoid noise from rare categories dominating the scatter.
+
+% -----------------------------------------------------------------------------
+\section{Process Mining: Sankey Flow}
+\label{sec:ops-sankey}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/06-operational-efficiency/backend/ops\_backend/ops\_engine.py},
+  \filepath{projects/06-operational-efficiency/src/components/d3/SankeyFlow.tsx}
+}
+
+\subsection{Four-Layer Flow Construction}
+
+The Sankey diagram models the lifecycle of a 311 request as a directed flow through four node layers:
+
+\[
+\text{complaint\_category} \longrightarrow \text{agency\_name} \longrightarrow \text{process\_stage} \longrightarrow \text{response\_category}
+\]
+
+The \texttt{build\_sankey\_data()} function constructs nodes and links using a namespace-prefixed dictionary to prevent name collisions across layers (e.g., a node named ``Cerrado'' in process\_stage is distinct from any hypothetical agency named the same):
+
+\begin{lstlisting}[style=python, caption={Namespace-prefixed node registry in \texttt{ops\_engine.py}}, label=lst:sankey-nodes]
+def _get_or_add(name: str, prefix: str) -> int:
+    key = f"{prefix}::{name}"
+    if key not in node_index:
+        node_index[key] = len(node_names)
+        node_names.append({"id": len(node_names), "name": name})
+    return node_index[key]
+\end{lstlisting}
+
+To keep the diagram readable, the function filters to the top 10 complaint types and top 10 agencies by volume before building links.
+
+\subsection{What the Sankey Reveals}
+
+The Sankey is the most analytically rich visualization in the dashboard because it simultaneously encodes:
+
+\begin{itemize}
+  \item \textbf{Volume concentration}: Wide bands at the complaint layer identify the Pareto-dominant complaint types.
+  \item \textbf{Agency routing}: How complaint types are distributed across agencies---some complaints are handled by a single agency while others are split.
+  \item \textbf{Process completion}: The split between ``Cerrado'' and ``Abierto''/``En Progreso'' at the stage layer shows the overall closure rate.
+  \item \textbf{Resolution speed}: The flow into ``$<$1 dia'' vs ``$>$30 dias'' response categories immediately shows which paths are fast and which are bottlenecked.
+\end{itemize}
+
+The bottleneck node (highest throughput) is visually highlighted with a red drop shadow (\texttt{drop-shadow(0 0 8px rgba(239,68,68,0.6))}), drawing the manager's eye directly to the most critical stage.
+
+% -----------------------------------------------------------------------------
+\section{Temporal Patterns}
+\label{sec:ops-temporal}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/06-operational-efficiency/backend/ops\_backend/ops\_engine.py},
+  \filepath{projects/06-operational-efficiency/src/components/d3/SeasonalityChart.tsx}
+}
+
+\subsection{Day-of-Week / Hour-of-Day Heatmap}
+
+The \texttt{dow\_hour\_heatmap()} function produces a 7$\times$24 pivot matrix:
+
+\begin{lstlisting}[style=python, caption={DoW x hour pivot in \texttt{ops\_engine.py}}, label=lst:dow-hour]
+day_order = [
+    "Lunes", "Martes", "Miercoles",
+    "Jueves", "Viernes", "Sabado", "Domingo"
+]
+pivot = df.pivot_table(
+    index="created_dow",
+    columns="created_hour",
+    aggfunc="size",
+    fill_value=0,
+)
+pivot = pivot.reindex(index=day_order, columns=hours, fill_value=0)
+\end{lstlisting}
+
+The reindex step is critical: without it, days with zero requests for some hour would be absent from the matrix and the pivot would have misaligned columns.
+
+The \texttt{SeasonalityChart} D3 component renders this matrix as a color-encoded grid using an interpolator from \texttt{\#0F0F0F} (dark, low volume) to \texttt{\#D4A15E} (amber, high volume). Hour labels are shown only every third hour to avoid crowding.
+
+\subsection{Staffing Implications}
+
+The temporal heatmap supports concrete operational decisions:
+
+\begin{itemize}
+  \item Peaks on weekday mornings (typically 9--11am) suggest that call center staffing should be front-loaded early in the working day.
+  \item Elevated weekend volume for certain complaint types (e.g., noise complaints) argues for adjusted staffing on Saturdays and Sundays for those specific agencies.
+  \item Monthly trend analysis via \texttt{monthly\_time\_series()} can detect seasonal effects---for example, heating complaint surges in winter months---enabling agencies to pre-position resources.
+\end{itemize}
+
+\begin{interviewbox}
+You observe that the day-of-week heatmap shows Monday mornings as the single highest-volume cell. A city operations director asks whether this represents genuine increased demand or a backlog of weekend requests being entered on Monday. How would you design a follow-up analysis to distinguish between the two hypotheses?
+\end{interviewbox}
+
+% -----------------------------------------------------------------------------
+\section{Custom D3 Visualizations}
+\label{sec:ops-d3}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/06-operational-efficiency/src/components/d3/SankeyFlow.tsx},
+  \filepath{projects/06-operational-efficiency/src/components/d3/GaugeChart.tsx},
+  \filepath{projects/06-operational-efficiency/src/components/d3/ParetoChart.tsx},
+  \filepath{projects/06-operational-efficiency/src/components/d3/ChoroplethMap.tsx},
+  \filepath{projects/06-operational-efficiency/src/components/d3/HeatmapGrid.tsx},
+  \filepath{projects/06-operational-efficiency/src/components/d3/SeasonalityChart.tsx}
+}
+
+\subsection{Why D3 over Recharts}
+
+Standard React charting libraries such as Recharts or Chart.js cover bar charts, line charts, and scatter plots well. They cannot produce:
+
+\begin{itemize}
+  \item \textbf{Sankey/alluvial diagrams}: Require the \texttt{d3-sankey} layout algorithm to compute node positions and link bezier paths.
+  \item \textbf{Choropleth maps}: Require geographic path rendering from GeoJSON or custom SVG path data, plus a color scale keyed to a continuous variable.
+  \item \textbf{Animated arc gauges}: Require \texttt{d3.arc()} with transition interpolation over the end angle.
+\end{itemize}
+
+All six D3 components follow the same pattern: a \texttt{useRef} for the SVG element, a \texttt{useEffect} that clears and redraws on data change, and a cleanup function that calls \texttt{svg.selectAll('*').remove()}.
+
+\begin{decisionbox}
+D3 was chosen over Recharts for three specific visualization types (Sankey, choropleth, gauge) while simpler visualizations (monthly line chart, bottleneck table) use standard React state and Tailwind. This hybrid approach avoids the overhead of writing D3 for every chart while still enabling visualizations that would be impossible in Recharts.
+\end{decisionbox}
+
+\subsection{Gauge Chart}
+
+The gauge renders a half-donut arc from $-\pi/2$ to $+\pi/2$, with the fill arc animated over 800ms using \texttt{d3.easeCubicOut}:
+
+\begin{lstlisting}[style=typescript, caption={Arc animation in \texttt{GaugeChart.tsx}}, label=lst:gauge-animation]
+g.append('path')
+  .attr('d', arcFill.endAngle(startAngle)({}) ?? '')
+  .attr('fill', fillColor)
+  .transition()
+  .duration(800)
+  .ease(d3.easeCubicOut)
+  .attrTween('d', function () {
+    const interpolate = d3.interpolate(startAngle, fillAngle)
+    return (t: number) => arcFill.endAngle(interpolate(t))({}) ?? ''
+  })
+\end{lstlisting}
+
+Fill color maps to the verdict thresholds: green ($\geq$85\%), amber ($\geq$70\%), red ($<$70\%).
+
+\subsection{Choropleth Map}
+
+The choropleth uses hand-coded SVG paths approximating the five NYC borough outlines on a 500$\times$500 viewBox. A sequential color scale maps request volume (or SLA compliance rate) from near-black (\texttt{\#1A1510}) to amber (\texttt{\#D4A15E}):
+
+\begin{lstlisting}[style=typescript, caption={Color scale in \texttt{ChoroplethMap.tsx}}, label=lst:choropleth-scale]
+const colorScale = d3.scaleSequential(
+  (t: number) => d3.interpolateRgb('#1A1510', '#D4A15E')(t)
+).domain([minVal * 0.5, maxVal])
+\end{lstlisting}
+
+The \texttt{minVal * 0.5} lower bound prevents low-volume boroughs from appearing completely black. Borough shapes support click-through filtering: clicking a borough propagates the selection to the \texttt{OpsFilterContext} and re-fetches all dashboard panels for that borough.
+
+\subsection{Pareto Chart}
+
+The Pareto chart uses dual y-axes---a left linear scale for count (bars in amber/dark-amber) and a right 0--100 scale for cumulative percentage (line in blue). The 80\% reference line is rendered as a dashed amber line:
+
+\begin{lstlisting}[style=typescript, caption={80\% reference line in \texttt{ParetoChart.tsx}}, label=lst:pareto-80]
+g.append('line')
+  .attr('x1', 0).attr('x2', innerW)
+  .attr('y1', yRight(80)).attr('y2', yRight(80))
+  .attr('stroke', '#F2C94C')
+  .attr('stroke-dasharray', '6,4')
+  .attr('opacity', 0.7)
+\end{lstlisting}
+
+Bars at or before the 80\% cumulative threshold are rendered in \texttt{\#D4A15E} (highlighted amber); bars after the threshold use \texttt{\#6B4E2A} (dark brown), visually separating the ``vital few'' from the ``trivial many.''
+
+% -----------------------------------------------------------------------------
+\section{System Architecture}
+\label{sec:ops-architecture}
+% -----------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/06-operational-efficiency/backend/ops\_backend/main.py},
+  \filepath{projects/06-operational-efficiency/backend/ops\_backend/data\_loader.py},
+  \filepath{projects/06-operational-efficiency/backend/ops\_backend/ops\_engine.py},
+  \filepath{projects/06-operational-efficiency/src/context/OpsFilterContext.tsx}
+}
+
+\subsection{Backend: Pure Functions Catalog}
+
+\texttt{ops\_engine.py} contains eleven functions, all pure (no side effects, no global state). Each receives a filtered \texttt{pd.DataFrame} and returns a JSON-serializable dict or list:
+
+\begin{table}[h]
+\centering
+\caption{Function catalog for \texttt{ops\_engine.py}}
+\label{tab:ops-engine-functions}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Function} & \textbf{Returns} & \textbf{Purpose} \\
+\midrule
+\texttt{\_safe()} & scalar & Converts \texttt{NaN}/\texttt{inf} to \texttt{None} for JSON \\
+\texttt{\_sla\_rate()} & float & SLA compliance rate, excluding ``Sin SLA'' rows \\
+\texttt{compute\_overview()} & dict & Top-level KPIs (totals, rates, distributions) \\
+\texttt{sla\_verdict()} & str & Maps compliance \% to CUMPLE/EN RIESGO/INCUMPLE \\
+\texttt{build\_sankey\_data()} & dict & Four-layer flow: complaint$\to$agency$\to$stage$\to$response \\
+\texttt{detect\_bottlenecks()} & list & Top 10 agency--complaint combos by avg resolution time \\
+\texttt{agency\_ranking()} & list & Agencies ranked by volume with resolution stats \\
+\texttt{agency\_complaint\_heatmap()} & dict & 10$\times$15 agency$\times$complaint pivot matrix \\
+\texttt{borough\_summary()} & list & Per-borough statistics with top complaint \\
+\texttt{monthly\_time\_series()} & list & Monthly aggregation of volume and SLA compliance \\
+\texttt{dow\_hour\_heatmap()} & dict & 7$\times$24 request count matrix \\
+\texttt{pareto\_analysis()} & dict & Ranked complaint types with cumulative percentages \\
+\texttt{priority\_matrix()} & list & Complaint types by volume and resolution time \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Five-Dimension Filter System}
+
+All six API endpoints accept the same five query parameters, each of which is applied as an exact-match filter in \texttt{data\_loader.apply\_filters()}:
+
+\begin{table}[h]
+\centering
+\caption{Filter dimensions and their target columns}
+\label{tab:ops-filters}
+\begin{tabular}{lll}
+\toprule
+\textbf{Parameter} & \textbf{Column} & \textbf{Type} \\
+\midrule
+\texttt{agency} & \texttt{agency\_name} & Exact string \\
+\texttt{complaint\_type} & \texttt{complaint\_category} & Exact string (bucketed) \\
+\texttt{borough} & \texttt{borough} & Exact string \\
+\texttt{channel} & \texttt{open\_data\_channel\_type} & Exact string \\
+\texttt{year\_month} & \texttt{created\_month} & \texttt{YYYY-MM} string \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On the frontend, \texttt{OpsFilterContext} holds the active filter state and derives a \texttt{queryString} that is appended to every SWR data-fetching call. When the user changes a filter, React re-renders all panels simultaneously because each panel calls \texttt{useOpsFilters()} and includes \texttt{queryString} in its SWR key.
+
+\subsection{API Route Map}
+
+\begin{table}[h]
+\centering
+\caption{API endpoints served by \texttt{main.py}}
+\label{tab:ops-api-routes}
+\begin{tabular}{lll}
+\toprule
+\textbf{Method} & \textbf{Path} & \textbf{Engine Functions Called} \\
+\midrule
+GET & \texttt{/api/v1/overview} & \texttt{compute\_overview}, \texttt{sla\_verdict} \\
+GET & \texttt{/api/v1/bottleneck} & \texttt{build\_sankey\_data}, \texttt{detect\_bottlenecks} \\
+GET & \texttt{/api/v1/departments} & \texttt{agency\_ranking}, \texttt{agency\_complaint\_heatmap} \\
+GET & \texttt{/api/v1/geographic} & \texttt{borough\_summary} \\
+GET & \texttt{/api/v1/trends} & \texttt{monthly\_time\_series}, \texttt{dow\_hour\_heatmap} \\
+GET & \texttt{/api/v1/pareto} & \texttt{pareto\_analysis}, \texttt{priority\_matrix} \\
+GET & \texttt{/api/v1/filters} & (precomputed filter lists from \texttt{data\_loader}) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The data is loaded once at module import time in \texttt{data\_loader.py}, selecting only the 15 required columns from the enriched parquet. This keeps the in-memory footprint minimal and makes all endpoint handlers stateless reads of the preloaded DataFrame.
+
+\subsection{Frontend Tab Structure}
+
+The dashboard implements seven tabs through a \texttt{TabNav} component:
+
+\begin{enumerate}
+  \item \textbf{Overview}: KPI row, SLA verdict card, gauge charts, borough and channel distributions.
+  \item \textbf{Bottleneck}: Sankey flow diagram, resolution bottleneck table.
+  \item \textbf{Departments}: Agency ranking table, agency$\times$complaint heatmap.
+  \item \textbf{Geographic}: Choropleth map with borough click-through filtering.
+  \item \textbf{Trends}: Monthly line chart, day-of-week/hour seasonality heatmap.
+  \item \textbf{Pareto}: Pareto chart, priority scatter matrix.
+  \item \textbf{Proceso Tecnico}: Four embedded Jupyter notebooks rendered as full-page HTML iframes.
+\end{enumerate}
+
+% -----------------------------------------------------------------------------
+\section{Challenge and Interview Questions}
+\label{sec:ops-questions}
+% -----------------------------------------------------------------------------
+
+\begin{challengebox}
+The \texttt{detect\_bottlenecks()} function ranks by average resolution time. Construct a composite bottleneck score that incorporates volume, average resolution time, and SLA non-compliance rate. How would you normalize and weight these three factors to produce a single ranking metric that an operations director could act on?
+\end{challengebox}
+
+\begin{challengebox}
+The \texttt{complaint\_category} column caps categories at 20 by frequency and collapses the rest into \texttt{`Otros'}. Propose an alternative bucketing strategy that preserves analytical granularity for the Sankey without making the diagram unreadable. What is the trade-off between using frequency-based top-N versus agency-based filtering?
+\end{challengebox}
+
+\begin{interviewbox}
+An interviewer shows you the SLA compliance formula in Equation~\ref{eq:sla-compliance} and asks: ``What is the implicit assumption about \texttt{Sin SLA} rows, and when does that assumption break down?'' Walk through your reasoning about how excluding those rows from the denominator can make compliance look artificially high or low, depending on which agencies or complaint types have SLAs defined.
+\end{interviewbox}
+
+\begin{interviewbox}
+You want to determine whether Borough A has a statistically significantly lower SLA compliance rate than Borough B. Walk through the hypothesis test setup using Equation~\ref{eq:z-test-proportions}: state $H_0$ and $H_1$, specify the test statistic, describe when you would apply the Bonferroni correction from Equation~\ref{eq:bonferroni}, and interpret a $p$-value of 0.03 under both the uncorrected and corrected thresholds.
+\end{interviewbox}
+
+\begin{challengebox}
+The choropleth in \texttt{ChoroplethMap.tsx} uses hand-coded SVG path strings instead of a GeoJSON-based projection. What are the limitations of this approach for a production application? Describe how you would replace the static paths with a proper D3 geographic projection (e.g., \texttt{d3.geoMercator()}) using the official NYC borough boundary GeoJSON.
+\end{challengebox}
+
+\begin{interviewbox}
+The \texttt{apply\_filters()} function in \texttt{data\_loader.py} applies all filters as exact-match string comparisons on a preloaded in-memory DataFrame. The data team tells you the dataset has grown to 15 million rows. What are the performance implications of this architecture, and what changes---short of migrating to a database---would you make to maintain acceptable API response times?
+\end{interviewbox}
+
+% -----------------------------------------------------------------------------
+\section{Summary}
+\label{sec:ops-summary}
+% -----------------------------------------------------------------------------
+
+\begin{table}[h]
+\centering
+\caption{Project 06 at a glance}
+\label{tab:ops-summary}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Attribute} & \textbf{Detail} \\
+\midrule
+Dataset & NYC 311 Service Requests 2024, $\approx$3.5M rows, Socrata API (\texttt{erm2-nwe9}) \\
+ETL & 3-stage pipeline: download $\to$ clean $\to$ enrich; output: Parquet via PyArrow \\
+Backend & FastAPI, 7 endpoints, 11 pure functions, 5-dimension filter system \\
+Frontend & Next.js 14, D3.js, 6 custom visualizations, 7 dashboard tabs \\
+Key analyses & SLA compliance (z-test, Bonferroni), Pareto 80/20, Sankey process mining \\
+Unique strength & D3 visualizations (Sankey, choropleth, gauge) that Recharts cannot produce \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+This project demonstrates that operational analysis at scale requires more than descriptive statistics: the combination of formal hypothesis testing (z-tests with multiple comparison correction), process-level visualization (Sankey flow), prioritization frameworks (Pareto + priority matrix), and temporal pattern analysis (DoW/hour heatmap) produces a dashboard where a city manager can move from a high-level compliance verdict down to the specific agency--complaint-type combination responsible for the worst outcomes---all within a single, filtered session.
