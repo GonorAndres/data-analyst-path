@@ -1,0 +1,982 @@
+% =============================================================================
+% CHAPTER 03 -- A/B Test Analysis
+% =============================================================================
+
+\chapter{A/B Test Analysis}
+\label{ch:abtest}
+
+\sourcefiles{%
+  \filepath{projects/03-ab-test-analysis/backend/abtest\_backend/stats\_engine.py},
+  \filepath{projects/03-ab-test-analysis/backend/abtest\_backend/routers/},
+  \filepath{projects/03-ab-test-analysis/data-pipeline/03\_enrich.py},
+  \filepath{projects/03-ab-test-analysis/src/components/abtest/}
+}
+
+This chapter documents the most statistically dense project in the portfolio: a
+full-stack A/B test analysis platform built for an e-commerce landing page
+experiment. The project implements four distinct statistical frameworks --
+Frequentist, Bayesian, Power Analysis, and Sequential Testing -- each as pure
+Python functions in a single \filepath{stats\_engine.py} module, served through
+a FastAPI backend and visualised in a Next.js 14 dashboard.
+
+The central business question is: \emph{Did a landing page redesign improve
+conversion rates sufficiently to justify shipping it to all users?} The answer
+turns out to be nuanced: the aggregate result is positive, but segment-level
+analysis reveals Simpson's Paradox -- the treatment actively \emph{hurts}
+returning users.
+
+% =============================================================================
+\section{Business Context}
+\label{sec:abtest-context}
+% =============================================================================
+
+\sourcefiles{\filepath{README.md}, \filepath{src/components/abtest/VerdictCard.tsx}}
+
+Every A/B test ends with one of three decisions: ship, do not ship, or collect
+more data. The cost of each wrong decision is asymmetric:
+
+\begin{itemize}
+  \item \textbf{False positive (Type I, $\alpha$)}: Ship a change that does
+    not actually improve the metric. You waste engineering resources, potentially
+    degrade UX for a subset of users, and incur opportunity cost.
+  \item \textbf{False negative (Type II, $\beta$)}: Fail to ship a genuinely
+    good change. You leave revenue on the table and slow the product roadmap.
+  \item \textbf{Premature stopping}: End an experiment early based on
+    noise. The decision may flip once more data arrives.
+\end{itemize}
+
+The project explicitly frames three verdict states: \texttt{SHIP IT},
+\texttt{DON'T SHIP}, and \texttt{NEEDS MORE DATA} (shown in
+\filepath{routers/overview.py}). The overview router applies the rule: if
+$p \geq 0.05$, the verdict is ``needs more data'' regardless of the observed
+direction of the effect.
+
+\begin{keyinsight}
+  Statistical significance alone does not license a ship decision. This project
+  combines significance ($p < 0.05$), effect size (Cohen's $h$), Bayesian
+  confirmation ($\Prob(B > A) > 0.95$), and segment-level heterogeneity checks
+  before committing to a recommendation.
+\end{keyinsight}
+
+The real-world result from this experiment:
+\begin{itemize}
+  \item Aggregate conversion: treatment 12.33\% vs.\ control 12.04\%,
+    $p = 0.017$ -- statistically significant but Cohen's $h = 0.009$ (small).
+  \item Treatment \emph{hurts} returning users: 11.82\% vs.\ 12.28\%.
+  \item Treatment helps mobile new users: $+8.2\%$ lift.
+  \item Revenue uplift exists even where conversion lift is marginal:
+    treatment converters spend \$67 vs.\ \$61 ($+9.6\%$ AOV).
+  \item Recommendation: \textbf{do not ship universally}; ship for mobile new
+    users only.
+\end{itemize}
+
+% =============================================================================
+\section{Data Source and Synthetic Enrichment}
+\label{sec:abtest-data}
+% =============================================================================
+
+\sourcefiles{%
+  \filepath{data-pipeline/01\_download.py},
+  \filepath{data-pipeline/02\_clean.py},
+  \filepath{data-pipeline/03\_enrich.py}
+}
+
+\subsection{Base Dataset}
+
+The raw data is the Udacity E-Commerce A/B Test dataset from Kaggle
+(\textasciitilde294K rows, January 2017). Each row represents one user
+exposure with columns: \texttt{user\_id}, \texttt{group}
+(\texttt{control}/\texttt{treatment}), \texttt{landing\_page}
+(\texttt{old\_page}/\texttt{new\_page}), \texttt{converted} (0/1), and
+\texttt{timestamp}.
+
+\subsubsection{Cleaning steps (02\_clean.py)}
+
+The cleaning pipeline drops two categories of noise:
+\begin{enumerate}
+  \item \textbf{Mismatched rows}: 3,893 rows where the group/page assignment
+    is inconsistent (e.g., treatment group exposed to the old page). These
+    indicate assignment errors.
+  \item \textbf{Duplicate user IDs}: Only the first exposure per user is kept
+    to ensure one row per experimental unit.
+\end{enumerate}
+
+\subsection{Synthetic Enrichment}
+
+Raw data contains only a binary conversion outcome. To build an analytically
+rich dashboard with segment filters and heterogeneous treatment effects, the
+enrichment script (\filepath{data-pipeline/03\_enrich.py}) adds synthetic
+columns, all with \texttt{seed=42} for full reproducibility.
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{lll}
+    \toprule
+    Column & Distribution & Notes \\
+    \midrule
+    \texttt{device\_type} & Categorical & mobile 55\%, desktop 35\%, tablet 10\% \\
+    \texttt{browser} & Categorical & Chrome 60\%, Safari 20\%, Firefox 12\%, Edge 8\% \\
+    \texttt{country} & Categorical & US 40\%, UK 15\%, Canada 10\%, \ldots \\
+    \texttt{user\_segment} & Categorical & new 70\%, returning 30\% \\
+    \texttt{traffic\_source} & Categorical & organic 40\%, paid 30\%, social 20\%, referral 10\% \\
+    \texttt{revenue} & Log-normal & $\mu=\ln(45)$, $\sigma=0.8$; converters only; treatment $\times 1.08$ \\
+    \texttt{session\_duration\_sec} & Gamma & Converted: shape=3, scale=60; non-converted: shape=2, scale=45 \\
+    \texttt{pages\_viewed} & Poisson & $\lambda=3.8$ (treatment), $\lambda=3.5$ (control) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Synthetic columns added by the enrichment pipeline.}
+  \label{tab:abtest-enrichment}
+\end{table}
+
+\subsubsection{Baked-in heterogeneous treatment effects}
+
+Two deliberate distortions are introduced to create analytically interesting
+scenarios:
+
+\begin{enumerate}
+  \item \textbf{Mobile boost}: Among non-converted treatment users on mobile,
+    1.5\% are flipped to converted. This creates a device-treatment interaction.
+  \item \textbf{Returning-user penalty (Simpson's Paradox ingredient)}:
+    Among converted returning-segment treatment users, 8\% are flipped back
+    to non-converted. Because returning users are a minority (30\%), this
+    segment-level negative effect is masked in the aggregate.
+\end{enumerate}
+
+\begin{decisionbox}
+  \textbf{Why bake in Simpson's Paradox?} The Udacity dataset has a small
+  aggregate effect ($\approx 0.3$ pp lift). Without heterogeneous effects, all
+  segments would tell the same story. By engineering a returning-user
+  penalty, the dashboard demonstrates a real analyst skill: resisting the
+  aggregate result and always checking segment-level breakdown before shipping.
+\end{decisionbox}
+
+% =============================================================================
+\section{Frequentist Framework}
+\label{sec:abtest-frequentist}
+% =============================================================================
+
+\sourcefiles{%
+  \filepath{backend/abtest\_backend/stats\_engine.py} (lines 19--125),
+  \filepath{backend/abtest\_backend/routers/frequentist.py}
+}
+
+The frequentist module implements four functions: \texttt{z\_test\_proportions},
+\texttt{chi\_squared\_test}, \texttt{wilson\_confidence\_interval}, and
+\texttt{cohens\_h}. All are pure functions with no side effects.
+
+\subsection{Two-Proportion Z-Test}
+
+The workhorse of binary A/B tests. Under $H_0: p_A = p_B$, the test statistic is:
+
+\begin{equation}
+  Z = \frac{\hat{p}_B - \hat{p}_A}{\mathrm{SE}_{\mathrm{pooled}}}
+  \label{eq:zstat}
+\end{equation}
+
+where the \textbf{pooled standard error} assumes the null hypothesis of equal
+proportions:
+
+\begin{equation}
+  \mathrm{SE}_{\mathrm{pooled}} = \sqrt{\hat{p}_{\mathrm{pool}}
+    \left(1 - \hat{p}_{\mathrm{pool}}\right)
+    \left(\frac{1}{n_A} + \frac{1}{n_B}\right)}
+  \label{eq:se-pool}
+\end{equation}
+
+\begin{equation}
+  \hat{p}_{\mathrm{pool}} = \frac{c_A + c_B}{n_A + n_B}
+  \label{eq:ppool}
+\end{equation}
+
+Here $c_A$ and $c_B$ are conversion counts; $n_A$ and $n_B$ are group sizes.
+The two-sided p-value is:
+
+\begin{equation}
+  p = 2\left(1 - \Phi\left(|Z|\right)\right)
+\end{equation}
+
+where $\Phi$ is the standard normal CDF. This is exactly how
+\texttt{z\_test\_proportions} implements it, using \texttt{scipy.stats.norm.cdf}.
+
+\begin{lstlisting}[style=python, caption={z\_test\_proportions -- core computation (stats\_engine.py lines 38--43)}]
+p_pool = (conv_a + conv_b) / (n_a + n_b)
+se_pool = np.sqrt(p_pool * (1 - p_pool) * (1 / n_a + 1 / n_b))
+z_stat = diff / se_pool if se_pool > 0 else 0.0
+p_value = 2 * (1 - sp_stats.norm.cdf(abs(z_stat)))
+\end{lstlisting}
+
+\subsubsection{Pooled vs.\ unpooled standard error}
+
+The distinction matters for confidence intervals. The pooled SE is used for the
+test statistic because $H_0$ asserts $p_A = p_B$, so pooling is correct.
+However, the CI for the \emph{difference} $(\hat{p}_B - \hat{p}_A)$ does not
+assume equality, so the \textbf{unpooled} SE is used:
+
+\begin{equation}
+  \mathrm{SE}_{\mathrm{unpooled}} = \sqrt{
+    \frac{\hat{p}_A(1-\hat{p}_A)}{n_A} +
+    \frac{\hat{p}_B(1-\hat{p}_B)}{n_B}
+  }
+  \label{eq:se-unpool}
+\end{equation}
+
+The 95\% CI for the difference is then:
+
+\begin{equation}
+  \left(\hat{p}_B - \hat{p}_A\right) \pm z_{0.975} \cdot
+  \mathrm{SE}_{\mathrm{unpooled}}
+\end{equation}
+
+\subsection{Wilson Score Confidence Intervals}
+
+The standard Wald interval ($\hat{p} \pm z \sqrt{\hat{p}(1-\hat{p})/n}$)
+performs poorly near 0 and 1, and for small samples. The Wilson score interval
+corrects this by inverting the score test statistic. Its closed form is:
+
+\begin{equation}
+  \mathrm{CI}_{\mathrm{Wilson}} =
+  \frac{\hat{p} + \dfrac{z^2}{2n} \pm
+    z\sqrt{\dfrac{\hat{p}(1-\hat{p})}{n} + \dfrac{z^2}{4n^2}}}
+  {1 + \dfrac{z^2}{n}}
+  \label{eq:wilson}
+\end{equation}
+
+where $z = z_{\alpha/2}$ is the standard normal quantile. The implementation
+in \texttt{wilson\_confidence\_interval} factorises this as:
+
+\begin{lstlisting}[style=python, caption={Wilson CI (stats\_engine.py lines 95--100)}]
+z = sp_stats.norm.ppf(1 - alpha / 2)
+p_hat = successes / trials
+denom = 1 + z**2 / trials
+center = (p_hat + z**2 / (2 * trials)) / denom
+margin = z * np.sqrt(
+    (p_hat * (1 - p_hat) + z**2 / (4 * trials)) / trials
+) / denom
+\end{lstlisting}
+
+The Wilson interval is always bounded within $[0,1]$, unlike the Wald interval,
+making it the standard choice for proportion CIs in practice.
+
+\subsection{Chi-Squared Test}
+
+The chi-squared test of independence provides an alternative test for the
+$2 \times 2$ contingency table (group $\times$ converted). For a $2 \times 2$
+table with no Yates correction:
+
+\begin{equation}
+  \chi^2 = \sum_{i,j} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}
+\end{equation}
+
+where $O_{ij}$ are observed counts and $E_{ij} = (\text{row total})
+\times (\text{col total}) / n$ are expected counts under independence. With one
+degree of freedom, $Z^2 \sim \chi^2_1$, so this test is exactly equivalent to
+the two-sided z-test.
+
+The implementation adds \textbf{Cram\'{e}r's V} as a normalised effect size:
+
+\begin{equation}
+  V = \sqrt{\frac{\chi^2}{n}}
+\end{equation}
+
+\subsection{Cohen's \texorpdfstring{$h$}{h} Effect Size}
+
+Cohen's $h$ measures the practical significance of a difference between two
+proportions on the arcsine-transformed scale, which stabilises variance:
+
+\begin{equation}
+  h = 2\arcsin\!\left(\sqrt{p_2}\right) - 2\arcsin\!\left(\sqrt{p_1}\right)
+  \label{eq:cohens-h}
+\end{equation}
+
+Interpretation thresholds: $|h| < 0.2$ is small, $0.2$--$0.5$ is medium,
+$> 0.5$ is large. In this experiment, $h = 0.009$ -- well below the small
+threshold -- meaning the result, while statistically significant at
+$n \approx 290{,}000$, has negligible practical effect.
+
+\begin{lstlisting}[style=python, caption={Cohen's h (stats\_engine.py lines 113--114)}]
+h = 2 * np.arcsin(np.sqrt(p2)) - 2 * np.arcsin(np.sqrt(p1))
+\end{lstlisting}
+
+\begin{keyinsight}
+  The arcsine transformation $\varphi(p) = 2\arcsin(\sqrt{p})$ is a
+  variance-stabilising transform for binomial proportions. The variance of
+  $\varphi(\hat{p})$ is approximately $1/n$ regardless of the true $p$, making
+  comparisons on this scale more uniform across the $[0,1]$ range.
+\end{keyinsight}
+
+\subsection{Sample Ratio Mismatch (SRM) Test}
+
+Before trusting any result, the experiment health must be verified. A
+\textbf{Sample Ratio Mismatch} occurs when the observed group split deviates
+significantly from the planned 50/50 allocation. This signals a randomisation
+bug: bots, cookie expiry, or differential dropout. The SRM test uses a
+chi-squared goodness-of-fit test against expected counts of $n/2$:
+
+\begin{equation}
+  \chi^2_{\mathrm{SRM}} =
+  \frac{(n_A - n/2)^2}{n/2} + \frac{(n_B - n/2)^2}{n/2}
+  \label{eq:srm}
+\end{equation}
+
+with one degree of freedom. A p-value below 0.01 flags the experiment as
+imbalanced (\texttt{is\_balanced = False}).
+
+\begin{lstlisting}[style=python, caption={SRM test (stats\_engine.py lines 455--462)}]
+expected = total / 2
+chi2 = ((n_control - expected) ** 2 / expected
+        + (n_treatment - expected) ** 2 / expected)
+p_value = 1 - sp_stats.chi2.cdf(chi2, df=1)
+return {
+    "chi2": round(float(chi2), 6),
+    "p_value": round(float(p_value), 6),
+    "is_balanced": bool(p_value > 0.01),
+}
+\end{lstlisting}
+
+\begin{decisionbox}
+  \textbf{Why 0.01 not 0.05 for SRM?} An SRM is a data quality failure, not a
+  statistical finding. Using a stricter threshold reduces the chance of
+  dismissing a valid SRM as random noise. If SRM is detected, the entire
+  test result is suspect and should not be acted upon.
+\end{decisionbox}
+
+% =============================================================================
+\section{Bayesian Framework}
+\label{sec:abtest-bayesian}
+% =============================================================================
+
+\sourcefiles{%
+  \filepath{backend/abtest\_backend/stats\_engine.py} (lines 128--234),
+  \filepath{backend/abtest\_backend/routers/bayesian.py}
+}
+
+The Bayesian approach treats the true conversion rates $\theta_A$ and $\theta_B$
+as random variables with prior distributions, updated to posterior distributions
+after observing the data.
+
+\subsection{Beta-Binomial Conjugacy}
+
+For binary outcomes, the natural likelihood is Binomial:
+\[
+  c \mid \theta, n \sim \mathrm{Binomial}(n, \theta)
+\]
+
+The conjugate prior for the Binomial likelihood is the Beta distribution:
+\[
+  \theta \sim \mathrm{Beta}(\alpha_0, \beta_0)
+\]
+
+Conjugacy means the posterior is also Beta, with analytically tractable
+parameters:
+
+\begin{align}
+  \theta \mid c, f &\sim \mathrm{Beta}(\alpha_0 + c,\ \beta_0 + f)
+  \label{eq:beta-posterior}
+\end{align}
+
+where $c$ is observed conversions and $f = n - c$ is failures. This is the
+simplest possible Bayesian update: add successes to $\alpha$, add failures to
+$\beta$. The proof follows from Bayes' theorem:
+
+\begin{align}
+  p(\theta \mid c, f) &\propto p(c \mid \theta)\, p(\theta) \notag \\
+  &\propto \theta^c (1-\theta)^f \cdot \theta^{\alpha_0 - 1}(1-\theta)^{\beta_0 - 1} \notag \\
+  &= \theta^{(\alpha_0 + c) - 1}(1-\theta)^{(\beta_0 + f) - 1} \notag \\
+  &\propto \mathrm{Beta}(\alpha_0 + c,\ \beta_0 + f)
+\end{align}
+
+The bayesian router uses a \textbf{uniform (uninformative) prior}:
+$\alpha_0 = \beta_0 = 1$, equivalent to saying every conversion rate in $[0,1]$
+is equally plausible before seeing data. With $n_A \approx 145{,}000$
+observations, the posterior is extremely tight and the prior choice is
+irrelevant.
+
+\subsection{\texorpdfstring{$\Prob(B > A)$}{P(B > A)} via Monte Carlo}
+
+The key Bayesian decision metric is the probability that the treatment rate
+exceeds the control rate:
+
+\begin{equation}
+  \Prob(\theta_B > \theta_A) =
+  \int_0^1 \int_{\theta_A}^{1}
+    f(\theta_A)\, f(\theta_B)\,
+  \mathrm{d}\theta_B\, \mathrm{d}\theta_A
+  \label{eq:pbeatsa-integral}
+\end{equation}
+
+This double integral does not have a simple closed form for general Beta
+parameters. The implementation estimates it via Monte Carlo simulation with
+100,000 samples, seeded at 42 for reproducibility:
+
+\begin{lstlisting}[style=python, caption={P(B > A) Monte Carlo (stats\_engine.py lines 166--169)}]
+rng = np.random.default_rng(42)
+samples_a = rng.beta(post_a["alpha"], post_a["beta"], size=n_simulations)
+samples_b = rng.beta(post_b["alpha"], post_b["beta"], size=n_simulations)
+return round(float(np.mean(samples_b > samples_a)), 6)
+\end{lstlisting}
+
+The result for this experiment: $\Prob(B > A) = 0.992$, meaning there is
+a 99.2\% posterior probability that treatment converts better than control.
+
+\subsection{Expected Loss}
+
+$\Prob(B > A)$ alone can be misleading because it ignores the \emph{magnitude}
+of being wrong. The \textbf{expected loss} (also called expected regret)
+quantifies the cost of making the wrong choice:
+
+\begin{align}
+  \mathcal{L}_A &= \E\!\left[\max(\theta_B - \theta_A, 0)\right]
+    &\text{(loss if you choose A when B is better)} \label{eq:loss-a}\\
+  \mathcal{L}_B &= \E\!\left[\max(\theta_A - \theta_B, 0)\right]
+    &\text{(loss if you choose B when A is better)} \label{eq:loss-b}
+\end{align}
+
+These are estimated via Monte Carlo using the same posterior samples:
+
+\begin{lstlisting}[style=python, caption={Expected loss (stats\_engine.py lines 188--190)}]
+loss_a = float(np.mean(np.maximum(samples_b - samples_a, 0)))
+loss_b = float(np.mean(np.maximum(samples_a - samples_b, 0)))
+\end{lstlisting}
+
+The \textbf{decision rule}: ship when $\mathcal{L}_B < \epsilon$ for some
+small threshold $\epsilon$ (e.g., 0.001). If the expected loss from shipping
+is near zero, ship even if $\Prob(B > A)$ is below 0.95. In this experiment,
+$\mathcal{L}_B$ is near zero, confirming the frequentist result.
+
+\subsection{Credible Intervals vs.\ Confidence Intervals}
+
+The 95\% \textbf{credible interval} for $\theta$ is the central 95\% of the
+posterior Beta distribution:
+
+\begin{equation}
+  \mathrm{CrI}_{0.95}(\theta) = \left[F^{-1}_{\mathrm{Beta}}(0.025;\, \alpha, \beta),\;
+    F^{-1}_{\mathrm{Beta}}(0.975;\, \alpha, \beta)\right]
+  \label{eq:credible-interval}
+\end{equation}
+
+where $F^{-1}_{\mathrm{Beta}}$ is the Beta quantile function, implemented via
+\texttt{sp\_stats.beta.ppf}.
+
+\begin{keyinsight}
+  The correct interpretation of a 95\% \textbf{credible interval}
+  $[L, U]$: ``Given the data, there is a 95\% probability that the true
+  conversion rate lies between $L$ and $U$''. This is the statement most
+  practitioners want to make about a confidence interval but cannot: a 95\% CI
+  only guarantees that if the experiment were repeated many times, 95\% of
+  such intervals would contain the true value -- a statement about the
+  procedure, not about this particular interval.
+\end{keyinsight}
+
+% =============================================================================
+\section{Power Analysis}
+\label{sec:abtest-power}
+% =============================================================================
+
+\sourcefiles{%
+  \filepath{backend/abtest\_backend/stats\_engine.py} (lines 237--337),
+  \filepath{backend/abtest\_backend/routers/power.py},
+  \filepath{src/components/abtest/PowerCalculator.tsx}
+}
+
+Power analysis answers the pre-experiment question: \emph{how many users do we
+need to collect?} It must be done before running the experiment -- computing it
+post-hoc is invalid because the result is trivially correct for the observed
+effect.
+
+\subsection{Sample Size Formula}
+
+The required sample size per group for a two-proportion z-test is derived from
+requiring the non-centrality parameter of the test statistic to exceed the
+critical value at the desired power:
+
+\begin{equation}
+  n = \frac{\left(z_{\alpha/2}\sqrt{2\, p_1(1-p_1)}
+    + z_\beta \sqrt{p_1(1-p_1) + p_2(1-p_2)}\right)^2}{(p_2 - p_1)^2}
+  \label{eq:sample-size}
+\end{equation}
+
+where:
+\begin{itemize}
+  \item $p_1$ = baseline conversion rate (control)
+  \item $p_2 = p_1 + \delta$ = expected treatment conversion rate
+    ($\delta$ = MDE, minimum detectable effect)
+  \item $z_{\alpha/2}$ = critical value for significance level $\alpha$
+    (1.96 for $\alpha = 0.05$, two-sided)
+  \item $z_\beta$ = critical value for power $1 - \beta$
+    (0.842 for 80\% power)
+\end{itemize}
+
+\begin{lstlisting}[style=python, caption={required\_sample\_size (stats\_engine.py lines 262--272)}]
+p1 = baseline_rate
+p2 = baseline_rate + mde
+z_alpha = sp_stats.norm.ppf(1 - alpha / 2)
+z_beta = sp_stats.norm.ppf(power)
+numerator = (
+    z_alpha * np.sqrt(2 * p1 * (1 - p1))
+    + z_beta * np.sqrt(p1 * (1 - p1) + p2 * (1 - p2))
+) ** 2
+denominator = (p2 - p1) ** 2
+return int(np.ceil(numerator / denominator))
+\end{lstlisting}
+
+\subsubsection{Intuition for the formula}
+
+Equation~\eqref{eq:sample-size} has a clean structure:
+\begin{itemize}
+  \item The denominator $\delta^2 = (p_2 - p_1)^2$ means sample size grows
+    as the \emph{square} of the inverse of the effect: detecting a 0.5 pp
+    effect requires 4$\times$ the sample needed for a 1 pp effect.
+  \item Conversion rates near 0.5 have the highest variance
+    ($p(1-p)$ is maximised at $p = 0.5$), requiring the most data.
+  \item Increasing power from 80\% to 90\% replaces $z_\beta = 0.842$ with
+    $z_\beta = 1.282$, increasing required $n$ by roughly 25\%.
+\end{itemize}
+
+\subsection{Minimum Detectable Effect via Binary Search}
+
+Given a \emph{fixed} sample size $n$, the inverse question is: what is the
+smallest effect $\delta$ the test can detect at the specified power? There is no
+closed-form inverse of equation~\eqref{eq:sample-size}, so the implementation
+uses binary search over $\delta \in (0.0001,\, 0.5)$:
+
+\begin{lstlisting}[style=python, caption={minimum\_detectable\_effect (stats\_engine.py lines 294--302)}]
+lo, hi = 0.0001, 0.5
+for _ in range(100):
+    mid = (lo + hi) / 2
+    needed = required_sample_size(baseline_rate, mid, alpha, power)
+    if needed <= n:
+        hi = mid
+    else:
+        lo = mid
+return round(float(hi), 6)
+\end{lstlisting}
+
+After 100 bisection iterations, the interval width is
+$(0.5 - 0.0001)/2^{100} \approx 4 \times 10^{-31}$, providing effectively
+exact results.
+
+\subsection{Power Curve}
+
+For a fixed sample size $n$, statistical power as a function of effect size
+$\delta$ is:
+
+\begin{equation}
+  \mathrm{Power}(\delta) = \Phi\!\left(\frac{\delta}{\mathrm{SE}} - z_{\alpha/2}\right)
+    + \Phi\!\left(-\frac{\delta}{\mathrm{SE}} - z_{\alpha/2}\right)
+  \label{eq:power-curve}
+\end{equation}
+
+where $\mathrm{SE} = \sqrt{p_1(1-p_1)/n + p_2(1-p_2)/n}$. The second term
+accounts for the lower tail of the two-sided test and is typically negligible.
+The frontend interactive sliders in \filepath{PowerCalculator.tsx} recompute
+this in real time for any combination of baseline rate, MDE, alpha, and power.
+
+\subsection{Runtime Estimation}
+
+The power router converts required sample size into calendar time:
+
+\begin{equation}
+  \mathrm{runtime} = \left\lceil
+    \frac{\max(n_{\mathrm{required}} - n_{\mathrm{current}},\; 0)}
+    {\bar{d}/2}
+  \right\rceil + 1 \text{ days}
+\end{equation}
+
+where $\bar{d}$ is the mean daily traffic (each group receives half). This gives
+a concrete answer to ``when can we make a decision?'', which is what product
+managers actually ask.
+
+% =============================================================================
+\section{Sequential Testing}
+\label{sec:abtest-sequential}
+% =============================================================================
+
+\sourcefiles{%
+  \filepath{backend/abtest\_backend/stats\_engine.py} (lines 340--464),
+  \filepath{backend/abtest\_backend/routers/sequential.py},
+  \filepath{src/components/abtest/SequentialChart.tsx}
+}
+
+\subsection{The Peeking Problem}
+
+The classical frequentist framework requires that the sample size be fixed
+\emph{before} running the experiment. If analysts check p-values daily and stop
+when $p < 0.05$, the actual Type I error rate inflates dramatically above
+the nominal $\alpha$.
+
+If we check at $K$ equally spaced looks and stop at the first crossing of
+$p < \alpha$ per look, the true experiment-wise error rate is approximately:
+
+\begin{equation}
+  \alpha^* \approx 1 - (1 - \alpha)^K
+\end{equation}
+
+For $K = 30$ daily looks at $\alpha = 0.05$: $\alpha^* \approx 0.79$. The
+p-value evolution chart in the dashboard makes this viscerally clear: the
+cumulative p-value frequently dips below 0.05 early in the experiment due to
+random fluctuation, then recovers.
+
+\subsection{O'Brien-Fleming Spending Function}
+
+Sequential testing solves the peeking problem by pre-specifying a spending
+function that allocates the total $\alpha$ budget across all planned interim
+analyses. The \textbf{O'Brien-Fleming} (OBF) approach uses a conservative
+spending function that allocates very little $\alpha$ to early looks and most
+to the final look.
+
+The OBF boundary at look $k$ of $K$ total looks is:
+
+\begin{equation}
+  z_k^* = \frac{z_{\alpha/2}}{\sqrt{k/K}}
+  \label{eq:obf}
+\end{equation}
+
+where $z_{\alpha/2} = 1.96$ for $\alpha = 0.05$. The information fraction
+$k/K \in (0, 1]$ causes early boundaries to be very conservative (at
+$k=1$, $K=30$: $z_1^* = 1.96 / \sqrt{1/30} \approx 10.73$) and the final
+boundary to be approximately equal to the fixed-sample critical value.
+
+\begin{lstlisting}[style=python, caption={OBF boundaries (stats\_engine.py lines 431--438)}]
+for k in range(1, n_looks + 1):
+    info_fraction = k / n_looks
+    z_alpha = sp_stats.norm.ppf(1 - alpha / 2)
+    boundary = z_alpha / np.sqrt(info_fraction)
+    boundaries.append(round(float(boundary), 6))
+\end{lstlisting}
+
+The sequential endpoint identifies the first day where the cumulative z-statistic
+crosses the OBF boundary:
+
+\begin{lstlisting}[style=python, caption={Optimal stopping detection (routers/sequential.py lines 62--70)}]
+for i, day in enumerate(cum_stats):
+    if i < len(boundaries) and abs(day["z_stat"]) >= boundaries[i]:
+        optimal_stopping = {
+            "date": day["date"],
+            "day_number": i + 1,
+            "z_stat": day["z_stat"],
+            "boundary": boundaries[i],
+        }
+        break
+\end{lstlisting}
+
+\subsection{Why O'Brien-Fleming Over Pocock?}
+
+\begin{decisionbox}
+  Two common group sequential spending functions are OBF and Pocock.
+  Pocock uses a \emph{constant} critical value across all looks
+  ($z_k^* = c$ for all $k$), which sounds intuitive but pays a heavy price
+  at the final look: the overall $\alpha$ constraint forces $c > z_{\alpha/2}$,
+  making the final look \emph{harder} to reach significance than a
+  fixed-sample test.
+
+  OBF, by contrast, uses nearly all its $\alpha$ budget at the final look
+  ($z_K^* \approx z_{\alpha/2}$). This means: (a) early stopping requires an
+  overwhelming effect, which is appropriate since early data is noisy; (b) if
+  the experiment runs to completion without early stopping, the final p-value
+  threshold is almost identical to the standard test. OBF is therefore the
+  conservative, defensible choice.
+\end{decisionbox}
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{lcc}
+    \toprule
+    Look $k$ (of $K=30$) & OBF boundary $z_k^*$ & Pocock boundary \\
+    \midrule
+    1  & 10.73 & 2.67 \\
+    5  & 4.80  & 2.67 \\
+    10 & 3.39  & 2.67 \\
+    20 & 2.40  & 2.67 \\
+    30 & 1.96  & 2.67 \\
+    \bottomrule
+  \end{tabular}
+  \caption{OBF vs.\ Pocock boundaries for $K=30$ looks, $\alpha=0.05$.
+    OBF allocates nearly all $\alpha$ to the final look; Pocock is uniform.}
+  \label{tab:obf-pocock}
+\end{table}
+
+% =============================================================================
+\section{Simpson's Paradox}
+\label{sec:abtest-simpsons}
+% =============================================================================
+
+\sourcefiles{%
+  \filepath{backend/abtest\_backend/routers/segments.py},
+  \filepath{src/components/abtest/SimpsonParadox.tsx}
+}
+
+\subsection{Definition}
+
+Simpson's Paradox occurs when a trend or association observed in aggregate data
+\emph{reverses} (or disappears) when the data is broken into subgroups. It
+arises because of a confounding variable that is unequally distributed between
+the groups being compared.
+
+In this experiment:
+\begin{itemize}
+  \item \textbf{Aggregate}: treatment 12.33\% $>$ control 12.04\%
+    $\Rightarrow$ positive lift.
+  \item \textbf{Returning users}: treatment 11.82\% $<$ control 12.28\%
+    $\Rightarrow$ negative lift.
+  \item \textbf{New users}: treatment 12.54\% $>$ control 12.00\%
+    $\Rightarrow$ positive lift.
+\end{itemize}
+
+The positive aggregate result is driven by the larger new-user segment (70\% of
+traffic), masking the negative returning-user effect. A product team acting on
+the aggregate result alone would ship a feature that demonstrably hurts 30\%
+of users.
+
+\subsection{Detection Algorithm}
+
+The function \texttt{\_simpsons\_paradox} (segments router, lines 63--119) computes:
+
+\begin{enumerate}
+  \item The aggregate treatment direction:
+    $\text{agg\_dir} = \text{``treatment''} \iff \hat{p}_B > \hat{p}_A$.
+  \item Per-segment directions for each value of \texttt{user\_segment}.
+  \item Paradox flag: \texttt{detected = True} iff \emph{all} segments have a
+    direction \emph{opposite} to the aggregate direction.
+\end{enumerate}
+
+\begin{lstlisting}[style=python, caption={Simpson's Paradox detection (routers/segments.py lines 106--113)}]
+all_opposite = all(
+    s["direction"] != agg_direction for s in segment_directions
+)
+return {
+    "detected": all_opposite and len(segment_directions) > 1,
+    "aggregate_direction": agg_direction,
+    "aggregate_lift": round(agg_lift, 4),
+    "segments": segment_directions,
+}
+\end{lstlisting}
+
+\subsection{Causal Explanation}
+
+The paradox arises from unequal weighting of subgroups across the comparison.
+The formal condition: let $C$ be a covariate with values $c_1, \ldots, c_J$.
+If treatment rate $p_B > p_A$ in aggregate but $p_{B \mid c_j} < p_{A \mid c_j}$
+for all $j$, then $C$ is a confounder and the aggregate comparison is misleading:
+
+\begin{equation}
+  p_B = \sum_j w_{B,j}\, p_{B \mid c_j}
+  \neq
+  \sum_j w_{A,j}\, p_{A \mid c_j} = p_A
+\end{equation}
+
+where $w_{B,j} \neq w_{A,j}$ are the stratum weights in each group. The
+weighted average is driven by the weights, not just the within-stratum rates.
+
+\begin{keyinsight}
+  The detection condition ``all segments opposite'' is strict and catches the
+  strongest form of the paradox. In practice, partial reversals (some segments
+  positive, some negative) are more common and equally actionable. A richer
+  detector would flag any segment where the direction disagrees with the
+  aggregate, regardless of whether all segments agree with each other.
+\end{keyinsight}
+
+% =============================================================================
+\section{Architecture}
+\label{sec:abtest-architecture}
+% =============================================================================
+
+\sourcefiles{%
+  \filepath{backend/abtest\_backend/main.py},
+  \filepath{backend/abtest\_backend/data\_loader.py},
+  \filepath{src/components/abtest/ABTestDashboard.tsx}
+}
+
+\subsection{Design Philosophy: Pure Functions in a Single Engine}
+
+The entire statistical computation layer lives in a single file,
+\filepath{stats\_engine.py}, with a deliberate constraint: all functions are
+\textbf{pure} (no side effects, no global state, no I/O). This makes them
+independently testable, trivially importable from routers or notebooks, and
+auditable -- reviewers can verify the formulas without understanding the API
+layer.
+
+The module is organised into four blocks separated by ASCII banner comments:
+Frequentist (lines 14--125), Bayesian (128--234), Power Analysis (237--337),
+and Sequential Testing (340--464).
+
+\subsection{API Layer}
+
+The FastAPI application mounts six routers, each corresponding to one dashboard
+tab:
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{lll}
+    \toprule
+    Endpoint & Router & Key functions \\
+    \midrule
+    \texttt{GET /api/v1/overview} & \texttt{overview.py} &
+      \texttt{z\_test\_proportions}, \texttt{sample\_ratio\_mismatch\_test} \\
+    \texttt{GET /api/v1/frequentist} & \texttt{frequentist.py} &
+      \texttt{z\_test\_proportions}, \texttt{chi\_squared\_test},
+      \texttt{wilson\_confidence\_interval}, \texttt{cohens\_h} \\
+    \texttt{GET /api/v1/bayesian} & \texttt{bayesian.py} &
+      \texttt{beta\_posterior}, \texttt{probability\_b\_beats\_a},
+      \texttt{expected\_loss}, \texttt{credible\_interval} \\
+    \texttt{GET /api/v1/segments} & \texttt{segments.py} &
+      \texttt{z\_test\_proportions} (per segment) \\
+    \texttt{GET /api/v1/power} & \texttt{power.py} &
+      \texttt{required\_sample\_size}, \texttt{minimum\_detectable\_effect},
+      \texttt{power\_curve} \\
+    \texttt{GET /api/v1/sequential} & \texttt{sequential.py} &
+      \texttt{cumulative\_stats\_by\_day}, \texttt{obrien\_fleming\_bounds} \\
+    \bottomrule
+  \end{tabular}
+  \caption{API endpoints and their statistical function dependencies.}
+  \label{tab:abtest-api}
+\end{table}
+
+All endpoints accept optional filter query parameters (\texttt{device\_type},
+\texttt{browser}, \texttt{country}, \texttt{user\_segment},
+\texttt{traffic\_source}), applied via \texttt{data\_loader.apply\_filters()}.
+This enables live segment exploration from the frontend without any server
+restarts.
+
+\subsection{Data Loading}
+
+The data loader (\filepath{data\_loader.py}) reads the enriched parquet at
+module import time, pre-computes filter option lists, and exposes an
+\texttt{apply\_filters()} function. Loading once at startup keeps API latency
+low for the $\approx 290$K-row dataset.
+
+\subsection{Frontend}
+
+The Next.js 14 dashboard (\filepath{src/components/abtest/ABTestDashboard.tsx})
+uses \texttt{ABTestFilterContext} to share filter state across all tabs, and SWR
+hooks (\texttt{useOverview}, \texttt{useFrequentist}, etc.) for data fetching
+with automatic revalidation on filter change. Recharts renders all
+visualisations: area charts for posterior PDFs, composed charts for sequential
+z-statistics with OBF boundaries, and line charts for power curves.
+
+% =============================================================================
+\section{Challenge and Interview Questions}
+\label{sec:abtest-questions}
+% =============================================================================
+
+\begin{challengebox}
+  \textbf{Challenge 1: The z-test uses pooled SE. Why not always use unpooled SE
+  for both the test statistic and the confidence interval?}
+
+  The pooled SE is correct \emph{under the null hypothesis} because $H_0$
+  asserts $p_A = p_B = p$, so pooling gives the MLE of the common proportion.
+  Using pooled SE for the test statistic maximises power under $H_0$.
+
+  For the CI, we are estimating the true difference, not testing that it is
+  zero. Under the alternative, $p_A \neq p_B$, so we should not constrain them
+  to be equal. Unpooled SE is the correct estimator of
+  $\Var(\hat{p}_B - \hat{p}_A)$ without imposing the null. Using pooled SE for
+  the CI would under-cover the true parameter in the alternative.
+\end{challengebox}
+
+\begin{challengebox}
+  \textbf{Challenge 2: The OBF boundary at look 1 of 30 is 10.73. Is this
+  achievable in practice, and why does such a conservative boundary make sense?}
+
+  A z-statistic of 10.73 corresponds to a p-value of $\approx 10^{-26}$.
+  With the experiment's daily traffic ($\approx 9{,}700$ users/day), after day 1
+  $n \approx 4{,}850$ per group. For the observed lift of 0.29 pp, the
+  z-statistic would be $\approx 0.5$, nowhere near the boundary.
+
+  This is the feature, not a bug. To cross the day-1 boundary, the effect would
+  need to exceed 10.73 standard errors -- a treatment that catastrophically
+  breaks the site would show this. OBF's logic is: only stop early if the
+  evidence is so overwhelming that no reasonable amount of additional data
+  could change the conclusion. In the absence of such a catastrophic signal,
+  early stopping risks acting on noise.
+\end{challengebox}
+
+\begin{challengebox}
+  \textbf{Challenge 3: Explain why $Z^2 = \chi^2$ for a 2$\times$2 contingency
+  table.}
+
+  For a 2$\times$2 table with groups $A$ and $B$ and binary outcome, the Pearson
+  chi-squared statistic (no Yates correction) equals:
+  \[
+    \chi^2 = n \cdot \frac{(ad - bc)^2}{(a+b)(c+d)(a+c)(b+d)}
+  \]
+  where $a = c_A$, $b = n_A - c_A$, $c = c_B$, $d = n_B - c_B$.
+  Expanding the z-test statistic $Z = (\hat{p}_B - \hat{p}_A) /
+  \mathrm{SE}_{\mathrm{pooled}}$ and squaring produces exactly the same
+  expression. This algebraic identity means the two-sided z-test and the
+  chi-squared test are numerically identical -- they differ only in
+  presentation: the z-test gives directionality; the chi-squared does not.
+\end{challengebox}
+
+\begin{challengebox}
+  \textbf{Challenge 4: Can the expected loss be negative? What does it mean
+  for a loss to be very close to zero?}
+
+  No. By construction, $\max(\theta_B - \theta_A, 0) \geq 0$ for every sample,
+  so its expectation is also non-negative. Both $\mathcal{L}_A$ and
+  $\mathcal{L}_B$ are zero only if the posteriors are degenerate point masses at
+  identical values, which is impossible with real data.
+
+  In practice, one loss is very small (near-certain winner) and the other is
+  much larger. The decision threshold $\epsilon = 0.001$ means: if shipping B
+  costs on average less than 0.001 conversion rate points in the worst case,
+  ship it. The absolute scale depends on the metric: for revenue, 0.001 per
+  user $\times$ 1M users = \$1{,}000 potential loss per decision cycle.
+\end{challengebox}
+
+\begin{interviewbox}
+  \textbf{Interview Q1: Your PM wants to check the p-value every morning and
+  stop when it hits 0.05. How do you explain the problem?}
+
+  Use the gambler analogy: if you flip a fair coin 100 times and stop the first
+  time you see 10 heads in a row, you will incorrectly conclude the coin is
+  biased. Daily peeking inflates the experiment-wise Type I error to
+  $\approx 79\%$ for 30 looks at $\alpha = 0.05$.
+
+  Propose the sequential testing solution: pre-commit to $K$ looks and use
+  OBF boundaries. Show the PM the ``Daily P-Value Evolution'' chart -- the
+  p-value frequently crosses 0.05 during the experiment and comes back. If
+  they had acted on the early crossing, they would have shipped a change whose
+  true p-value was $>0.05$.
+\end{interviewbox}
+
+\begin{interviewbox}
+  \textbf{Interview Q2: The aggregate A/B test shows $p = 0.017$ and you
+  prepare to recommend shipping. A colleague points out that returning users
+  have worse performance in treatment. What do you do?}
+
+  This is exactly Simpson's Paradox. The correct response is: do not ship
+  universally. Steps:
+  \begin{enumerate}
+    \item Verify the returning-user result is statistically significant:
+      run the z-test within that segment.
+    \item Quantify the magnitude: is the returning-user harm larger or smaller
+      than the new-user gain in absolute revenue terms?
+    \item Check revenue: even if conversion is hurt, does AOV uplift compensate?
+    \item Recommendation: targeted rollout (ship to new users only; hold for
+      returning users). Run a separate returning-user test with a variant
+      designed for that segment.
+  \end{enumerate}
+  Never aggregate away heterogeneous effects in a ship/don't-ship decision.
+\end{interviewbox}
+
+\begin{interviewbox}
+  \textbf{Interview Q3: How do you verify the experiment ran correctly before
+  trusting the result?}
+
+  Run four checks:
+  \begin{enumerate}
+    \item \textbf{SRM test}: Does the observed 50/50 split hold
+      ($\chi^2_{\mathrm{SRM}}$ p-value $> 0.01$)? If not, there is an
+      assignment bug and the result cannot be trusted.
+    \item \textbf{A/A test equivalence}: If an A/A test was run concurrently,
+      it should show no significant difference ($p > 0.05$).
+    \item \textbf{Pre-experiment baseline}: Were control and treatment groups
+      similar before the experiment started (same historical conversion rates)?
+    \item \textbf{Novelty effect}: Is the experiment long enough (typically
+      $\geq 2$ weeks) to dilute the novelty effect from users encountering a
+      new design for the first time?
+  \end{enumerate}
+\end{interviewbox}

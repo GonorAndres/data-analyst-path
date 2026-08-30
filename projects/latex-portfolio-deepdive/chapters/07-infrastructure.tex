@@ -1,0 +1,662 @@
+\chapter{Shared Infrastructure \& Deployment}
+\label{ch:infrastructure}
+
+All seven portfolio projects share a common infrastructure layer: a single consolidated FastAPI process serving multiple sub-applications, Docker images built from the repository root, a GitHub Actions CI/CD pipeline that uses Workload Identity Federation to deploy to Google Cloud Run, and a Next.js reverse-proxy pattern that keeps backend URLs off the client bundle. This chapter documents each layer in detail, explaining the design rationale behind every decision.
+
+% =============================================================================
+\section{Consolidated FastAPI Architecture}
+\label{sec:infra-fastapi}
+% =============================================================================
+
+\sourcefiles{backend/main.py, backend/dev.sh, backend/requirements.txt}
+
+Rather than deploying five independent FastAPI services to Cloud Run, all API backends are mounted into a single root application using FastAPI's \texttt{app.mount()} mechanism. The entry point lives at \filepath{backend/main.py}.
+
+\begin{lstlisting}[style=python, caption={Consolidated API entry point -- backend/main.py}]
+app = FastAPI(title="DA Portfolio API", version="1.0.0")
+
+app.add_middleware(CORSMiddleware, allow_origins=[
+    "http://localhost:3000",  "http://localhost:3050",
+    "http://localhost:3051",  "http://localhost:3053",
+    "http://localhost:3055",  "http://localhost:3056",
+], allow_methods=["GET"], allow_headers=["*"])
+
+app.mount("/insurance", insurance_app)
+app.mount("/olist",     olist_app)
+app.mount("/abtest",    abtest_app)
+app.mount("/kpi",       kpi_app)
+app.mount("/portfolio", portfolio_app)
+app.mount("/ops",       ops_app)
+\end{lstlisting}
+
+\begin{keyinsight}
+That origin list is localhost-only, and deliberately so. It once carried
+\texttt{"https://*.vercel.app"}, which is worth dwelling on for two reasons.
+First, it never worked: Starlette compares \texttt{allow\_origins} by exact
+string, and patterns require \texttt{allow\_origin\_regex} --- so the entry
+matched nothing even while the Vercel deployments were live. Second, it is no
+longer needed at all. The dashboards reach this service through a same-origin
+proxy running at the edge (Section~\ref{sec:infra-proxy}), which is a
+server-side fetch: no browser origin is involved, so CORS never enters the
+picture in production. The remaining entries exist purely so each backend can be
+driven standalone during development.
+\end{keyinsight}
+
+Each sub-application is a fully independent FastAPI instance with its own routers, data loaders, and \texttt{/health} endpoint. The root app provides only the mount table and a shared CORS middleware layer. Each sub-app's Python package is injected via \texttt{sys.path.insert()} at startup, pointing to the project-specific backend directory.
+
+\begin{lstlisting}[style=python, caption={sys.path manipulation for sub-app discovery (lines 10--15)}]
+PROJECTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "projects")
+sys.path.insert(0, os.path.join(PROJECTS, "01-insurance-claims-dashboard", "backend"))
+sys.path.insert(0, os.path.join(PROJECTS, "00-demo-aestehtics", "backend"))
+sys.path.insert(0, os.path.join(PROJECTS, "03-ab-test-analysis", "backend"))
+sys.path.insert(0, os.path.join(PROJECTS, "04-executive-kpi-report", "backend"))
+sys.path.insert(0, os.path.join(PROJECTS, "06-operational-efficiency", "backend"))
+\end{lstlisting}
+
+\begin{keyinsight}
+The \texttt{app.mount()} pattern is not the same as \texttt{include\_router()}. A mounted sub-app is a complete ASGI application: it handles its own middleware, exception handlers, and OpenAPI schema. When the root app receives a request to \texttt{/insurance/api/v1/loss-triangle}, FastAPI strips the \texttt{/insurance} prefix and dispatches the remainder to \texttt{insurance\_app} as if it were receiving \texttt{/api/v1/loss-triangle} directly. This means each sub-app works identically in standalone mode and in the consolidated deployment.
+\end{keyinsight}
+
+A single health endpoint at the root level reports all mounted services:
+
+\begin{lstlisting}[style=python, caption={Root health endpoint}]
+@app.get("/health")
+def health():
+    return {"status": "ok",
+            "services": ["insurance", "olist", "abtest", "kpi", "ops"]}
+\end{lstlisting}
+
+The development server is started from the repository root via \filepath{backend/dev.sh}:
+
+\begin{lstlisting}[style=yaml, caption={backend/dev.sh}]
+#!/bin/bash
+cd "$(dirname "$0")/.."
+python3 -m uvicorn backend.main:app \
+    --host 0.0.0.0 --port 8080 --reload
+\end{lstlisting}
+
+\begin{decisionbox}
+\textbf{Why one process instead of five?} Cloud Run charges per instance-hour. Five separate services would each incur cold-start latency and idle cost. A single consolidated service shares one warm instance, reduces total memory overhead from duplicate interpreter initialisation, and simplifies the CI/CD pipeline to a single deploy step. The trade-off is that a bug in one sub-app's data loader crashes the entire process on startup -- acceptable for a portfolio context where each project is individually tested before merging.
+\end{decisionbox}
+
+% =============================================================================
+\section{Docker Multi-Service Architecture}
+\label{sec:infra-docker}
+% =============================================================================
+
+\sourcefiles{backend/Dockerfile, projects/02-ecommerce-cohort-analysis/Dockerfile}
+
+Both Dockerfiles use the \emph{repository root} as the build context. This is intentional: it allows a single \texttt{COPY} instruction to pull code and processed data from multiple project subdirectories, which would be impossible if the build context were scoped to the project folder alone.
+
+\begin{lstlisting}[style=dockerfile, caption={Consolidated API Dockerfile -- backend/Dockerfile}]
+FROM python:3.11-slim
+WORKDIR /workspace
+
+COPY backend/requirements.txt ./backend/
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+COPY backend/main.py ./backend/
+
+# Insurance backend + data
+COPY projects/01-insurance-claims-dashboard/backend/insurance_backend/ \
+     ./projects/01-insurance-claims-dashboard/backend/insurance_backend/
+COPY projects/01-insurance-claims-dashboard/data/processed/ \
+     ./projects/01-insurance-claims-dashboard/data/processed/
+
+# ... (repeated for olist, abtest, kpi, ops)
+EXPOSE 8080
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8080"]
+\end{lstlisting}
+
+The Streamlit Dockerfile follows the same repo-root build context pattern but is far simpler because it serves only one project:
+
+\begin{lstlisting}[style=dockerfile, caption={Streamlit Dockerfile -- projects/02-ecommerce-cohort-analysis/Dockerfile}]
+# Build from repo root: docker build -f projects/02-.../Dockerfile .
+FROM python:3.11-slim
+WORKDIR /app
+
+COPY projects/02-ecommerce-cohort-analysis/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY projects/02-ecommerce-cohort-analysis/streamlit/ ./streamlit/
+COPY projects/02-ecommerce-cohort-analysis/data/processed/ ./data/processed/
+
+EXPOSE 8501
+CMD ["streamlit", "run", "streamlit/app.py",
+     "--server.port=8501", "--server.address=0.0.0.0",
+     "--server.headless=true"]
+\end{lstlisting}
+
+\begin{keyinsight}
+The layer ordering in both Dockerfiles is deliberate. Dependencies (\texttt{pip install}) come before source code \texttt{COPY} instructions. Docker caches each layer independently: if only Python source files change but \texttt{requirements.txt} is unchanged, the expensive pip install layer is served from cache, reducing rebuild time from several minutes to seconds. Processed data files are copied \emph{last}, after source code, because data changes trigger a full rebuild regardless -- there is no benefit to caching incomplete images.
+\end{keyinsight}
+
+Docker build commands reference the Dockerfile explicitly while using the repository root as context:
+
+\begin{lstlisting}[style=yaml, caption={Build invocation pattern (from CI workflow)}]
+docker build \
+  -f backend/Dockerfile \
+  -t us-central1-docker.pkg.dev/$PROJECT_ID/da-portfolio-api/da-portfolio-api:$SHA \
+  -t us-central1-docker.pkg.dev/$PROJECT_ID/da-portfolio-api/da-portfolio-api:latest \
+  .
+\end{lstlisting}
+
+Both the \texttt{:latest} and the \texttt{:\$GITHUB\_SHA} tags are pushed. Cloud Run deploys the SHA-tagged image (immutable, traceable to a specific commit) while \texttt{:latest} is available for local pulls during development.
+
+% =============================================================================
+\section{CI/CD with GitHub Actions}
+\label{sec:infra-cicd}
+% =============================================================================
+
+\sourcefiles{.github/workflows/deploy-api.yml, .github/workflows/deploy-hub.yml, .github/workflows/deploy-cohort-redirect.yml}
+
+Two independent workflows handle deployment, each activated only when relevant files change.
+
+\subsection{Path Filters for Selective Deploys}
+
+The API workflow triggers on any push to \texttt{main} that touches backend code from any of the five mounted projects:
+
+\begin{lstlisting}[style=yaml, caption={Path filter in deploy-api.yml}]
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "projects/00-demo-aestehtics/backend/**"
+      - "projects/01-insurance-claims-dashboard/backend/**"
+      - "projects/03-ab-test-analysis/backend/**"
+      - "projects/04-executive-kpi-report/backend/**"
+      - "projects/06-operational-efficiency/backend/**"
+  workflow_dispatch:
+\end{lstlisting}
+
+A second workflow once deployed the Streamlit cohort dashboard on the same
+principle, filtering on
+\texttt{projects/02-ecommerce-cohort-analysis/streamlit/**}. It has been replaced
+by \filepath{deploy-cohort-redirect.yml}, which deploys an nginx image to the
+same Cloud Run service --- the service now answers HTTP~308 to
+\texttt{/cohorts/} for every path rather than serving a dashboard:
+
+\begin{lstlisting}[style=yaml, caption={Path filter in deploy-cohort-redirect.yml}]
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "ops/cohort-redirect/**"
+      - ".github/workflows/deploy-cohort-redirect.yml"
+\end{lstlisting}
+
+\begin{keyinsight}
+The service was kept rather than deleted, and the distinction is a deployment
+decision, not sentiment. Its \texttt{run.app} hostname had been linked from the
+portfolio site, from two language versions of a blog post and from the
+repository's own README for months. A deleted Cloud Run service answers 404,
+which destroys those links; a 308 forwards them and hands the search ranking to
+the canonical path. Paths are deliberately \emph{not} preserved across the
+redirect: Streamlit's own routes have no counterpart in the rebuild, so carrying
+a path over would turn a working old link into a 404 on the new site.
+\end{keyinsight}
+
+All workflows support \texttt{workflow\_dispatch}, allowing manual re-deploys without a code change (useful after updating data files in GCS).
+
+\subsection{Workload Identity Federation}
+
+Neither workflow stores a Google Cloud service account key in GitHub Secrets. Instead, authentication uses Workload Identity Federation (WIF): GitHub's OIDC token exchange mechanism that grants short-lived GCP credentials scoped to a specific repository.
+
+\begin{lstlisting}[style=yaml, caption={WIF authentication step}]
+- name: Authenticate to Google Cloud
+  uses: google-github-actions/auth@v2
+  with:
+    workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+    service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+\end{lstlisting}
+
+The three GitHub Secrets used are:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Secret} & \textbf{Value} \\
+\midrule
+\texttt{GCP\_PROJECT\_ID} & \texttt{project-ad7a5be2-a1c7-4510-82d} \\
+\texttt{GCP\_WIF\_PROVIDER} & \texttt{projects/451451662791/.../github-provider} \\
+\texttt{GCP\_SERVICE\_ACCOUNT} & \texttt{github-deployer@project-ad7a5be2-...iam.gserviceaccount.com} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{decisionbox}
+\textbf{Why WIF instead of a service account key?} Long-lived JSON key files are a security liability: they can leak, expire without notice, and require manual rotation. WIF issues credentials that expire within the workflow run (typically under one hour) and are cryptographically bound to the specific GitHub repository and branch. The WIF pool (\texttt{github-pool}) and provider (\texttt{github-provider}) were configured once in GCP and require no maintenance.
+\end{decisionbox}
+
+\subsection{GCS Data Download Step}
+
+Processed parquet files are not committed to git -- they live in \texttt{gs://da-portfolio-data-assets}. The CI workflow downloads them during the build step, before \texttt{docker build}, so the existing \texttt{COPY} instructions in the Dockerfile work without modification:
+
+\begin{lstlisting}[style=yaml, caption={GCS data download step in deploy-api.yml}]
+- name: Download data from GCS
+  run: |
+    mkdir -p projects/00-demo-aestehtics/backend/data
+    mkdir -p projects/01-insurance-claims-dashboard/data/processed
+    mkdir -p projects/03-ab-test-analysis/data/processed
+    mkdir -p projects/04-executive-kpi-report/data/processed
+    mkdir -p projects/06-operational-efficiency/data/processed
+    gcloud storage cp "$DATA_BUCKET/olist-backend/*"       projects/00-demo-aestehtics/backend/data/
+    gcloud storage cp "$DATA_BUCKET/insurance-processed/*" projects/01-.../data/processed/
+    gcloud storage cp "$DATA_BUCKET/abtest-processed/*"    projects/03-.../data/processed/
+    gcloud storage cp "$DATA_BUCKET/kpi-processed/*"       projects/04-.../data/processed/
+    gcloud storage cp "$DATA_BUCKET/ops-processed/*"       projects/06-.../data/processed/
+\end{lstlisting}
+
+This approach solves a common portfolio dilemma: large binary files should not be in git (git is not a data store), but the Docker build needs them at image build time. By staging data in GCS and downloading it into the runner's working directory, the Dockerfile sees the files as if they had always been local.
+
+% =============================================================================
+\section{Cloud Run Deployment}
+\label{sec:infra-cloudrun}
+% =============================================================================
+
+\sourcefiles{.github/workflows/deploy-api.yml, .github/workflows/deploy-hub.yml, .github/workflows/deploy-cohort-redirect.yml}
+
+Both services deploy to Cloud Run in \texttt{us-central1} under the Artifact Registry repository \texttt{da-portfolio-api}.
+
+\subsection{Memory Sizing: The OOM Incident History}
+
+The API service memory allocation has a documented history of adjustments driven by real out-of-memory (OOM) events visible in the git log:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Commit} & \textbf{Memory} & \textbf{Reason} \\
+\midrule
+\texttt{5020609} & 512\,Mi & Initial allocation \\
+\texttt{c80caaa} & 1\,Gi & OOM crash observed \\
+\texttt{870690d} & 2\,Gi & Further OOM on peak load \\
+\texttt{8a5021a} & 1\,Gi (revert) & Fixed via column pruning \\
+\texttt{2fce040} & 2\,Gi (restored) & Actual usage 1,056\,MiB post-pruning \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The root cause of the OOM was the \texttt{nyc311\_enriched.parquet} file loading all 26 columns at import time, consuming approximately 4,417\,MB. The fix in commit \texttt{8a5021a} applies column pruning in the data loader:
+
+\begin{lstlisting}[style=python, caption={Column pruning fix in ops\_backend/data\_loader.py}]
+REQUIRED_COLUMNS = [
+    "agency_name", "borough", "complaint_category", "complaint_type",
+    "created_month", "created_dow", "created_hour",
+    "open_data_channel_type", "resolution_days", "resolution_hours",
+    "status", "sla_status", "is_overdue",
+    "response_category", "process_stage",
+]
+df = pd.read_parquet(PARQUET_PATH, columns=REQUIRED_COLUMNS)
+\end{lstlisting}
+
+Pruning from 26 to 15 columns dropped the NYC dataset from 4,417\,MB to approximately 350--400\,MB. Total footprint across all five loaded datasets settled at 1,056\,MiB, justifying the final 2\,Gi allocation (which provides roughly 1\,GiB of headroom for request processing).
+
+\subsection{Scaling Configuration}
+
+Both Cloud Run services use the same scaling parameters:
+
+\begin{lstlisting}[style=yaml, caption={Cloud Run flags in deploy-api.yml}]
+flags: |
+  --memory=2Gi
+  --cpu=1
+  --min-instances=0
+  --max-instances=2
+  --allow-unauthenticated
+  --port=8080
+\end{lstlisting}
+
+\begin{itemize}
+  \item \textbf{min-instances=0}: The service scales to zero when idle. This eliminates idle instance charges but introduces cold start latency (typically 3--8 seconds for a Python/pandas image of this size).
+  \item \textbf{max-instances=2}: Caps horizontal scaling. A portfolio API does not need elastic scaling; two instances handle any realistic concurrent load while preventing runaway cost.
+  \item \textbf{allow-unauthenticated}: Required for a public portfolio. Cloud Run's default is to reject unauthenticated requests.
+\end{itemize}
+
+The Streamlit service (\texttt{da-cohort-streamlit}) uses the same scaling parameters but with \texttt{--memory=512Mi} and \texttt{--port=8501}.
+
+\begin{keyinsight}
+Cold starts are the most visible UX issue with min-instances=0. Because all five sub-app data loaders run at import time (module-level \texttt{pd.read\_parquet()} calls), the first request to any endpoint after a cold start bears the full cost of loading all datasets into memory. A \texttt{/health} ping from the frontend on page load is a common mitigation pattern -- waking the container before the user navigates to a data-heavy page.
+\end{keyinsight}
+
+% =============================================================================
+\section{GCS Data Management}
+\label{sec:infra-gcs}
+% =============================================================================
+
+Processed parquet files for all projects are stored in a single GCS bucket:
+
+\begin{center}
+\texttt{gs://da-portfolio-data-assets}
+\end{center}
+
+The bucket is structured by project prefix:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{GCS prefix} & \textbf{Local destination (CI)} & \textbf{Consumed by} \\
+\midrule
+\texttt{olist-backend/} & \texttt{projects/00-demo-aestehtics/backend/data/} & API (olist) \\
+\texttt{insurance-processed/} & \texttt{projects/01-.../data/processed/} & API (insurance) \\
+\texttt{abtest-processed/} & \texttt{projects/03-.../data/processed/} & API (abtest) \\
+\texttt{kpi-processed/} & \texttt{projects/04-.../data/processed/} & API (kpi) \\
+\texttt{ops-processed/} & \texttt{projects/06-.../data/processed/} & API (ops) \\
+\texttt{cohort-processed/} & \texttt{projects/02-.../data/processed/} & Streamlit \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+To update a dataset after running a notebook pipeline locally:
+
+\begin{lstlisting}[style=yaml, caption={Uploading updated data to GCS}]
+gcloud storage cp data/processed/orders_enriched.parquet \
+    gs://da-portfolio-data-assets/cohort-processed/
+\end{lstlisting}
+
+After the upload, a \texttt{workflow\_dispatch} trigger on the relevant workflow re-deploys the service with the new data baked into the Docker image. There is no live data mount -- the parquet files are embedded in the image at build time, making each deployed revision fully self-contained and reproducible.
+
+\begin{decisionbox}
+\textbf{Embedded data vs. runtime mount}: An alternative design would mount GCS as a FUSE filesystem (via Cloud Storage FUSE) and read parquets at request time. This would allow data updates without rebuilding the image. The current design was chosen for simplicity and cold-start predictability: a FUSE mount adds latency on the first read and requires additional IAM configuration. For a portfolio with infrequent data refreshes, the rebuild-on-update pattern is operationally simpler.
+\end{decisionbox}
+
+% =============================================================================
+\section{Next.js Proxy Pattern}
+\label{sec:infra-proxy}
+% =============================================================================
+
+\sourcefiles{projects/*/next.config.js, functions/api/[[path]].ts}
+
+Every frontend in the portfolio reaches its FastAPI backend through a relative
+\texttt{/api/<prefix>} path. The browser never calls the Cloud Run URL directly.
+\emph{Which} component performs that proxying differs between development and
+production, and conflating the two is the single easiest mistake to make here.
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Development} & \textbf{Production} \\
+\midrule
+\texttt{Browser $\to$ /api/<prefix>/<path>} & \texttt{Browser $\to$ /api/<prefix>/<path>} \\
+\texttt{$\quad\to$ Next.js server (rewrites)} & \texttt{$\quad\to$ Pages Function (edge)} \\
+\texttt{$\quad\to$ FastAPI backend URL/<path>} & \texttt{$\quad\to$ Cloud Run/<prefix>/<path>} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{keyinsight}
+In production there is no Next.js server. Every dashboard is compiled with
+\texttt{output: 'export'}, which emits static files and no runtime --- so
+\texttt{rewrites()} never executes. It is a development-only convenience. The
+production proxy is \filepath{functions/api/[[path]].ts}, a Cloudflare Pages
+Function running at the edge, which is why the \texttt{rewrites()} blocks below
+can look authoritative and still describe nothing that happens to a real user.
+\end{keyinsight}
+
+The development proxy is configured in each project's \filepath{next.config.js} using Next.js's \texttt{rewrites()} async function:
+
+\begin{lstlisting}[style=typescript, caption={next.config.js -- Insurance project (projects/01-.../next.config.js)}]
+const nextConfig = {
+  async rewrites() {
+    // Server-side env var: no NEXT_PUBLIC_ prefix
+    const backend = process.env.INSURANCE_BACKEND_URL || 'http://localhost:2051'
+    return [
+      {
+        source: '/api/insurance/:path*',
+        destination: `${backend}/:path*`,
+      },
+    ]
+  },
+}
+module.exports = nextConfig
+\end{lstlisting}
+
+The same pattern appears across all projects, each with its own source prefix and environment variable:
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Project} & \textbf{Source pattern} & \textbf{Env var} & \textbf{Dev default} \\
+\midrule
+00 (Airbnb) & \texttt{/api/olist/:path*} & \texttt{OLIST\_BACKEND\_URL} & \texttt{localhost:2050} \\
+01 (Insurance) & \texttt{/api/insurance/:path*} & \texttt{INSURANCE\_BACKEND\_URL} & \texttt{localhost:2051} \\
+03 (A/B Test) & \texttt{/api/abtest/:path*} & \texttt{ABTEST\_BACKEND\_URL} & \texttt{localhost:2053} \\
+04 (KPI Report) & \texttt{/api/kpi/:path*} & \texttt{KPI\_BACKEND\_URL} & \texttt{localhost:2052} \\
+05 (Portfolio) & \texttt{/api/portfolio/:path*} & \texttt{PORTFOLIO\_BACKEND\_URL} & \texttt{localhost:2055} \\
+06 (Operations) & \texttt{/api/ops/:path*} & \texttt{OPS\_BACKEND\_URL} & \texttt{localhost:2056} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{keyinsight}
+The absence of a \texttt{NEXT\_PUBLIC\_} prefix on the backend URL environment variable is deliberate and security-relevant. Variables without this prefix are \emph{never} embedded in the JavaScript bundle sent to the browser, so a user inspecting the client-side bundle cannot discover the Cloud Run service URL. This matters because Cloud Run URLs follow a predictable pattern (\texttt{https://SERVICE-HASH-uc.a.run.app}), and an exposed origin could be called directly, bypassing the proxy that fronts it. The principle survived the migration even though the enforcing component changed: in development the boundary is the Next.js server, in production it is the Pages Function, and in both cases the origin stays out of the bundle.
+\end{keyinsight}
+
+Setting that variable switches a project from its standalone backend
+(\texttt{localhost:2051}) to the consolidated service
+(\texttt{localhost:8080/insurance}) with no code change. In production it is not
+read at all: the origin lives in the Pages Function instead.
+
+\begin{lstlisting}[style=typescript, caption={Production proxy -- functions/api/[[path]].ts}]
+const DEFAULT_ORIGIN = 'https://da-portfolio-api-HASH-uc.a.run.app'
+const SERVICES = new Set(['insurance','olist','abtest','kpi','portfolio','ops'])
+
+const [service, ...rest] = segments
+if (!service || !SERVICES.has(service)) return Response.json({...}, {status: 404})
+
+const origin = env.API_ORIGIN ?? DEFAULT_ORIGIN
+const upstream = await fetch(new URL(`${origin}/${service}/${rest.join('/')}`))
+\end{lstlisting}
+
+Two properties of that Function are load-bearing. The service segment is checked
+against a fixed set rather than forwarded blindly, so the route cannot be used as
+an open proxy to arbitrary paths on the origin. And a failed upstream call is
+caught and returned as HTTP~504 rather than propagating: Cloud Run runs at
+\texttt{min-instances=0}, so the first request after an idle period can fail
+purely from a cold start, and the dashboards' cold-start banner polls until it
+recovers.
+
+\begin{keyinsight}
+The counterpart rule on the frontend is to \emph{never} set
+\texttt{NEXT\_PUBLIC\_*\_API\_URL} in a production build. Doing so bakes an
+absolute Cloud Run URL into the client bundle and bypasses the proxy entirely ---
+undoing both the origin-hiding above and the service allowlist.
+\filepath{scripts/build-hub.mjs} strips those variables from the build
+environment for exactly this reason, so the mistake cannot be made by accident.
+\end{keyinsight}
+
+% =============================================================================
+% =============================================================================
+\section{The Consolidated Frontend Hub}
+\label{sec:infra-hub}
+% =============================================================================
+
+\sourcefiles{scripts/build-hub.mjs, functions/\_middleware.ts, functions/ingest/[[path]].ts, .github/workflows/deploy-hub.yml}
+
+The backend consolidation described in Section~\ref{sec:infra-fastapi} has an
+exact counterpart on the frontend, and it arrived later. The seven dashboards
+began as seven separate deployments on seven hostnames --- six on Vercel plus a
+Streamlit app on a raw Cloud Run URL. They are now \textbf{one} Cloudflare Pages
+project, \texttt{data-analyst-hub}, serving \texttt{data-analyst.gonor.me}, each
+dashboard under its own path.
+
+\begin{table}[h]
+\centering
+\caption{Path allocation within the merged hub}
+\label{tab:hub-paths}
+\begin{tabular}{lll}
+\toprule
+\textbf{Path} & \textbf{Project} & \textbf{Backend} \\
+\midrule
+\texttt{/} \texttt{/airbnb} \texttt{/olist} & 00 demo-aesthetics & static JSON + \texttt{/olist} \\
+\texttt{/insurance}  & 01 insurance   & \texttt{/insurance} \\
+\texttt{/cohorts}    & 02 ecommerce   & none (static JSON) \\
+\texttt{/abtest}     & 03 ab-test     & \texttt{/abtest} \\
+\texttt{/kpi}        & 04 kpi-report  & \texttt{/kpi} \\
+\texttt{/portfolio}  & 05 portfolio   & \texttt{/portfolio} \\
+\texttt{/operations} & 06 operations  & \texttt{/ops} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Merging Seven Builds Into One Tree}
+
+Each application builds independently with \texttt{output: 'export'} and already
+namespaces its own routes, so no \texttt{basePath} is required.
+\filepath{scripts/build-hub.mjs} then merges the seven \texttt{out/} trees into a
+single \texttt{dist/}.
+
+The merge is not a blind copy. It \textbf{fails the build} when two applications
+emit the same path with different content --- the one failure mode that a
+path-based merge introduces and that no individual project's tests can see.
+Project~00 owns the root (\texttt{favicon.svg}, \texttt{404.html}), so it is
+merged last and a documented rule resolves those collisions in its favour.
+
+\begin{keyinsight}
+Seven applications now share one origin, which turns a previously harmless habit
+into a bug: any asset placed at \texttt{public/} root by one dashboard can
+collide with another's. Assets must live under the application's own slug
+(\texttt{public/kpi/\ldots}). This is the class of error that only appears after
+consolidation, which is why the merge script enforces it rather than the
+convention relying on memory.
+\end{keyinsight}
+
+One workflow, \filepath{deploy-hub.yml}, replaced six per-frontend workflows.
+That is a consequence of the merge rather than tidiness: because the applications
+share one \texttt{dist/}, building only the project that changed would publish a
+tree missing the other six.
+
+\subsection{Edge Functions}
+
+Three Pages Functions run in front of the static tree:
+
+\begin{table}[h]
+\centering
+\caption{Pages Functions in the hub}
+\label{tab:hub-functions}
+\begin{tabular}{ll}
+\toprule
+\textbf{Route} & \textbf{Purpose} \\
+\midrule
+\texttt{/api/<svc>/*} & Proxy to Cloud Run, service allowlist (Section~\ref{sec:infra-proxy}) \\
+\texttt{/ingest/*}    & Same-origin analytics proxy \\
+\texttt{/health}      & Liveness of the Pages layer itself, no outbound call \\
+\midrule
+\emph{every request} & \texttt{\_middleware.ts}: canonical-host redirect \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The \texttt{/ingest} proxy exists because analytics loaded from a third-party
+host is dropped by ad blockers --- both the events and the lazily-loaded session
+recorder. Serving it same-origin removes that failure mode.
+
+\texttt{\_middleware.ts} addresses a subtler problem. Creating a Pages project
+mints \texttt{<project>.pages.dev}; the custom domain is a CNAME added
+\emph{on top}, never a replacement. Both hostnames keep serving the same build,
+so the site is publicly reachable at two URLs, search engines index whichever
+they find first, and analytics splits between them. Measured elsewhere in this
+portfolio at 44\% of pageviews landing on the unbranded host. The middleware
+issues a 301 from the bare apex to the custom domain, preserving path and query.
+
+\begin{keyinsight}
+The hostname comparison is an exact match, never
+\texttt{endsWith('.pages.dev')}. Preview deployments live at
+\texttt{dev.<project>.pages.dev} and \texttt{<hash>.<project>.pages.dev}; a
+suffix check would redirect those to production and make every preview
+impossible to test --- defeating the reason previews exist. Root middleware also
+runs ahead of \emph{every} asset on the origin, so a fault in it takes the whole
+site down rather than just the redirect, which is why the deploy gate drives all
+three hostname cases explicitly.
+\end{keyinsight}
+
+\subsection{Retiring a Hostname Without Losing It}
+
+Consolidation leaves behind hostnames that people and search engines already
+know. The portfolio treats them uniformly: \emph{redirect, never delete}. The six
+Vercel deployments answer HTTP~308 to their new paths, the Pages apex answers
+301, and the Streamlit Cloud Run service answers 308 (Section~\ref{sec:infra-cicd}).
+
+The exception that proves the rule is worth recording. Three additional
+subdomains had been created for individual dashboards during an earlier,
+abandoned attempt at one-subdomain-per-project. None ever received a DNS record,
+so none ever resolved, and analytics confirmed zero pageviews across their entire
+lifetime. Those were \emph{deleted} rather than redirected: with no traffic, no
+inbound links and no DNS to redirect from, there was nothing for a redirect to
+preserve. The rule protects reachable history, not every artifact that was ever
+configured.
+
+\section{Port Convention}
+\label{sec:infra-ports}
+% =============================================================================
+
+Port assignments follow a consistent scheme across all projects to prevent conflicts in local development. The 20XX range is reserved for FastAPI backends; the 30XX range for Next.js frontends.
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Project} & \textbf{Frontend (Next.js)} & \textbf{Backend (FastAPI)} & \textbf{Consolidated} \\
+\midrule
+00 -- Airbnb demo & 3050 & 2050 & \texttt{:8080/olist} \\
+01 -- Insurance & 3051 & 2051 & \texttt{:8080/insurance} \\
+02 -- Cohort (web) & 3052$^\dagger$ & --- & none (static JSON) \\
+03 -- A/B Test & 3053 & 2053 & \texttt{:8080/abtest} \\
+04 -- Executive KPI & 3052 & 2052 & \texttt{:8080/kpi} \\
+05 -- Portfolio tracker & 3055 & 2055 & \texttt{:8080/portfolio} \\
+06 -- Operations & 3056 & 2056 & \texttt{:8080/ops} \\
+Consolidated API & --- & 8080 & Cloud Run prod \\
+Merged hub (wrangler) & 4173 & --- & Cloudflare Pages prod \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+In the consolidated mode, Next.js frontends set their backend URL environment variable to \texttt{http://localhost:8080/<prefix>} and all API traffic goes through the single uvicorn process on port 8080.
+
+$^\dagger$ Projects 02 and 04 both declare \texttt{next dev -p 3052} in their
+\filepath{package.json}. The two development servers therefore cannot run at the
+same time --- the second to start fails to bind. This has no effect on
+production, where both are static exports merged into one tree and ports do not
+exist, which is precisely why the collision went unnoticed.
+
+\begin{keyinsight}
+The convention was one port per project, and it silently stopped holding. The
+merged hub removed the pressure that would have surfaced it: since production no
+longer runs seven servers, nothing except a developer running two dashboards at
+once will ever notice. Conventions that are not enforced by a build step decay
+quietly --- the same reason \filepath{scripts/build-hub.mjs} fails the build on a
+path collision rather than documenting the rule and hoping.
+\end{keyinsight}
+
+% =============================================================================
+\section{Challenge Questions}
+\label{sec:infra-challenges}
+% =============================================================================
+
+\begin{challengebox}
+\textbf{Sub-app routing internals.} When a request arrives at the root FastAPI app for \texttt{GET /insurance/api/v1/loss-triangle}, trace the exact path through the ASGI middleware stack. At what point does the \texttt{/insurance} prefix get stripped? What would happen if a sub-app registered its own \texttt{CORSMiddleware} -- would it conflict with the root-level middleware?
+\end{challengebox}
+
+\begin{challengebox}
+\textbf{Layer cache invalidation.} The Dockerfile copies \texttt{requirements.txt} and runs \texttt{pip install} before copying source code. Explain precisely when this layer cache is invalidated. If a developer adds a new route to \texttt{insurance\_backend/routers/triangles.py} without changing \texttt{requirements.txt}, how many layers does Docker rebuild? If they simultaneously add a new dependency to \texttt{requirements.txt}, how does the rebuild sequence change?
+\end{challengebox}
+
+\begin{challengebox}
+\textbf{Column pruning impact.} The \texttt{nyc311\_enriched.parquet} file dropped from 4,417\,MB to approximately 350\,MB after pruning from 26 to 15 columns. Assuming Parquet's columnar storage with Snappy compression and uniform column size, estimate the expected memory reduction factor. Why might the actual reduction (factor of $\approx 12.6$) exceed the simple column-count ratio (factor of $\approx 1.73$)?
+\end{challengebox}
+
+\begin{interviewbox}
+\textbf{Interviewer}: ``You said data files are baked into the Docker image. What happens when the data scientists run a new notebook and produce updated parquets? How long does a data refresh take end to end, and what are the failure modes?''
+
+\textbf{What to cover}: GCS upload, workflow\_dispatch or path-trigger commit, CI checkout + GCS download + docker build + push + Cloud Run deploy sequence, approximate wall-clock time (typically 4--8 minutes), failure modes at each step (GCS permission denied, docker layer cache miss, Cloud Run health check timeout), and the rollback path (Cloud Run keeps the previous revision and can roll back via gcloud run services update-traffic).
+\end{interviewbox}
+
+\begin{interviewbox}
+\textbf{Interviewer}: ``Why is the backend URL not a \texttt{NEXT\_PUBLIC\_} variable? What is the actual security risk if it were exposed client-side?''
+
+\textbf{What to cover}: NEXT\_PUBLIC\_ variables are embedded in the static JS bundle at build time and visible to anyone using browser devtools. The Cloud Run URL pattern is guessable but still best kept private. Exposing it allows direct API calls that bypass the proxy in front of it --- in production a Cloudflare Pages Function that enforces a service allowlist, converts upstream failures into a 504, and applies edge caching. A strong answer also notes that the build pipeline strips these variables rather than trusting the developer to omit them. For a public portfolio the risk is primarily unwanted traffic and cost rather than data breach, but the principle of least exposure applies.
+\end{interviewbox}
+
+\begin{interviewbox}
+\textbf{Interviewer}: ``Your Cloud Run service has min-instances=0. A recruiter visits your portfolio at 9am and the first page load takes 8 seconds. How would you fix this without setting min-instances=1?''
+
+\textbf{What to cover}: Health-ping warmup component firing \texttt{GET /health} on the landing page (wakes the container before the user navigates to a data page), Cloud Run's CPU always-on option (keeps CPU allocated between requests, reduces subsequent cold starts), lighter startup (lazy data loading on first request rather than module-level), and the cost trade-off of min-instances=1 (approximately \$7--10/month for a 2Gi instance in us-central1).
+\end{interviewbox}

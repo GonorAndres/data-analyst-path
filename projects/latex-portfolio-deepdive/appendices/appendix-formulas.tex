@@ -1,0 +1,403 @@
+% =============================================================================
+% APPENDIX A -- Formula Quick Reference
+% =============================================================================
+
+\chapter{Formula Quick Reference}
+\label{app:formulas}
+
+All formulas consolidated from Chapters~\ref{ch:insurance}--\ref{ch:operations}, grouped by domain. Each entry includes the equation, variable definitions, and a pointer to the full derivation.
+
+% -----------------------------------------------------------------------------
+\section{Actuarial \& Insurance}
+% -----------------------------------------------------------------------------
+
+\noindent\textit{All formulas from Chapter~\ref{ch:insurance}.}
+
+\medskip
+
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Name} & \textbf{Formula} \\
+\midrule
+Age-to-age factor &
+$\displaystyle \hat{f}_k = \frac{\sum_{i} C_{i,k+1}}{\sum_{i} C_{i,k}}$
+\quad (volume-weighted, Eq.~\ref{eq:ata-factor}) \\[12pt]
+
+Cumulative dev.\ factor &
+$\displaystyle \widehat{\text{CDF}}_k = \prod_{j=k}^{K-1} \hat{f}_j$
+\quad (Eq.~\ref{eq:cdf}) \\[12pt]
+
+Ultimate loss &
+$\hat{U}_i = C_{i,k} \times \widehat{\text{CDF}}_k$
+\quad (Eq.~\ref{eq:ultimate}) \\[8pt]
+
+CL IBNR &
+$\widehat{\text{IBNR}}_i = \max(0,\; \hat{U}_i - C_{i,k})$
+\quad (Eq.~\ref{eq:ibnr-cl}) \\[8pt]
+
+Unreported fraction &
+$q_k = 1 - 1/\widehat{\text{CDF}}_k$
+\quad (Eq.~\ref{eq:pct-unreported}) \\[8pt]
+
+BF IBNR &
+$\widehat{\text{IBNR}}_i^{\text{BF}} = \text{Prem}_i \times \text{ELR} \times q_k$
+\quad (Eq.~\ref{eq:bf-ibnr}) \\[8pt]
+
+BF ultimate &
+$\hat{U}_i^{\text{BF}} = C_{i,k} + \text{Prem}_i \times \text{ELR} \times q_k$
+\quad (Eq.~\ref{eq:bf-ultimate}) \\[8pt]
+
+Loss ratio &
+$\text{LR} = \text{Incurred Losses} / \text{Earned Premium}$
+\quad (Eq.~\ref{eq:loss-ratio}) \\[8pt]
+
+Combined ratio &
+$\text{CR} = \text{LR} + \text{ER}$
+\quad (Eq.~\ref{eq:combined-ratio}) \\[8pt]
+
+Pure premium &
+$\text{PP} = \text{Frequency} \times \text{Severity}$
+\quad (Eq.~\ref{eq:pure-premium}) \\[8pt]
+
+Frequency &
+$\text{Claim Count} / \text{Exposure}$
+\quad (Eq.~\ref{eq:frequency}) \\[8pt]
+
+Severity &
+$\text{Total Losses} / \text{Claim Count}$
+\quad (Eq.~\ref{eq:severity}) \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+\noindent\textbf{Variables:} $C_{i,k}$ = cumulative paid losses for accident year $i$ at dev lag $k$; $K$ = max lag; ELR = expected loss ratio (a priori); ER = expense ratio.
+
+% -----------------------------------------------------------------------------
+\section{Statistical Testing}
+% -----------------------------------------------------------------------------
+
+\noindent\textit{All formulas from Chapter~\ref{ch:abtest}.}
+
+\medskip
+
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Name} & \textbf{Formula} \\
+\midrule
+Z-test statistic &
+$Z = (\hat{p}_B - \hat{p}_A) / \text{SE}_{\text{pooled}}$
+\quad (Eq.~\ref{eq:zstat}) \\[8pt]
+
+Pooled SE &
+$\text{SE}_{\text{pool}} = \sqrt{\hat{p}_{\text{pool}}(1-\hat{p}_{\text{pool}})(1/n_A + 1/n_B)}$
+\quad (Eq.~\ref{eq:se-pool}) \\[8pt]
+
+Pooled proportion &
+$\hat{p}_{\text{pool}} = (c_A + c_B)/(n_A + n_B)$
+\quad (Eq.~\ref{eq:ppool}) \\[8pt]
+
+Unpooled SE &
+$\text{SE}_{\text{unpool}} = \sqrt{\hat{p}_A(1-\hat{p}_A)/n_A + \hat{p}_B(1-\hat{p}_B)/n_B}$
+\quad (Eq.~\ref{eq:se-unpool}) \\[8pt]
+
+Wilson CI &
+$\displaystyle \frac{\hat{p} + z^2/2n \pm z\sqrt{\hat{p}(1-\hat{p})/n + z^2/4n^2}}{1 + z^2/n}$
+\quad (Eq.~\ref{eq:wilson}) \\[12pt]
+
+Chi-squared &
+$\chi^2 = \sum_{i,j} (O_{ij} - E_{ij})^2 / E_{ij}$ \\[8pt]
+
+Cram\'er's V &
+$V = \sqrt{\chi^2 / n}$ \\[8pt]
+
+Cohen's $h$ &
+$h = 2\arcsin(\sqrt{p_2}) - 2\arcsin(\sqrt{p_1})$
+\quad (Eq.~\ref{eq:cohens-h}) \\[8pt]
+
+Sample size &
+$\displaystyle n = \frac{(z_{\alpha/2}\sqrt{2p_1(1-p_1)} + z_\beta\sqrt{p_1(1-p_1)+p_2(1-p_2)})^2}{(p_2-p_1)^2}$
+\quad (Eq.~\ref{eq:sample-size}) \\[12pt]
+
+Power curve &
+$\text{Power}(\delta) = \Phi(\delta/\text{SE} - z_{\alpha/2}) + \Phi(-\delta/\text{SE} - z_{\alpha/2})$
+\quad (Eq.~\ref{eq:power-curve}) \\[8pt]
+
+OBF boundary &
+$z_k^* = z_{\alpha/2} / \sqrt{k/K}$
+\quad (Eq.~\ref{eq:obf}) \\[8pt]
+
+Peeking inflation &
+$\alpha^* \approx 1 - (1-\alpha)^K$ \\[8pt]
+
+Bonferroni &
+$\alpha_{\text{adj}} = \alpha / m$
+\quad (Eq.~\ref{eq:bonferroni}) \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+\noindent\textbf{Variables:} $c$ = conversions; $n$ = group size; $\delta$ = MDE; $K$ = total looks; $m$ = number of comparisons.
+
+% -----------------------------------------------------------------------------
+\section{Bayesian Inference}
+% -----------------------------------------------------------------------------
+
+\noindent\textit{From Chapter~\ref{ch:abtest}.}
+
+\medskip
+
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Name} & \textbf{Formula} \\
+\midrule
+Beta posterior &
+$\theta \mid c, f \sim \text{Beta}(\alpha_0 + c,\; \beta_0 + f)$
+\quad (Eq.~\ref{eq:beta-posterior}) \\[8pt]
+
+$P(B > A)$ &
+$\displaystyle \int_0^1\!\int_{\theta_A}^{1} f(\theta_A) f(\theta_B)\,d\theta_B\,d\theta_A$
+\quad (Monte Carlo, Eq.~\ref{eq:pbeatsa-integral}) \\[12pt]
+
+Expected loss &
+$\mathcal{L}_A = \mathbb{E}[\max(\theta_B - \theta_A, 0)]$
+\quad (Eq.~\ref{eq:loss-a}) \\[8pt]
+
+Credible interval &
+$[F^{-1}_{\text{Beta}}(0.025),\; F^{-1}_{\text{Beta}}(0.975)]$
+\quad (Eq.~\ref{eq:credible-interval}) \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+\noindent\textbf{Variables:} $c$ = successes; $f = n - c$ = failures; $\alpha_0, \beta_0$ = prior params (= 1 for uniform).
+
+% -----------------------------------------------------------------------------
+\section{Survival \& Customer Analytics}
+% -----------------------------------------------------------------------------
+
+\noindent\textit{From Chapter~\ref{ch:ecommerce}.}
+
+\medskip
+
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Name} & \textbf{Formula} \\
+\midrule
+Kaplan-Meier &
+$\displaystyle \hat{S}(t) = \prod_{t_i \leq t}\left(1 - \frac{d_i}{n_i}\right)$
+\quad (Eq.~\ref{eq:km}) \\[12pt]
+
+Retention rate &
+$\text{Ret}_{c,k} = |\{u \in C_c : \text{active in month } k\}| / |C_c|$
+\quad (Eq.~\ref{eq:retention}) \\[8pt]
+
+Logistic regression &
+$\log(p/(1-p)) = \beta_0 + \beta_1 x_1 + \cdots + \beta_k x_k$
+\quad (Eq.~\ref{eq:logistic}) \\[8pt]
+
+Odds ratio &
+$\widehat{\text{OR}}_i = \exp(\hat{\beta}_i)$
+\quad (Eq.~\ref{eq:odds-ratio}) \\[8pt]
+
+Gini coefficient &
+$G = 1 - 2\int_0^1 L(p)\,dp$
+\quad (Eq.~\ref{eq:gini}) \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+\noindent\textbf{Variables:} $d_i$ = events at time $t_i$; $n_i$ = at-risk at $t_i$; $C_c$ = cohort $c$; $L(p)$ = Lorenz curve.
+
+% -----------------------------------------------------------------------------
+\section{SaaS Metrics}
+% -----------------------------------------------------------------------------
+
+\noindent\textit{From Chapter~\ref{ch:kpi}.}
+
+\medskip
+
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Name} & \textbf{Formula} \\
+\midrule
+MRR waterfall &
+$\text{MRR}_t = \text{MRR}_{t-1} + \text{New} + \text{Exp} - \text{Contr} - \text{Churn}$ \\[8pt]
+
+NRR &
+$\displaystyle \frac{\text{MRR}_{\text{start}} + \text{Exp} - \text{Contr} - \text{Churn}}{\text{MRR}_{\text{start}}}$ \\[12pt]
+
+Logo churn &
+$\text{Churned Customers}_t / \text{Customers at Start}_t$ \\[8pt]
+
+Revenue churn &
+$\text{Churned MRR}_t / \text{MRR}_{t-1}$ \\[8pt]
+
+LTV &
+$(\text{ARPU} \times 12 / \text{Churn Rate}) \times \text{Gross Margin}$ \\[8pt]
+
+Rule of 40 &
+$\text{Rev Growth Rate (\%)} + \text{Gross Margin (\%)} \geq 40$ \\[8pt]
+
+Health score &
+$H = \sum_{k=1}^{6} w_k \cdot s_k$, \; $s_k = \text{clamp}_{[0,100]}\!\left(\frac{\text{metric} - \text{bad}}{\text{good} - \text{bad}} \times 100\right)$ \\
+\bottomrule
+\end{tabularx}
+
+% -----------------------------------------------------------------------------
+\section{Forecasting \& Anomaly Detection}
+% -----------------------------------------------------------------------------
+
+\noindent\textit{From Chapter~\ref{ch:kpi}.}
+
+\medskip
+
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Name} & \textbf{Formula} \\
+\midrule
+Holt-Winters level &
+$l_t = \alpha \cdot y_t + (1-\alpha)(l_{t-1} + b_{t-1})$ \\[8pt]
+
+Holt-Winters trend &
+$b_t = \beta(l_t - l_{t-1}) + (1-\beta)b_{t-1}$ \\[8pt]
+
+Forecast &
+$\hat{y}_{t+h} = l_t + h \cdot b_t$ \\[8pt]
+
+Forecast CI &
+$\hat{y}_{t+i} \pm \text{RSE} \times 1.96 \times \sqrt{1 + 0.1i}$ \\[8pt]
+
+Z-score &
+$z_i = (x_i - \bar{x}) / \sigma$ \\[8pt]
+
+IQR fences &
+$Q_1 - 1.5 \cdot \text{IQR}$, \; $Q_3 + 1.5 \cdot \text{IQR}$, \; $\text{IQR} = Q_3 - Q_1$ \\
+\bottomrule
+\end{tabularx}
+
+% -----------------------------------------------------------------------------
+\section{Financial \& Portfolio}
+% -----------------------------------------------------------------------------
+
+\noindent\textit{All formulas from Chapter~\ref{ch:portfolio}.}
+
+\medskip
+
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Name} & \textbf{Formula} \\
+\midrule
+Simple return &
+$R_t = (P_t - P_{t-1}) / P_{t-1}$
+\quad (Eq.~\ref{eq:simple-return}) \\[8pt]
+
+Portfolio return &
+$R_{p,t} = \sum_i w_i R_{i,t}$
+\quad (Eq.~\ref{eq:weighted-return}) \\[8pt]
+
+Cumulative return &
+$W_T = \prod_{t=1}^{T}(1+R_t) - 1$
+\quad (Eq.~\ref{eq:cumulative-return}) \\[8pt]
+
+CAGR &
+$\left(\prod(1+R_t)\right)^{252/T} - 1$
+\quad (Eq.~\ref{eq:cagr}) \\[8pt]
+
+Ann.\ volatility &
+$\sigma_{\text{ann}} = \hat{\sigma}_{\text{daily}} \times \sqrt{252}$
+\quad (Eq.~\ref{eq:ann-vol}) \\[8pt]
+
+Sharpe ratio &
+$(\bar{R}_p - r_f) / \sigma_p$
+\quad (Eq.~\ref{eq:sharpe}) \\[8pt]
+
+Sortino ratio &
+$(\bar{R}_p - r_f) / \sigma_{\text{down}}$
+\quad (Eq.~\ref{eq:sortino}) \\[8pt]
+
+Calmar ratio &
+$\text{CAGR} / |\text{MDD}|$
+\quad (Eq.~\ref{eq:calmar}) \\[8pt]
+
+Max drawdown &
+$\min_t (W_t / \max_{s \leq t} W_s - 1)$
+\quad (Eq.~\ref{eq:mdd}) \\[8pt]
+
+Beta &
+$\Cov(R_p, R_m) / \Var(R_m)$
+\quad (Eq.~\ref{eq:beta}) \\[8pt]
+
+Jensen's alpha &
+$\bar{R}_p - [r_f + \beta(\bar{R}_m - r_f)]$
+\quad (Eq.~\ref{eq:alpha}) \\[8pt]
+
+Tracking error &
+$\text{std}(R_p - R_m) \times \sqrt{252}$
+\quad (Eq.~\ref{eq:te}) \\[8pt]
+
+Information ratio &
+$(\bar{R}_p - \bar{R}_m) / \text{TE}$
+\quad (Eq.~\ref{eq:ir}) \\[8pt]
+
+Parametric VaR &
+$-(\hat{\mu} + z_{1-\alpha} \cdot \hat{\sigma})$
+\quad (Eq.~\ref{eq:var-param}) \\[8pt]
+
+Historical VaR &
+$-\text{Percentile}_{(1-\alpha)\times 100}$
+\quad (Eq.~\ref{eq:var-hist}) \\[8pt]
+
+CVaR &
+$\mathbb{E}[-R \mid R \leq -\text{VaR}_\alpha]$
+\quad (Eq.~\ref{eq:cvar}) \\[8pt]
+
+GBM SDE &
+$dS = \mu S\,dt + \sigma S\,dW$
+\quad (Eq.~\ref{eq:gbm-sde}) \\[8pt]
+
+GBM discrete &
+$S_{t+1} = S_t \exp[(\mu - \sigma^2/2) + \sigma Z]$
+\quad (Eq.~\ref{eq:gbm-price-step}) \\[8pt]
+
+Portfolio variance &
+$\sigma_p^2 = \boldsymbol{w}^\top \boldsymbol{\Sigma}\, \boldsymbol{w}$
+\quad (Eq.~\ref{eq:port-variance}) \\[8pt]
+
+Pearson corr.\ &
+$\rho_{ij} = \Cov(R_i, R_j) / (\sigma_i \sigma_j)$
+\quad (Eq.~\ref{eq:pearson}) \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+\noindent\textbf{Key constants:} $r_f = 4.5\%$; trading days = 252; Monte Carlo seed = 42.
+
+% -----------------------------------------------------------------------------
+\section{Operational}
+% -----------------------------------------------------------------------------
+
+\noindent\textit{From Chapter~\ref{ch:operations}.}
+
+\medskip
+
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Name} & \textbf{Formula} \\
+\midrule
+SLA compliance &
+$C = \text{\#Cumple} / (\text{\#Cumple} + \text{\#Incumple}) \times 100$
+\quad (Eq.~\ref{eq:sla-compliance}) \\[8pt]
+
+SLA verdict &
+CUMPLE $\geq 85\%$; EN RIESGO $\geq 70\%$; INCUMPLE $< 70\%$
+\quad (Eq.~\ref{eq:sla-verdict}) \\[8pt]
+
+Two-prop z-test &
+Same as A/B test z-test
+\quad (Eq.~\ref{eq:z-test-proportions}) \\[8pt]
+
+Bonferroni &
+$\alpha_{\text{adj}} = \alpha / m$, \; $m = \binom{k}{2}$
+\quad (Eq.~\ref{eq:bonferroni}) \\
+\bottomrule
+\end{tabularx}

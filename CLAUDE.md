@@ -28,6 +28,7 @@ data-analyst/
 │   ├── 04-executive-kpi-report/         # Python + Next.js + FastAPI (SaaS KPI automation)
 │   ├── 05-financial-portfolio-tracker/  # Next.js + FastAPI + yfinance (finance + analytics)
 │   └── 06-operational-efficiency/       # Next.js + D3.js + FastAPI (process optimization)
+├── projects/latex-portfolio-deepdive/  # LaTeX deep-dive (see note below)
 ├── ops/                         # Ops registry + health check script
 │   ├── urls.yml                 # SINGLE source of truth for every live URL
 │   └── health_check.py          # Local / CI probe of every service
@@ -49,6 +50,26 @@ Every project under `projects/` follows this structure:
 ├── reports/           # PDF exports, slide decks, executive summaries
 └── requirements.txt   # Project-specific dependencies (if different from root)
 ```
+
+## LaTeX Deep-Dive (`projects/latex-portfolio-deepdive/`)
+
+A 166-page reference document covering all seven projects plus the shared
+infrastructure: derivations, decision rationale, and interview-style challenge
+questions. It is documentation, not a portfolio project -- it has no dashboard,
+no data and no deploy.
+
+```bash
+cd projects/latex-portfolio-deepdive
+pdflatex -interaction=nonstopmode -halt-on-error main.tex   # twice: TOC + refs
+```
+
+**`main.pdf` is committed and must be regenerated whenever the `.tex` changes**,
+otherwise the tracked PDF silently disagrees with its own source. Run `pdflatex`
+twice -- a single pass leaves the table of contents and cross-references stale.
+Build droppings (`*.aux`, `*.log`, `*.toc`, `*.out`) are already gitignored.
+
+A failed compile leaves a corrupt `main.aux` that makes the *next* run report a
+wrong page count; delete it before re-running rather than debugging the count.
 
 ## Tech Stack
 
@@ -145,7 +166,7 @@ A unified FastAPI entry point at `backend/main.py` mounts all project backends u
 | `/olist` | `olist_backend` (project 00) | 2050 |
 | `/insurance` | `insurance_backend` (project 01) | 2051 |
 | `/abtest` | `abtest_backend` (project 03) | 2053 |
-| `/kpi` | `kpi_backend` (project 04) | 2054 |
+| `/kpi` | `kpi_backend` (project 04) | 2052 |
 | `/portfolio` | `portfolio_backend` (project 05) | 2055 |
 | `/ops` | `ops_backend` (project 06) | 2056 |
 | `/health` | Status endpoint listing all services | -- |

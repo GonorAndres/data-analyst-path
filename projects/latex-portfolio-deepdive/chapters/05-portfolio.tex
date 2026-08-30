@@ -1,0 +1,719 @@
+% =============================================================================
+% Chapter 05 -- Financial Portfolio Tracker
+% =============================================================================
+\chapter{Financial Portfolio Tracker}
+\label{ch:portfolio}
+
+\sourcefiles{%
+  \filepath{projects/05-financial-portfolio-tracker/backend/portfolio\_backend/portfolio\_engine.py},
+  \filepath{backend/portfolio\_backend/data\_loader.py},
+  \filepath{backend/portfolio\_backend/routers/\{overview, performance, risk, montecarlo, frontier, correlation\}.py},
+  \filepath{src/components/portfolio/PortfolioDashboard.tsx}
+}
+
+% =============================================================================
+\section{Business Context}
+\label{sec:portfolio-business}
+% =============================================================================
+
+The central question driving this project is: \textit{How is a diversified, multi-asset portfolio performing relative to its benchmark, what is the underlying risk-return profile, and which allocations are sub-optimal?}
+
+This question is not academic. An investor holding ETFs across US equities, international equities, emerging markets, fixed income, real estate, and commodities needs a unified analytical view that goes beyond a brokerage's total-return figure. The specific decisions supported are:
+
+\begin{itemize}
+  \item \textbf{Rebalancing trigger}: Has drift in weights pushed the portfolio away from its target allocation?
+  \item \textbf{Risk-adjusted evaluation}: Is the portfolio compensating sufficiently for its volatility relative to the risk-free rate?
+  \item \textbf{Forward-looking uncertainty}: Given historical return distribution, what is the probability of reaching a target value over the next year?
+  \item \textbf{Frontier optimality}: Is the current allocation on the efficient frontier, or does mean-variance theory suggest a Pareto-superior combination?
+\end{itemize}
+
+The default portfolio used throughout this project consists of six Vanguard and SPDR ETFs selected to span major asset classes:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lllr}
+\toprule
+\textbf{Ticker} & \textbf{Name} & \textbf{Category} & \textbf{Weight} \\
+\midrule
+VOO  & Vanguard S\&P 500 ETF             & US Equity             & 30\% \\
+VXUS & Vanguard Total Intl Stock ETF     & International Equity  & 20\% \\
+VWO  & Vanguard FTSE Emerging Markets    & Emerging Markets      & 10\% \\
+BND  & Vanguard Total Bond Market ETF    & Fixed Income          & 20\% \\
+VNQ  & Vanguard Real Estate ETF          & Real Estate           & 10\% \\
+GLD  & SPDR Gold Shares                  & Commodities           & 10\% \\
+\midrule
+SPY  & SPDR S\&P 500 ETF                 & Benchmark             & ---  \\
+\bottomrule
+\end{tabular}
+\caption{Default portfolio configuration (\filepath{config.py}, lines 5--12). The benchmark SPY is fetched alongside portfolio assets and used exclusively for relative metrics.}
+\label{tab:portfolio-config}
+\end{table}
+
+\begin{keyinsight}
+  The portfolio is intentionally a classic ``lazy portfolio'' construction -- low-cost passive ETFs diversified across asset classes. This makes it a realistic reference portfolio while keeping the analytical focus on the \emph{methodology} rather than stock selection. The actuarial parallel is clear: an insurer holding a fixed-income portfolio faces the same risk-return trade-off questions at an asset-liability management level.
+\end{keyinsight}
+
+% =============================================================================
+\section{Data Acquisition and Caching}
+\label{sec:portfolio-data}
+% =============================================================================
+
+\sourcefiles{\filepath{backend/portfolio\_backend/data\_loader.py}, \filepath{backend/portfolio\_backend/config.py}}
+
+\subsection{yfinance vs.\ Alpha Vantage}
+
+Market data is fetched via \texttt{yfinance}, Yahoo Finance's unofficial Python wrapper. The original README mentions both yfinance and Alpha Vantage; the implementation settled on yfinance for three reasons:
+
+\begin{decisionbox}
+  \textbf{Why yfinance over Alpha Vantage?}
+  \begin{enumerate}
+    \item \textbf{No API key}: yfinance requires no registration, making the project immediately reproducible for anyone cloning the repo.
+    \item \textbf{Adjusted closes}: \texttt{yf.download(..., auto\_adjust=True)} returns split- and dividend-adjusted closing prices, which is the correct input for return calculations. Alpha Vantage's free tier requires manual dividend adjustments.
+    \item \textbf{Rate limits}: Alpha Vantage's free tier allows 25 calls per day. A 6-asset portfolio with a benchmark requires 7 simultaneous downloads -- easily exhausted during development.
+  \end{enumerate}
+  The trade-off is reliability: Yahoo Finance is an unofficial API and can break on schema changes. The cache layer (\S\ref{sec:portfolio-cache}) absorbs transient failures gracefully.
+\end{decisionbox}
+
+\subsection{The Parquet Cache Layer}
+\label{sec:portfolio-cache}
+
+The data loader implements a file-based cache that persists price DataFrames as Parquet files. The core logic lives in \filepath{data\_loader.py}.
+
+\begin{lstlisting}[style=python, caption={Cache freshness check -- \filepath{data\_loader.py} lines 33--43}]
+def _cache_is_fresh(tickers: list[str], period: str) -> bool:
+    meta = _meta_path(tickers, period)
+    if not meta.exists():
+        return False
+    ts = dt.datetime.fromisoformat(meta.read_text().strip())
+    age = dt.datetime.now() - ts
+    return age.total_seconds() < CACHE_TTL_HOURS * 3600
+\end{lstlisting}
+
+\texttt{CACHE\_TTL\_HOURS = 4} means a fresh request hitting the API triggers one download, and all subsequent requests within four hours are served from \texttt{data/cache/<tickers>\_<period>.parquet}. This design matters in production: Cloud Run instances are stateless, but the cache directory survives for the duration of a container's life. During development, it eliminates repeated API calls when iterating on analysis code.
+
+The cache key is derived by sorting the tickers alphabetically and appending the period string (e.g., \texttt{BND\_GLD\_SPY\_VNQ\_VOO\_VWO\_VXUS\_5y.parquet}). Sorting ensures that two calls with the same tickers in different order hit the same cache file.
+
+\subsection{Return Type: Simple vs.\ Arithmetic}
+
+The data loader computes daily returns using \texttt{pct\_change()} -- simple arithmetic returns:
+
+\begin{equation}
+  R_t = \frac{P_t - P_{t-1}}{P_{t-1}}
+  \label{eq:simple-return}
+\end{equation}
+
+A comment in \coderef{data\_loader.py}{147} is explicit: \textit{``Daily simple returns (arithmetic, not log -- standard for portfolio math.''}
+
+This is a deliberate choice. While log returns $r_t = \ln(P_t / P_{t-1})$ have nicer statistical properties (time-additive, approximately normal), \textbf{portfolio aggregation requires arithmetic returns}:
+
+\begin{equation}
+  R_{p,t} = \sum_{i=1}^{N} w_i \, R_{i,t}
+  \label{eq:weighted-return}
+\end{equation}
+
+This linear weighting identity holds exactly for arithmetic returns. For log returns, the equivalent expression requires a covariance correction term and does not simplify to a dot product. Since the fundamental operation in \filepath{data\_loader.py} line 161 is \texttt{returns.multiply(weights\_series).sum(axis=1)}, arithmetic returns are the mathematically correct choice.
+
+% =============================================================================
+\section{Return Calculations}
+\label{sec:portfolio-returns}
+% =============================================================================
+
+\sourcefiles{\filepath{portfolio\_engine.py} lines 20--117}
+
+\subsection{Cumulative Returns and the Wealth Index}
+
+Starting from a series of daily arithmetic returns $R_1, R_2, \ldots, R_T$, cumulative returns are computed via the compound product:
+
+\begin{equation}
+  W_T = \prod_{t=1}^{T} (1 + R_t) - 1
+  \label{eq:cumulative-return}
+\end{equation}
+
+In code, this is \texttt{(1 + returns).cumprod() - 1} (\coderef{portfolio\_engine.py}{22}). The intermediate series $\{W_t\}$ is the \emph{wealth index}: a dollar invested at $t=0$ grows to $1 + W_T$ by day $T$.
+
+\subsection{Annualized Return (CAGR)}
+
+The Compound Annual Growth Rate converts the total holding-period return into an equivalent constant annual rate:
+
+\begin{align}
+  \text{CAGR} &= \left(\prod_{t=1}^{T}(1+R_t)\right)^{1/n_{\text{years}}} - 1 \label{eq:cagr}
+\end{align}
+
+where $n_{\text{years}} = T / 252$ and $T$ is the number of trading days. The implementation (\coderef{portfolio\_engine.py}{31--38}) guards against edge cases: empty returns, non-positive total product (an asset with a 100\% loss), and zero holding period.
+
+\begin{interviewbox}
+  \textbf{Q: Why divide by 252 and not 365?}
+
+  Financial returns are conventionally annualized using trading days (252 per year in US markets) rather than calendar days. This convention preserves consistency: daily volatility is scaled by $\sqrt{252}$, and CAGR divides by $T/252$. If you used 365, a portfolio that was flat on weekends would appear to have a lower CAGR than one measured only on trading days. The 252-day year is a market standard, not a mathematically derived constant.
+\end{interviewbox}
+
+\subsection{Rolling Returns}
+
+Rolling window returns answer the question: ``What was the total return over the past $k$ trading days, measured at every point in time?''
+
+\begin{equation}
+  R_t^{(k)} = \prod_{s=t-k+1}^{t}(1 + R_s) - 1
+  \label{eq:rolling-return}
+\end{equation}
+
+Implemented as \texttt{(1 + returns).rolling(window).apply(np.prod, raw=True) - 1} (\coderef{portfolio\_engine.py}{27}). The performance endpoint exposes 30-day, 90-day, and 252-day windows, letting the viewer identify seasonality and momentum patterns that cumulative return charts obscure.
+
+\subsection{Calendar Returns Matrix}
+
+The calendar return matrix (rows = years, columns = months 1--12, plus a YTD column) is a standard in portfolio reporting. Each cell is:
+
+\begin{equation}
+  R_{\text{year},\text{month}} = \prod_{t \in (\text{year},\text{month})} (1 + R_t) - 1
+  \label{eq:calendar-return}
+\end{equation}
+
+The implementation uses a two-level \texttt{groupby} on \texttt{[idx.year, idx.month]} followed by \texttt{.unstack(level="month")} (\coderef{portfolio\_engine.py}{104--117}). This produces a DataFrame that the frontend renders as a heatmap, immediately identifying which months and years drove performance.
+
+% =============================================================================
+\section{Risk Metrics}
+\label{sec:portfolio-risk}
+% =============================================================================
+
+\sourcefiles{\filepath{portfolio\_engine.py} lines 120--228, \filepath{routers/risk.py}}
+
+\subsection{Annualized Volatility}
+
+Daily return volatility is the sample standard deviation scaled to annual frequency:
+
+\begin{equation}
+  \sigma_{\text{ann}} = \hat{\sigma}_{\text{daily}} \times \sqrt{252}
+  \label{eq:ann-vol}
+\end{equation}
+
+The $\sqrt{252}$ scaling follows from the assumption that daily returns are independent and identically distributed. If $\Var(R_t) = \sigma^2$, then for a 252-day period the variance is $252\sigma^2$, giving standard deviation $\sigma\sqrt{252}$.
+
+\begin{challengebox}
+  \textbf{When does the $\sqrt{T}$ scaling break down?}
+
+  The $\sqrt{T}$ rule assumes i.i.d.\ returns. Empirically, financial returns exhibit \emph{volatility clustering} (large moves follow large moves -- GARCH dynamics) and \emph{fat tails} (excess kurtosis $> 3$). Both violate the i.i.d.\ Gaussian assumption. GARCH models capture the first phenomenon; extreme value theory addresses the second. For a portfolio analytics tool aimed at retail investors, the i.i.d.\ simplification is acceptable. For actuarial solvency capital calculations (e.g., Solvency II internal models), it is not.
+\end{challengebox}
+
+\subsection{Sharpe Ratio}
+
+The Sharpe ratio~\cite{sharpe1966} measures excess return per unit of total volatility:
+
+\begin{equation}
+  \text{Sharpe} = \frac{\bar{R}_p - r_f}{\sigma_p}
+  \label{eq:sharpe}
+\end{equation}
+
+where $\bar{R}_p$ is the annualized portfolio return, $r_f$ is the risk-free rate (set to $4.5\%$ in \filepath{config.py}, approximately the US 3-month T-bill rate at the time of implementation), and $\sigma_p$ is the annualized volatility.
+
+A Sharpe ratio above 1.0 is generally considered good; above 2.0 is excellent and often indicates overfitting in backtests. The ratio is dimensionless, enabling comparison across portfolios with different return scales.
+
+\subsection{Sortino Ratio}
+
+The Sortino ratio modifies the Sharpe denominator to use only \emph{downside} volatility -- the root mean squared deviation of excess returns that are negative:
+
+\begin{align}
+  \sigma_{\text{down}} &= \sqrt{\frac{1}{n} \sum_{t:\; R_t < r_f/252} \!\!\left(R_t - \frac{r_f}{252}\right)^2} \;\times\; \sqrt{252}
+  \label{eq:sortino-dd}
+\end{align}
+
+\begin{equation}
+  \text{Sortino} = \frac{\bar{R}_p - r_f}{\sigma_{\text{down}}}
+  \label{eq:sortino}
+\end{equation}
+
+The implementation (\coderef{portfolio\_engine.py}{133--143}) first subtracts the daily risk-free rate from each observation, then keeps only the negative residuals for the RMS calculation. This is the \emph{semi-deviation} approach. The Sortino ratio is always $\geq$ the Sharpe ratio when the return is positive, because upside variability is excluded from the denominator.
+
+\begin{keyinsight}
+  Sortino is more appropriate than Sharpe when the return distribution is \emph{positively skewed} (more large positive days than large negative days). For a long-only equity portfolio, which experiences rare large crashes but frequent small gains, Sortino better captures what investors actually care about: the risk of loss, not symmetric volatility.
+\end{keyinsight}
+
+\subsection{Calmar Ratio}
+
+The Calmar ratio relates annualized return to the magnitude of the worst peak-to-trough decline:
+
+\begin{equation}
+  \text{Calmar} = \frac{\text{CAGR}}{|\text{Max Drawdown}|}
+  \label{eq:calmar}
+\end{equation}
+
+(\coderef{portfolio\_engine.py}{146--151}). The Calmar is popular in hedge fund evaluation because drawdown is a more intuitive risk concept than volatility. A fund with 15\% CAGR and 30\% max drawdown has Calmar $= 0.5$; a fund with 10\% CAGR and 10\% max drawdown has Calmar $= 1.0$ and is arguably better risk-adjusted.
+
+\subsection{Maximum Drawdown}
+
+Maximum drawdown measures the largest peak-to-trough decline in the portfolio's wealth index:
+
+\begin{equation}
+  \text{MDD} = \min_{t} \left(\frac{W_t}{\max_{s \leq t} W_s} - 1\right)
+  \label{eq:mdd}
+\end{equation}
+
+The implementation (\coderef{portfolio\_engine.py}{48--82}) constructs the wealth index, computes the running maximum, and identifies the trough and recovery dates. A result of $\text{MDD} = -0.35$ means the portfolio fell 35\% from its peak before recovering. The function returns four values: \texttt{max\_dd}, \texttt{peak\_date}, \texttt{trough\_date}, and \texttt{recovery\_date} (or \texttt{None} if recovery had not occurred by the end of the data window).
+
+\subsection{Beta and Jensen's Alpha}
+
+\subsubsection{Beta}
+
+Portfolio beta measures the sensitivity of portfolio returns to benchmark returns:
+
+\begin{equation}
+  \beta = \frac{\Cov(R_p, R_m)}{\Var(R_m)}
+  \label{eq:beta}
+\end{equation}
+
+This is the OLS slope coefficient from regressing portfolio returns on benchmark returns. The implementation (\coderef{portfolio\_engine.py}{154--163}) uses \texttt{np.cov} to compute the $2 \times 2$ covariance matrix and extracts the off-diagonal element divided by the benchmark variance. $\beta < 1$ indicates the portfolio amplifies benchmark moves by less than 1-for-1; $\beta > 1$ means it is more aggressive. For a diversified multi-asset portfolio including bonds and gold, $\beta < 1$ relative to SPY is expected.
+
+\subsubsection{Jensen's Alpha}
+
+Alpha measures the risk-adjusted return above what the CAPM would predict:
+
+\begin{equation}
+  \alpha = \bar{R}_p - \bigl[r_f + \beta \cdot (\bar{R}_m - r_f)\bigr]
+  \label{eq:alpha}
+\end{equation}
+
+(\coderef{portfolio\_engine.py}{166--175}). A positive alpha indicates the portfolio outperformed the benchmark after adjusting for its market exposure. Note that alpha is computed on annualized returns, so it represents the annualized excess return attributable to the portfolio's construction rather than to market beta.
+
+\begin{interviewbox}
+  \textbf{Q: What are the assumptions embedded in CAPM, and why might alpha be misleading?}
+
+  CAPM assumes: (1) investors hold mean-variance efficient portfolios; (2) all investors share the same expectations; (3) a single factor (the market) explains all systematic risk. In practice, the Fama-French three-factor and five-factor models show that size, value, profitability, and investment style explain a significant portion of apparent alpha. A portfolio overweight small-cap value stocks may show positive CAPM alpha not because the manager is skilled, but because it loads on the value and size risk premia. For a passive ETF portfolio like the one here, CAPM alpha is a reasonable first-order benchmark comparison.
+\end{interviewbox}
+
+\subsection{Tracking Error and Information Ratio}
+
+Tracking error is the annualized standard deviation of the portfolio's daily excess return over the benchmark:
+
+\begin{equation}
+  \text{TE} = \text{std}(R_p - R_m) \times \sqrt{252}
+  \label{eq:te}
+\end{equation}
+
+The information ratio then measures active return per unit of tracking risk:
+
+\begin{equation}
+  \text{IR} = \frac{\bar{R}_p - \bar{R}_m}{\text{TE}}
+  \label{eq:ir}
+\end{equation}
+
+(\coderef{portfolio\_engine.py}{178--196}). A higher IR indicates that active bets (deviations from the benchmark) are generating proportionally more return. For a passive multi-asset portfolio versus SPY, a negative IR is common: the portfolio deliberately includes asset classes (bonds, gold) that underperform in bull markets, trailing SPY in those periods while offering better drawdown protection.
+
+% =============================================================================
+\section{Value at Risk}
+\label{sec:portfolio-var}
+% =============================================================================
+
+\sourcefiles{\filepath{portfolio\_engine.py} lines 199--242, \filepath{routers/risk.py} lines 27--39}
+
+Value at Risk at confidence level $\alpha$ is defined as the loss threshold that is not exceeded with probability $\alpha$:
+
+\begin{equation}
+  \text{VaR}_\alpha = -\inf\bigl\{x : \Prob(R \leq x) > 1 - \alpha\bigr\}
+  \label{eq:var-def}
+\end{equation}
+
+The risk router computes VaR using three distinct methods at both 95\% and 99\% confidence levels.
+
+\subsection{Parametric (Gaussian) VaR}
+
+Parametric VaR assumes daily returns follow a normal distribution:
+
+\begin{equation}
+  \text{VaR}_\alpha^{\text{param}} = -\bigl(\hat{\mu} + z_{1-\alpha} \cdot \hat{\sigma}\bigr)
+  \label{eq:var-param}
+\end{equation}
+
+where $z_{1-\alpha}$ is the $(1-\alpha)$-quantile of the standard normal. For $\alpha = 0.95$, $z_{0.05} \approx -1.645$, so:
+
+\[
+  \text{VaR}_{0.95} = -(\hat{\mu} - 1.645\hat{\sigma})
+\]
+
+The implementation uses \texttt{scipy.stats.norm.ppf(1 - confidence)} (\coderef{portfolio\_engine.py}{208}). The result is positive by convention -- VaR represents a loss magnitude. Parametric VaR is analytically fast but underestimates tail risk when the empirical distribution has fat tails (excess kurtosis $> 0$).
+
+\subsection{Historical VaR}
+
+Historical VaR makes no distributional assumption:
+
+\begin{equation}
+  \text{VaR}_\alpha^{\text{hist}} = -\text{Percentile}_{(1-\alpha) \times 100}(R_1, \ldots, R_T)
+  \label{eq:var-hist}
+\end{equation}
+
+(\coderef{portfolio\_engine.py}{212--216}). The $(1-\alpha)$-th percentile of the return sample is the empirical quantile. This approach automatically captures fat tails, skewness, and any non-normality present in the historical record. Its weakness is that it implicitly assumes the future will resemble the past -- a sample period excluding a major crash (e.g., 2008) will understate true tail risk.
+
+\subsection{Monte Carlo VaR}
+
+The Monte Carlo variant (\coderef{portfolio\_engine.py}{230--242}) simulates 10{,}000 one-day returns by drawing from $\mathcal{N}(\hat{\mu}, \hat{\sigma}^2)$ and then takes the empirical percentile:
+
+\begin{lstlisting}[style=python, caption={Monte Carlo VaR -- \filepath{portfolio\_engine.py} lines 237--242}]
+rng = np.random.default_rng(42)
+simulated = rng.normal(mu, sigma, n_sims)
+return float(-np.percentile(simulated, (1 - confidence) * 100))
+\end{lstlisting}
+
+For a Gaussian input distribution, Monte Carlo VaR converges to parametric VaR as $n_{\text{sims}} \to \infty$. The seed \texttt{42} ensures reproducibility across API calls.
+
+\subsection{CVaR as a Coherent Risk Measure}
+
+CVaR -- also called Expected Shortfall (ES) -- is the conditional expectation of losses beyond the VaR threshold:
+
+\begin{equation}
+  \text{CVaR}_\alpha = \E\bigl[{-R} \mid R \leq -\text{VaR}_\alpha\bigr]
+  \label{eq:cvar}
+\end{equation}
+
+(\coderef{portfolio\_engine.py}{219--227}). In words: given that you are in the 5\% worst outcomes, what is your expected loss on average? CVaR is always $\geq$ VaR at the same confidence level.
+
+\begin{challengebox}
+  \textbf{Why is CVaR preferred over VaR in modern risk management?}
+
+  VaR is \emph{not a coherent risk measure}: it fails the subadditivity axiom. A coherent risk measure $\rho$ satisfies:
+  \[
+    \rho(X + Y) \leq \rho(X) + \rho(Y)
+  \]
+  meaning that combining two portfolios cannot increase risk beyond the sum of their individual risks (diversification should be beneficial). VaR can violate subadditivity: consider two bonds each with a 4\% default probability. At 95\% confidence, each bond has VaR $= 0$ (no loss in 95\% of scenarios). A portfolio of both bonds held 50/50 can have a positive VaR if their joint default probability exceeds 5\%, violating the diversification principle.
+
+  CVaR satisfies subadditivity and is therefore \emph{coherent} under the Artzner et al.\ (1999) axioms~\cite{artzner1999}. The Basel III/IV banking regulatory framework has moved from VaR to Expected Shortfall precisely for this reason.
+\end{challengebox}
+
+% =============================================================================
+\section{Monte Carlo GBM Simulation}
+\label{sec:portfolio-montecarlo}
+% =============================================================================
+
+\sourcefiles{\filepath{portfolio\_engine.py} lines 266--344, \filepath{routers/montecarlo.py}}
+
+\subsection{Geometric Brownian Motion}
+
+The Monte Carlo simulation models portfolio value evolution as Geometric Brownian Motion (GBM). The SDE is:
+
+\begin{equation}
+  dS_t = \mu S_t \, dt + \sigma S_t \, dW_t
+  \label{eq:gbm-sde}
+\end{equation}
+
+where $\mu$ is the drift (expected instantaneous return per unit time), $\sigma$ is the instantaneous volatility, and $W_t$ is a standard Wiener process (Brownian motion). The multiplicative structure of GBM ensures $S_t > 0$ for all $t > 0$ almost surely, which is appropriate for asset prices.
+
+\subsection{The Ito Drift Correction}
+
+To discretize GBM, we apply Ito's lemma to $f(S_t) = \ln S_t$. By Ito's formula for a twice-differentiable function $f$:
+
+\begin{equation}
+  df(S_t) = f'(S_t)\,dS_t + \frac{1}{2}f''(S_t)\,(dS_t)^2
+  \label{eq:ito-formula}
+\end{equation}
+
+Substituting $f(S) = \ln S$, $f'(S) = 1/S$, $f''(S) = -1/S^2$, and using $(dW_t)^2 = dt$:
+
+\begin{align}
+  d(\ln S_t) &= \frac{1}{S_t}\bigl(\mu S_t\,dt + \sigma S_t\,dW_t\bigr)
+               + \frac{1}{2}\!\left(-\frac{1}{S_t^2}\right)\sigma^2 S_t^2\,dt \notag \\
+             &= \mu\,dt + \sigma\,dW_t - \frac{\sigma^2}{2}\,dt \notag \\
+             &= \left(\mu - \frac{\sigma^2}{2}\right)dt + \sigma\,dW_t
+  \label{eq:ito-logprice}
+\end{align}
+
+Integrating over one time step $\Delta t = 1$ (one trading day):
+
+\begin{equation}
+  \ln S_{t+1} - \ln S_t = \left(\mu - \frac{\sigma^2}{2}\right) + \sigma\,Z, \quad Z \sim \mathcal{N}(0,1)
+  \label{eq:gbm-discrete-log}
+\end{equation}
+
+Exponentiating both sides:
+
+\begin{equation}
+  S_{t+1} = S_t \cdot \exp\!\left[\left(\mu - \frac{\sigma^2}{2}\right) + \sigma Z\right]
+  \label{eq:gbm-price-step}
+\end{equation}
+
+The term $\mu - \sigma^2/2$ is the \emph{log-drift} or \emph{Ito correction}. It arises because the arithmetic mean and geometric mean of a lognormal distribution differ by $\sigma^2/2$. The arithmetic expected return satisfies $\E[S_{t+1}/S_t] = e^\mu$, while the \emph{median} path satisfies $\ln(S_{t+1}/S_t) = \mu - \sigma^2/2$.
+
+\begin{keyinsight}
+  The Ito correction is exact, not approximate. Using $\mu$ instead of $\mu - \sigma^2/2$ as the log-drift is a common implementation error that produces paths with an upward bias: the arithmetic average of simulated paths would exceed the empirical mean return by $\sigma^2/2$. For $\sigma = 15\%$ (a typical equity portfolio), this bias equals $0.015^2/2 \cdot 252 \approx 1.1\%$ per year -- meaningful over multi-year horizons.
+
+  The relationship between arithmetic mean ($\mu$) and geometric mean ($\mu - \sigma^2/2$) is an instance of Jensen's inequality: $\E[\ln X] \leq \ln \E[X]$ for any random variable $X$.
+\end{keyinsight}
+
+\subsection{Implementation: 1,000 Paths with Percentile Envelopes}
+
+The implementation (\coderef{portfolio\_engine.py}{292--337}) estimates $\hat{\mu}$ and $\hat{\sigma}$ from the portfolio return series, then generates $n_{\text{sims}} = 1{,}000$ paths over $T = 252$ trading days.
+
+\begin{lstlisting}[style=python, caption={GBM vectorized simulation -- \filepath{portfolio\_engine.py} lines 304--319}]
+mu = float(returns.mean())
+sigma = float(returns.std())
+drift = mu - 0.5 * sigma ** 2     # Ito correction
+
+rng = np.random.default_rng(42)
+random_shocks = rng.normal(0, 1, (n_simulations, days))
+
+log_returns = drift + sigma * random_shocks
+log_paths = np.cumsum(log_returns, axis=1)
+# Prepend zero (starting point at t=0)
+log_paths = np.hstack([np.zeros((n_simulations, 1)), log_paths])
+paths = initial_value * np.exp(log_paths)
+\end{lstlisting}
+
+The vectorized approach generates an $(n_{\text{sims}} \times T)$ matrix of standard normals in a single call, then computes cumulative log-returns via \texttt{np.cumsum} along the time axis. Prepending a column of zeros sets $S_0 = \text{initial\_value}$ for every path. The final \texttt{np.exp} converts log-space paths to price paths.
+
+Percentile envelopes are then extracted across the simulation dimension:
+
+\begin{lstlisting}[style=python, caption={Percentile extraction -- \filepath{portfolio\_engine.py} lines 325--327}]
+for p in [5, 25, 50, 75, 95]:
+    percentiles[p] = np.percentile(paths, p, axis=0).tolist()
+\end{lstlisting}
+
+The 50th-percentile path is the median outcome; the 5th--95th band is the 90\% confidence envelope for the portfolio's future value. The Monte Carlo endpoint (\filepath{routers/montecarlo.py}) additionally computes:
+
+\begin{itemize}
+  \item \texttt{prob\_profit}: $\hat{\Prob}(S_T > S_0)$ -- fraction of paths that finish above the starting value.
+  \item \texttt{prob\_target}: $\hat{\Prob}(S_T \geq \texttt{target})$ -- fraction reaching a user-specified dollar target.
+  \item \texttt{var\_95}/\texttt{var\_99}: loss at the 5th and 1st percentile of the simulated final distribution.
+\end{itemize}
+
+\begin{interviewbox}
+  \textbf{Q: What does the Monte Carlo simulation assume that may not hold?}
+
+  \begin{enumerate}
+    \item \textbf{Constant parameters}: $\hat{\mu}$ and $\hat{\sigma}$ are estimated from historical returns and held fixed throughout the simulation. In reality, both drift and volatility are time-varying (regime changes, economic cycles, GARCH dynamics).
+    \item \textbf{Gaussian shocks}: Financial returns have fat tails (excess kurtosis $> 0$). Normal shocks underestimate the probability of extreme outcomes.
+    \item \textbf{Single-series simulation}: The portfolio is modeled as a single time series. It does not separately simulate each asset and aggregate, so it cannot model tail co-movement (all assets crashing together during a crisis).
+    \item \textbf{Independent increments}: GBM has no memory. Serial correlation and volatility clustering are ignored.
+  \end{enumerate}
+
+  These limitations are acceptable for building intuition about forward uncertainty. For actuarial capital modeling (e.g., Solvency II internal models), a correlated multi-asset GBM with time-varying parameters, or a fat-tailed alternative such as a variance-gamma or jump-diffusion process, would be required.
+\end{interviewbox}
+
+% =============================================================================
+\section{Efficient Frontier}
+\label{sec:portfolio-frontier}
+% =============================================================================
+
+\sourcefiles{\filepath{portfolio\_engine.py} lines 350--532, \filepath{routers/frontier.py}}
+
+\subsection{Mean-Variance Framework}
+
+Modern Portfolio Theory~\cite{markowitz1952} posits that rational investors prefer portfolios that maximize expected return for a given level of risk, where risk is measured by variance. For a portfolio of $N$ assets with weight vector $\bvec{w} = (w_1, \ldots, w_N)^{\top}$:
+
+\begin{align}
+  \mu_p &= \bvec{w}^{\top} \bvec{\mu} \label{eq:port-return} \\
+  \sigma_p^2 &= \bvec{w}^{\top} \bmat{\Sigma} \bvec{w} \label{eq:port-variance}
+\end{align}
+
+where $\bvec{\mu}$ is the vector of expected asset returns and $\bmat{\Sigma}$ is the $N \times N$ covariance matrix. Both are estimated from historical data using their sample counterparts, annualized by multiplying by $T_{\text{ann}} = 252$ (returns scaled linearly, covariance scaled by $252$).
+
+\subsection{Random Portfolio Cloud}
+
+The first step in visualizing the frontier generates 5{,}000 random portfolios by sampling from the probability simplex:
+
+\begin{lstlisting}[style=python, caption={Random weight generation -- \filepath{portfolio\_engine.py} lines 376--386}]
+rng = np.random.default_rng(42)
+for i in range(n_portfolios):
+    w = rng.random(n_assets)
+    w = w / w.sum()          # project onto simplex
+    port_ret = float(np.dot(w, mean_returns))
+    port_vol = float(np.sqrt(np.dot(w.T, np.dot(cov_matrix, w))))
+    results_sharpe[i] = (port_ret - rf_rate) / port_vol
+\end{lstlisting}
+
+Generating uniform random vectors and renormalizing does not yield a uniform distribution on the simplex, but it densely populates the feasible region and makes the frontier boundary visible as the upper edge of the cloud in the $(\sigma, \mu)$ scatter plot.
+
+\subsection{Minimum-Variance Portfolio}
+
+The minimum-variance portfolio solves:
+
+\begin{align}
+  \min_{\bvec{w}} \quad & \sqrt{\bvec{w}^{\top} \bmat{\Sigma} \bvec{w}} \label{eq:minvar-obj} \\
+  \text{s.t.} \quad & \sum_{i=1}^{N} w_i = 1 \label{eq:minvar-sum} \\
+                    & w_i \geq 0 \quad \forall i \label{eq:minvar-long}
+\end{align}
+
+(\coderef{portfolio\_engine.py}{407--438}). The long-only constraint (\ref{eq:minvar-long}) restricts the solution to positive weights -- no short selling. The \texttt{SLSQP} (Sequential Least Squares Programming) solver from \texttt{scipy.optimize} handles this nonlinear constrained problem. The initial point $\bvec{w}_0 = (1/N, \ldots, 1/N)$ is a feasible interior point, aiding convergence.
+
+\subsection{Maximum-Sharpe Portfolio (Tangency Portfolio)}
+
+The tangency portfolio maximizes the Sharpe ratio:
+
+\begin{align}
+  \max_{\bvec{w}} \quad & \frac{\bvec{w}^{\top}\bvec{\mu} - r_f}{\sqrt{\bvec{w}^{\top}\bmat{\Sigma}\bvec{w}}} \label{eq:maxsharpe-obj} \\
+  \text{s.t.} \quad & \sum_{i=1}^{N} w_i = 1, \quad w_i \geq 0
+\end{align}
+
+The implementation minimizes the \emph{negative} Sharpe ratio (\coderef{portfolio\_engine.py}{454--459}), re-using the SLSQP solver. This is the portfolio where the Capital Market Line is tangent to the efficient frontier: it achieves the highest excess return per unit of volatility possible given the available assets and constraints.
+
+\begin{decisionbox}
+  \textbf{Why SLSQP over closed-form solutions?}
+
+  Without the long-only constraint, the minimum-variance portfolio has a closed-form solution:
+  \[
+    \bvec{w}^* = \frac{\bmat{\Sigma}^{-1}\bvec{1}}{\bvec{1}^{\top}\bmat{\Sigma}^{-1}\bvec{1}}
+  \]
+  and the unconstrained maximum-Sharpe portfolio is:
+  \[
+    \bvec{w}^* = \frac{\bmat{\Sigma}^{-1}(\bvec{\mu} - r_f\bvec{1})}{\bvec{1}^{\top}\bmat{\Sigma}^{-1}(\bvec{\mu} - r_f\bvec{1})}
+  \]
+  With the long-only constraint $w_i \geq 0$, these closed forms are no longer valid -- the KKT conditions require careful handling of active bound constraints. SLSQP handles the bounded constrained problem correctly. The trade-off is numerical sensitivity to the conditioning of $\bmat{\Sigma}$; with $N = 6$ assets and $T \approx 1260$ daily observations, this is not a concern in practice.
+\end{decisionbox}
+
+\subsection{Frontier Curve via Parametric Optimization}
+
+The full efficient frontier is traced by solving a parametric optimization: for each target return $\mu^*$ in $[\mu_{\text{MV}},\; \mu_{\text{max}}]$, find the minimum-variance portfolio achieving exactly $\mu^*$:
+
+\begin{align}
+  \min_{\bvec{w}} \quad & \sqrt{\bvec{w}^{\top}\bmat{\Sigma}\bvec{w}} \notag \\
+  \text{s.t.} \quad & \bvec{w}^{\top}\bvec{\mu} = \mu^*, \quad \bvec{1}^{\top}\bvec{w} = 1, \quad \bvec{w} \geq \bvec{0}
+  \label{eq:frontier-para}
+\end{align}
+
+The implementation (\coderef{portfolio\_engine.py}{481--532}) runs this optimization at 50 equally spaced target returns. Solver failures at infeasible targets (which can occur under the long-only constraint) are silently dropped, yielding only the achievable portion of the frontier.
+
+% =============================================================================
+\section{Correlation Analysis}
+\label{sec:portfolio-correlation}
+% =============================================================================
+
+\sourcefiles{\filepath{portfolio\_engine.py} lines 250--259, \filepath{routers/correlation.py}}
+
+\subsection{Pearson Correlation Matrix}
+
+The Pearson correlation between assets $i$ and $j$ is:
+
+\begin{equation}
+  \rho_{ij} = \frac{\Cov(R_i, R_j)}{\sigma_i \sigma_j}
+  \label{eq:pearson}
+\end{equation}
+
+The implementation delegates to \texttt{pandas.DataFrame.corr()} (\coderef{portfolio\_engine.py}{252}), which computes pairwise Pearson correlations on daily return columns. The correlation matrix is symmetric with $\rho_{ii} = 1$.
+
+Portfolio variance can be written explicitly in terms of pairwise correlations:
+
+\begin{equation}
+  \sigma_p^2 = \sum_{i=1}^{N}\sum_{j=1}^{N} w_i w_j \sigma_i \sigma_j \rho_{ij}
+  \label{eq:port-var-corr}
+\end{equation}
+
+This form makes the diversification benefit explicit: when $\rho_{ij} < 1$, the cross terms are smaller than they would be in a fully correlated portfolio ($\rho_{ij} = 1$), reducing $\sigma_p^2$ below the weighted sum of individual variances.
+
+\subsection{Rolling 60-Day Correlation}
+
+Static correlation hides an important phenomenon: correlations are not constant over time. During market stress, correlations tend to spike toward $1$ -- the exact moment when diversification is most needed, it tends to fail most dramatically.
+
+The rolling correlation uses a 60-day window (\coderef{portfolio\_engine.py}{255--259}):
+
+\begin{equation}
+  \hat{\rho}_{ij,t}^{(60)} = \Corr\bigl(R_{i,\,t-59:t},\; R_{j,\,t-59:t}\bigr)
+  \label{eq:rolling-corr}
+\end{equation}
+
+The correlation endpoint computes the rolling correlation of each individual asset versus the weighted portfolio return, visualizing how each asset's co-movement with the overall portfolio evolves over time.
+
+\subsection{Diversification Ratio}
+
+The correlation endpoint also computes the diversification ratio (\coderef{routers/correlation.py}{52--60}):
+
+\begin{equation}
+  \text{DR} = \frac{\sum_{i=1}^{N} w_i \sigma_i}{\sigma_p}
+  \label{eq:div-ratio}
+\end{equation}
+
+DR $\geq 1$ always. DR $= 1$ means the portfolio behaves as if all assets are perfectly correlated. DR $> 1$ indicates genuine diversification benefit: a DR of $1.2$ means the portfolio's realized volatility is 20\% less than a hypothetical single-asset portfolio with the same weighted-average volatility.
+
+% =============================================================================
+\section{System Architecture}
+\label{sec:portfolio-architecture}
+% =============================================================================
+
+\subsection{Backend: Pure Functions and Modular Routers}
+
+The backend follows a strict separation between computation and I/O:
+
+\begin{itemize}
+  \item \filepath{portfolio\_engine.py}: Pure functions accepting \texttt{pandas.Series}/\texttt{DataFrame} and returning serializable Python types. No file I/O, no HTTP calls, no side effects.
+  \item \filepath{data\_loader.py}: All I/O -- yfinance calls, Parquet cache reads and writes. Returns a standardized \texttt{dict} consumed by routers.
+  \item \filepath{routers/*.py}: Each file handles exactly one analytical concern and orchestrates \texttt{data\_loader} followed by \texttt{portfolio\_engine} calls.
+\end{itemize}
+
+The FastAPI application (\filepath{main.py}) mounts all six routers under \texttt{/api/v1} and runs on port 2055:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Endpoint} & \textbf{Router} & \textbf{Key outputs} \\
+\midrule
+\texttt{GET /api/v1/overview}    & \filepath{overview.py}    & KPIs, allocation, benchmark comparison \\
+\texttt{GET /api/v1/performance} & \filepath{performance.py} & Cumulative returns, drawdown, calendar \\
+\texttt{GET /api/v1/risk}        & \filepath{risk.py}        & VaR, CVaR, Sharpe, Sortino, Calmar, beta \\
+\texttt{GET /api/v1/montecarlo}  & \filepath{montecarlo.py}  & Percentile paths, profit probability \\
+\texttt{GET /api/v1/frontier}    & \filepath{frontier.py}    & Random cloud, frontier curve, optimal points \\
+\texttt{GET /api/v1/correlation} & \filepath{correlation.py} & Correlation matrix, rolling corr, DR \\
+\bottomrule
+\end{tabular}
+\caption{API surface. All endpoints accept a \texttt{period} query parameter (\texttt{1y}, \texttt{2y}, \texttt{3y}, \texttt{5y}, \texttt{10y}, \texttt{max}).}
+\label{tab:portfolio-api}
+\end{table}
+
+\subsection{Frontend: Next.js 8-Tab Dashboard}
+
+The Next.js frontend (\filepath{src/components/portfolio/PortfolioDashboard.tsx}) defines eight tabs in the \texttt{TABS} array (lines 14--23) and renders each as a separate panel component:
+
+\begin{enumerate}
+  \item \textbf{About} -- Project description and methodology overview.
+  \item \textbf{Overview} -- KPI cards (portfolio value, CAGR, Sharpe, max drawdown), allocation breakdown, benchmark comparison.
+  \item \textbf{Performance} -- Cumulative return chart (portfolio vs.\ SPY vs.\ individual assets), rolling returns, drawdown chart, calendar return heatmap.
+  \item \textbf{Risk} -- VaR comparison table (parametric/historical/MC at 95\%/99\%), CVaR, return distribution histogram, rolling volatility, benchmark-relative metrics.
+  \item \textbf{Correlation} -- Heatmap of asset correlation matrix, rolling 60-day correlation time series per asset, diversification ratio KPI.
+  \item \textbf{Monte Carlo} -- Fan chart of percentile envelopes (5th/25th/50th/75th/95th), probability of profit, probability of reaching a user-specified target, final-value statistics table.
+  \item \textbf{Frontier} -- Scatter plot of 5{,}000 random portfolios colored by Sharpe ratio, efficient frontier curve, highlighted minimum-variance and maximum-Sharpe points, current portfolio position.
+  \item \textbf{Methodology} -- Inline documentation of formulas and data sources.
+\end{enumerate}
+
+A global \texttt{PortfolioContext} (\filepath{src/context/PortfolioContext.tsx}) stores the selected time period and propagates it to all panel-level API hooks (\filepath{src/hooks/usePortfolioAPI.ts}), so changing the period selector in the header triggers refetches across all tabs simultaneously.
+
+% =============================================================================
+\section{Challenge Questions}
+\label{sec:portfolio-challenges}
+% =============================================================================
+
+\begin{challengebox}
+  \textbf{Log returns vs.\ arithmetic returns: quantify the approximation error.}
+
+  Log returns $r_t = \ln(1 + R_t) \approx R_t$ for small $R_t$. Assuming daily portfolio returns $R_t \sim \mathcal{N}(\mu_d, \sigma_d^2)$ with $\mu_d = 0.04/252$ and $\sigma_d = 0.15/\sqrt{252}$, compute the expected 5-year terminal value under (a) arithmetic compounding and (b) log-return compounding. At what annualized volatility level does the difference in 5-year terminal value exceed 50 basis points of return?
+\end{challengebox}
+
+\begin{challengebox}
+  \textbf{Eigendecomposition of the covariance matrix and minimum-variance weights.}
+
+  The portfolio variance $\bvec{w}^{\top}\bmat{\Sigma}\bvec{w}$ can be written as $\sum_k \lambda_k (\bvec{w}^{\top}\bvec{v}_k)^2$ where $(\lambda_k, \bvec{v}_k)$ are the eigenvalue-eigenvector pairs of $\bmat{\Sigma}$. Without the long-only constraint, show algebraically that the minimum-variance portfolio maximally loads on the eigenvectors with the \emph{smallest} eigenvalues. Interpret the first eigenvector (associated with the largest eigenvalue) for the six-asset portfolio -- what economic factor does it likely represent?
+\end{challengebox}
+
+\begin{challengebox}
+  \textbf{Estimation error and the Ledoit-Wolf shrinkage estimator.}
+
+  With $N = 6$ assets and $T = 1260$ daily observations, how many free parameters are being estimated in $\bmat{\Sigma}$? Compute the asymptotic standard error of a sample correlation coefficient $\hat{\rho}_{ij}$ under the null $\rho_{ij} = 0$. How does the sample covariance matrix's condition number affect the numerical stability of the SLSQP optimization? Research the Ledoit-Wolf linear shrinkage estimator $\hat{\bmat{\Sigma}}_{\text{LW}} = (1-\alpha)\hat{\bmat{\Sigma}} + \alpha \mu_{\text{trace}}\mathbf{I}$ and explain the bias-variance trade-off it exploits.
+\end{challengebox}
+
+\begin{interviewbox}
+  \textbf{Q: A colleague presents a backtest showing Sharpe ratio of 3.2. What questions do you ask first?}
+
+  Key concerns: (1) \textit{In-sample overfitting} -- was the strategy fitted on the same data used to evaluate it? (2) \textit{Survivorship bias} -- does the universe include only assets that survived to today? (3) \textit{Look-ahead bias} -- does any signal use data that would not have been available at the time of the trade? (4) \textit{Transaction costs} -- does the backtest account for bid-ask spread and market impact? (5) \textit{Sample period} -- does it cover a full market cycle including a bear market? A Sharpe of 3.2 on a passive ETF portfolio over any realistic sample period without leverage is almost certainly indicative of an error.
+\end{interviewbox}
+
+\begin{interviewbox}
+  \textbf{Q: Why is the efficient frontier a hyperbola in $(\sigma, \mu)$ space?}
+
+  Without the long-only constraint, the set of minimum-variance portfolios for each target return $\mu^*$ traces a parabola in $(\sigma^2, \mu)$ space, arising from the quadratic form $\bvec{w}^{\top}\bmat{\Sigma}\bvec{w}$. In $(\sigma, \mu)$ space (taking the square root of variance), this parabola becomes a hyperbola. Only the upper branch above the global minimum-variance point is \emph{efficient} in the Markowitz sense. The long-only constraint makes the frontier piecewise and truncates it, but the hyperbolic shape from the unconstrained case provides the intuition for why the frontier curves outward.
+\end{interviewbox}
+
+\begin{challengebox}
+  \textbf{Prove that CVaR is subadditive; construct an explicit VaR non-subadditivity counterexample.}
+
+  Consider two zero-coupon bonds, each with face value \$100 and independent default probability $p = 0.04$. Construct the joint loss distribution for a portfolio of \$50 in each bond. Show analytically that $\text{VaR}_{0.95}(\text{Bond 1} + \text{Bond 2}) > \text{VaR}_{0.95}(\text{Bond 1}) + \text{VaR}_{0.95}(\text{Bond 2})$, violating subadditivity. Then compute $\text{CVaR}_{0.95}$ for each bond individually and for the combined portfolio, and verify the subadditivity inequality $\text{CVaR}_{0.95}(X+Y) \leq \text{CVaR}_{0.95}(X) + \text{CVaR}_{0.95}(Y)$ holds.
+\end{challengebox}
+
+\begin{interviewbox}
+  \textbf{Q: The simulation estimates $\hat{\mu}$ from historical returns. What is estimation risk, and how would you address it?}
+
+  Estimation risk refers to the statistical uncertainty in the estimated parameters themselves. The sample mean has standard error $\hat{\sigma}/\sqrt{T}$; for a five-year daily series with $T = 1260$ and annualized volatility $\hat{\sigma} = 15\%$, the 95\% confidence interval for the annualized drift is approximately $\hat{\mu} \pm 1.96 \times 15\%/\sqrt{5} \approx \hat{\mu} \pm 13\%$. In other words, the estimated annual drift is essentially indistinguishable from zero at conventional significance levels. Approaches to address estimation risk: (1) Bayesian shrinkage toward a prior (Black-Litterman model combines market equilibrium with analyst views); (2) setting $\mu = 0$ in the drift and relying solely on $\hat{\sigma}$ for uncertainty (parameter-free simulation); (3) bootstrapping historical return blocks rather than parametric GBM; (4) robust optimization that explicitly accounts for confidence ellipsoids around $\hat{\bvec{\mu}}$ and $\hat{\bmat{\Sigma}}$.
+\end{interviewbox}

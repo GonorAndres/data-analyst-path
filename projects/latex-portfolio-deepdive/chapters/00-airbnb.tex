@@ -1,0 +1,549 @@
+% =============================================================================
+% Chapter 00 — Airbnb CDMX Dashboard
+% =============================================================================
+
+\chapter{Airbnb CDMX Dashboard}
+\label{ch:airbnb}
+
+\sourcefiles{%
+  \filepath{projects/00-demo-aestehtics/data-pipeline/airbnb\_etl.py},
+  \filepath{projects/00-demo-aestehtics/src/app/airbnb/page.tsx},
+  \filepath{projects/00-demo-aestehtics/src/components/AirbnbDashboard.tsx},
+  \filepath{projects/00-demo-aestehtics/src/components/charts/},
+  \filepath{projects/00-demo-aestehtics/src/app/globals.css}
+}
+
+This chapter covers the lightest project in the portfolio in terms of statistical
+complexity, but one of the most instructive in terms of frontend architecture and
+visualization design decisions. The Airbnb CDMX dashboard is a Next.js~14
+application that presents Mexico City's short-term rental market to a non-technical
+audience using five chart types, a dark/light mode system, and a static-data
+architecture that requires no backend at runtime.
+
+% ---------------------------------------------------------------------------
+\section{Business Context}
+\label{sec:airbnb-business}
+% ---------------------------------------------------------------------------
+
+Mexico City (CDMX) is one of Latin America's top tourist and business travel
+destinations. The short-term rental market served by Airbnb spans 16 of the city's
+boroughs (\textit{alcaldías}), from the dense historic centre to peripheral
+residential areas with very different supply-demand dynamics.
+
+The primary audience for this dashboard is a market analyst at a short-term rental
+investment firm or a policy researcher studying housing supply effects. Key questions
+the dashboard is designed to answer:
+
+\begin{itemize}
+  \item Which boroughs concentrate supply, and which are underserved relative to
+        demand signals such as pricing and review scores?
+  \item Is CDMX's Airbnb market driven by casual individual hosts or by professional
+        property management companies?
+  \item What is the price distribution by accommodation type, and where do outliers
+        cluster geographically?
+\end{itemize}
+
+These questions do not require predictive modeling. They are answered through
+descriptive aggregations and interactive charts — the core of a data analyst's
+toolkit.
+
+% ---------------------------------------------------------------------------
+\section{Data Source}
+\label{sec:airbnb-data}
+% ---------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/00-demo-aestehtics/data-pipeline/airbnb\_etl.py} (lines 23--33)
+}
+
+The data comes from \textbf{Inside Airbnb} (\url{http://insideairbnb.com}), an
+independent project that scrapes public Airbnb listing pages and publishes city
+snapshots under a Creative Commons licence. The CDMX snapshot used here is from
+March 2025.
+
+\begin{table}[h]
+  \centering
+  \caption{Dataset overview — Inside Airbnb CDMX, March 2025}
+  \label{tab:airbnb-dataset}
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Property}     & \textbf{Value} \\
+    \midrule
+    Raw file              & \filepath{listings.csv.gz} \\
+    Total rows            & 27,051 listings \\
+    Total columns         & 79 \\
+    Columns selected      & 15 (see ETL) \\
+    Price null rate       & 12.9\% \\
+    Rating null rate      & 12.6\% \\
+    Geographic granularity & 16 alcaldías (borough level, not neighbourhood) \\
+    Licence               & Creative Commons CC0 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The null rates in price and rating are structurally expected: new listings have no
+reviews, and listings with draft prices or unpublished pricing appear with null
+values in the scrape. The pipeline drops nulls for the specific aggregation that
+requires the field rather than imputing them — a deliberate choice to avoid
+distorting distribution shapes.
+
+\begin{keyinsight}
+  Inside Airbnb prices reflect the \emph{published} nightly rate, not the final
+  price paid. Cleaning fees, service fees, and taxes can raise the effective
+  checkout price by 20–40\%. Any pricing recommendation derived from this data
+  should note this limitation explicitly.
+\end{keyinsight}
+
+% ---------------------------------------------------------------------------
+\section{ETL Pipeline}
+\label{sec:airbnb-etl}
+% ---------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/00-demo-aestehtics/data-pipeline/airbnb\_etl.py}
+}
+
+The ETL is a single Python script (\filepath{airbnb\_etl.py}) that reads the
+compressed CSV, applies transformations, and writes five JSON files to
+\filepath{public/data/airbnb/}. The script uses only \texttt{pandas} and
+\texttt{numpy} — no database, no streaming, no orchestration framework. At 27K
+rows this is appropriate: pandas loads the file in under a second.
+
+\subsection{Price String Cleaning}
+
+Airbnb exports prices as formatted strings: \texttt{\$1,200.00} or
+\texttt{\$14,500.00}. The pipeline strips the currency symbol and thousand
+separators before casting to float:
+
+\begin{lstlisting}[style=python, caption={Price cleaning in \filepath{airbnb\_etl.py} (lines 18--20)}]
+def clean_price(series: pd.Series) -> pd.Series:
+    """Strip $, commas and convert to float."""
+    return (series
+        .str.replace("$", "", regex=False)
+        .str.replace(",", "", regex=False)
+        .astype(float))
+\end{lstlisting}
+
+A simpler regex like \texttt{[\textbackslash\$,]} would work but is harder to read
+at a glance. The two-step replacement makes the intent explicit to any reviewer.
+
+\subsection{Host Segmentation Logic}
+
+Hosts are classified into three segments based on how many listings they operate.
+The thresholds are defined in the \texttt{segment()} closure inside
+\texttt{build\_host\_segmentation()}:
+
+\begin{lstlisting}[style=python, caption={Host segmentation thresholds (lines 109--113)}]
+def segment(n):
+    if n == 1:
+        return "casual"
+    elif n <= 5:
+        return "professional"
+    return "enterprise"
+\end{lstlisting}
+
+\begin{decisionbox}
+  \textbf{Why these thresholds?} The 1 / 2--5 / 6+ split maps to observable
+  market behaviours: a single-listing host is almost certainly an individual renting
+  their own home or spare room. Hosts with 2--5 listings are likely managing
+  investment properties part-time. Hosts with 6+ listings operate at a scale that
+  requires systematic pricing, availability management, and cleaning coordination
+  — this is a commercial operation regardless of legal form.
+
+  The thresholds are not empirically calibrated to CDMX data; they are heuristic
+  conventions used by Airbnb researchers. A rigorous segmentation would cluster on
+  multiple variables (listing count, price variance, response rate). For a portfolio
+  dashboard the heuristic is sufficient and defensible.
+\end{decisionbox}
+
+\subsection{Geo Sampling}
+
+The raw dataset has 27K coordinate pairs. Rendering all of them in a browser scatter
+chart would produce an illegible overplotted mass and degrade performance. The
+pipeline samples 3,000 points at build time:
+
+\begin{lstlisting}[style=python, caption={Geo sampling in \filepath{airbnb\_etl.py} (lines 65--68)}]
+def build_geo_heatmap(df: pd.DataFrame, max_points: int = 3000) -> dict:
+    valid = df.dropna(subset=["latitude", "longitude", "price"]).copy()
+    if len(valid) > max_points:
+        valid = valid.sample(max_points, random_state=42)
+\end{lstlisting}
+
+The fixed \texttt{random\_state=42} ensures the sample is reproducible between
+pipeline runs. The 3,000-point limit is a UX decision: enough density to reveal
+the spatial clustering of Cuauhtémoc and Miguel Hidalgo without overwhelming the
+browser's SVG renderer.
+
+\subsection{Output Files}
+
+The pipeline produces five JSON files totalling under 500~KB:
+
+\begin{table}[h]
+  \centering
+  \caption{ETL output files written to \filepath{public/data/airbnb/}}
+  \label{tab:airbnb-outputs}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{File}                     & \textbf{Builder function}        & \textbf{Consumed by} \\
+    \midrule
+    \filepath{kpis.json}              & \texttt{build\_kpis()}           & KPI bar \\
+    \filepath{price\_distribution.json} & \texttt{build\_price\_distribution()} & \texttt{PriceHistogram} \\
+    \filepath{geo\_heatmap.json}      & \texttt{build\_geo\_heatmap()}   & \texttt{GeoScatter} \\
+    \filepath{neighborhood\_ranking.json} & \texttt{build\_neighborhood\_ranking()} & \texttt{NeighborhoodBar} \\
+    \filepath{host\_segmentation.json} & \texttt{build\_host\_segmentation()} & \texttt{HostSegmentation} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------------
+\section{Architecture}
+\label{sec:airbnb-architecture}
+% ---------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/00-demo-aestehtics/src/app/airbnb/page.tsx},
+  \filepath{projects/00-demo-aestehtics/next.config.js},
+  \filepath{projects/00-demo-aestehtics/package.json}
+}
+
+\subsection{Static JSON Pattern}
+
+The architecture of the Airbnb dashboard is deliberately the simplest possible:
+pre-computed JSON files are read at server-render time using Node's \texttt{fs}
+module and passed as props to client components. There is no API route, no database
+connection, and no runtime data fetching.
+
+\begin{lstlisting}[style=typescript, caption={Static JSON loading in \filepath{src/app/airbnb/page.tsx} (lines 11--14)}]
+function readJson<T>(filename: string): T {
+  const filePath = join(process.cwd(), 'public', 'data', 'airbnb', filename)
+  return JSON.parse(readFileSync(filePath, 'utf-8')) as T
+}
+\end{lstlisting}
+
+The page component calls \texttt{readJson()} five times — once per dataset — and
+forwards all values as typed props to \texttt{AirbnbDashboard}. Because the page
+is a React Server Component (no \texttt{'use client'} directive), the file I/O
+happens once on the server during the request and the result is serialized into
+the initial HTML payload. The client receives fully-hydrated data and never issues
+a network request for chart data.
+
+\begin{decisionbox}
+  \textbf{Why static JSON instead of an API?} Three reasons:
+
+  \begin{enumerate}
+    \item \textbf{Data size}: Five JSON files total under 500~KB. This is small
+          enough to embed in a server render without latency penalties.
+    \item \textbf{Update frequency}: The Inside Airbnb dataset is a monthly snapshot.
+          Data is not changing in real time. An API that queries a database to return
+          the same pre-aggregated values on every request adds infrastructure cost
+          with zero user-facing benefit.
+    \item \textbf{Deployment simplicity}: The dashboard is a static export merged
+          into the portfolio's Cloudflare Pages project. No Cloud Run service, no
+          database provisioning, no secret management beyond what already exists
+          for the rest of the portfolio.
+  \end{enumerate}
+
+  The trade-off is that updating the data requires re-running \filepath{airbnb\_etl.py}
+  and committing the new JSON files. For a monthly-refresh dataset served to a
+  portfolio audience this is an acceptable workflow.
+\end{decisionbox}
+
+\subsection{Next.js App Router and Proxy Configuration}
+
+The project uses Next.js~14.2 with the App Router. The route \filepath{/airbnb}
+is handled by \filepath{src/app/airbnb/page.tsx}. A separate section of the app
+(\filepath{/olist}) connects to a FastAPI backend via a server-side rewrite proxy
+defined in \filepath{next.config.js}:
+
+\begin{lstlisting}[style=typescript, caption={Rewrite proxy for the Olist backend in \filepath{next.config.js}}]
+async rewrites() {
+  const backend = process.env.OLIST_BACKEND_URL || 'http://localhost:2050'
+  return [
+    {
+      source: '/api/olist/:path*',
+      destination: `${backend}/:path*`,
+    },
+  ]
+},
+\end{lstlisting}
+
+The Airbnb section of the app does not use this proxy at all — it is purely static.
+The proxy exists for the Olist (e-commerce) section that shares the same Next.js
+process, demonstrating that both patterns (static JSON and live API) can coexist
+in the same project.
+
+\subsection{Dependency Choices}
+
+\begin{table}[h]
+  \centering
+  \caption{Key runtime dependencies and their roles}
+  \label{tab:airbnb-deps}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Package}      & \textbf{Version} & \textbf{Role} \\
+    \midrule
+    \texttt{recharts}     & 2.13             & All chart rendering \\
+    \texttt{framer-motion} & 11.0            & KPI counter animations \\
+    \texttt{lucide-react} & 0.454            & Icon system (theme toggle, back arrow) \\
+    \texttt{swr}          & 2.4              & Data fetching for Olist section (not Airbnb) \\
+    \texttt{clsx}         & 2.1              & Conditional CSS class composition \\
+    \texttt{tailwind-merge} & 2.5            & Conflict-safe Tailwind class merging \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Recharts was chosen over D3.js, Victory, and Nivo. D3 gives maximum control but
+requires imperative DOM manipulation that conflicts with React's declarative model
+unless carefully managed. Recharts wraps D3's scales in React components, maintaining
+the familiar \texttt{<BarChart>} / \texttt{<Scatter>} declarative API while
+exposing enough customization hooks (custom shapes, custom tooltips, the
+\texttt{Customized} component for SVG overlays) to handle the geo-label overlay
+on the scatter chart.
+
+% ---------------------------------------------------------------------------
+\section{Visualization Design}
+\label{sec:airbnb-viz}
+% ---------------------------------------------------------------------------
+
+\sourcefiles{%
+  \filepath{projects/00-demo-aestehtics/src/app/globals.css},
+  \filepath{projects/00-demo-aestehtics/src/components/charts/},
+  \filepath{projects/00-demo-aestehtics/src/components/ui/ThemeToggle.tsx}
+}
+
+\subsection{Dark/Light Mode Implementation}
+
+The theme system uses a CSS custom properties (variables) approach rather than
+duplicating color values across components. Light and dark tokens are declared in
+\filepath{globals.css}:
+
+\begin{lstlisting}[language={},caption={CSS token system in \filepath{src/app/globals.css} (lines 5--47)}]
+:root {
+  --background: #FAFAF8;   /* warm white, not pure #FFFFFF */
+  --foreground: #1A1A1A;
+  --chart-tick:   #6B6B6B;
+  --chart-label:  #1A1A1A;
+  --chart-grid:   #E5E4DF;
+  --bar-rank-1:   #1E3A5F; /* dark navy -- top-ranked bars */
+  --bar-rank-2:   #2B527F;
+  --bar-rank-3:   #9AB0C8; /* lighter blue -- lower-ranked bars */
+}
+
+.dark {
+  --background: #141414;
+  --foreground: #F0EFEB;
+  --chart-tick:   #9A9A9A; /* bumped from #6B6B6B for WCAG AA */
+  --chart-label:  #F0EFEB;
+  --chart-grid:   #2a2a2a;
+  --bar-rank-1:   #6BA3C8; /* inverted: lighter in dark mode */
+  --bar-rank-2:   #4A7FA8;
+  --bar-rank-3:   #9AB0C8;
+}
+\end{lstlisting}
+
+Chart components reference these tokens via \texttt{var(--chart-tick)} in Recharts
+\texttt{tick} and \texttt{label} props. The dark class is toggled on
+\texttt{document.documentElement} by \texttt{ThemeToggle.tsx}, which reads the
+user's system preference via \texttt{window.matchMedia} on first render and
+persists the explicit choice to \texttt{localStorage}.
+
+\subsection{WCAG Contrast Considerations}
+
+The muted text color \texttt{\#6B6B6B} has a contrast ratio of 3.45:1 against the
+dark background \texttt{\#141414} — below WCAG AA's 4.5:1 requirement for body
+text. The fix is a single CSS override:
+
+\begin{lstlisting}[language={},caption={Muted text contrast fix in \filepath{globals.css} (lines 64--67)}]
+/* #6B6B6B gives 3.45:1 on #141414 -- fails AA for small text.
+   Override to #9A9A9A which gives 6.6:1. */
+.dark .text-muted {
+  color: #9A9A9A;
+}
+\end{lstlisting}
+
+A subtler issue arises with Recharts: SVG \texttt{fill} and \texttt{stroke}
+attributes are \emph{not} affected by CSS \texttt{color} inheritance. A hardcoded
+\texttt{fill="\#6B6B6B"} in a tick label will fail in dark mode because the SVG
+attribute takes precedence over any CSS rule targeting the element. The solution is
+to use \texttt{fill='var(--chart-tick)'} in every Recharts \texttt{tick} prop, as
+done consistently across all chart components in this project.
+
+\subsection{Chart Type Rationale}
+
+\begin{table}[h]
+  \centering
+  \caption{Chart type selection rationale for each section}
+  \label{tab:airbnb-charts}
+  \begin{tabular}{p{3cm}p{3.5cm}p{6cm}}
+    \toprule
+    \textbf{Chart}         & \textbf{Type}             & \textbf{Rationale} \\
+    \midrule
+    Price distribution     & Stacked \texttt{BarChart} (histogram) &
+      Bins the continuous price variable to reveal the bimodal
+      structure (entire home vs.\ private room floors). Stacked bars by room type
+      show composition without requiring a separate facet. \\
+    \addlinespace
+    Geographic distribution & \texttt{ScatterChart} (lon/lat) &
+      Recharts \texttt{ScatterChart} maps longitude to x and latitude to y,
+      producing an approximate map. A true tile-based map (Leaflet/Mapbox) was
+      deferred to avoid token management overhead for a portfolio demo. The
+      \texttt{Customized} component overlays borough labels as SVG text. \\
+    \addlinespace
+    Neighborhood ranking   & Horizontal \texttt{BarChart} &
+      Long category names (borough names in Spanish) fit better on a horizontal
+      axis with \texttt{layout="vertical"}. Three sort options (listing count,
+      avg price, avg rating) are toggled client-side without re-fetching data. \\
+    \addlinespace
+    Host segmentation      & Vertical \texttt{BarChart} + table &
+      Three segments (casual/professional/enterprise) map cleanly to three bars.
+      The adjacent summary table surfaces host counts and top operators that a bar
+      chart alone cannot convey. \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{The Geo Scatter Limitation}
+
+Using \texttt{ScatterChart} to approximate a map is a pragmatic compromise with
+known failure modes. Recharts maps data coordinates linearly to SVG coordinates,
+so the output is an \emph{equirectangular} projection. For CDMX's latitude range
+(19.15°N to 19.6°N) this introduces roughly 0.4\% east-west distortion — visually
+imperceptible. The main limitation is the absence of base-map tiles: there is no
+coastline, no street grid, no borough boundary polygon. Borough labels are drawn
+at hardcoded centroid coordinates defined in \filepath{GeoScatter.tsx} (lines
+22--38). This is adequate for communicating spatial clustering to a non-specialist
+audience but would not survive scrutiny from a GIS professional.
+
+\subsection{Color Encoding on the Geo Scatter}
+
+Point colors encode price tier using a three-level threshold function:
+
+\begin{lstlisting}[style=typescript, caption={\filepath{src/components/charts/GeoScatter.tsx} (lines 47--51)}]
+function priceToColor(price: number): string {
+  if (price < 800) return '#6B9DB8'   // steel blue -- budget
+  if (price < 2000) return '#1E3A5F'  // dark navy -- mid range
+  return '#C4841D'                    // amber -- premium
+}
+\end{lstlisting}
+
+The three-color encoding was chosen deliberately over a continuous gradient. A
+continuous sequential scale would require a colorbar legend and demands that viewers
+compare gradient shades at small dot sizes — a perceptually difficult task. Three
+discrete tiers (budget / mid / premium) allow pre-attentive detection of spatial
+patterns: the viewer can immediately see that amber dots cluster along the western
+edge without needing to read a colorbar.
+
+The amber accent \texttt{\#C4841D} is the same highlight color used across the
+portfolio's chart palette, establishing visual consistency between projects.
+
+% ---------------------------------------------------------------------------
+\section{Key Findings}
+\label{sec:airbnb-findings}
+% ---------------------------------------------------------------------------
+
+\begin{keyinsight}
+  \textbf{Cuauhtémoc concentration}: 12,514 listings (46\% of total) sit in a single
+  borough. Roma Norte, Condesa, and Centro Histórico within Cuauhtémoc drive this
+  cluster. The runner-up borough (Miguel Hidalgo) has approximately half the listing
+  count. Tláhuac, at the far southeastern edge of the city, has 40 listings — a
+  300$\times$ gap from the leader.
+\end{keyinsight}
+
+\begin{keyinsight}
+  \textbf{Enterprise host concentration}: The host segmentation reveals a structurally
+  professional market. Enterprise hosts (6+ listings) represent only 7\% of all
+  hosts yet control 40\% of total supply. The top three enterprise operators are
+  Blueground (221 listings), Mr. W (164), and Clau (156). Casual hosts — those with
+  a single listing — number 8,370 but collectively hold fewer units than the enterprise
+  segment controls per host on average.
+\end{keyinsight}
+
+\begin{keyinsight}
+  \textbf{Peripheral pricing premium}: Despite far fewer listings, Tlalpan and
+  Cuajimalpa show the highest average nightly prices in the dataset (MXN 2,493 and
+  MXN 2,151 respectively). This suggests undersupplied premium inventory: listings
+  in those boroughs can command high prices because competition is thin. A new host
+  entering Tlalpan faces a different competitive environment than one entering
+  Cuauhtémoc.
+\end{keyinsight}
+
+\begin{keyinsight}
+  \textbf{Room type pricing floors}: The price distribution is not unimodal. Entire
+  home/apartment listings peak in the MXN 1,000--1,500 bin. Private rooms form a
+  secondary mass concentrated near MXN 500. This bimodal shape disappears when the
+  two room types are aggregated — a reminder that averaging across heterogeneous
+  product categories produces a mean that is representative of neither group.
+\end{keyinsight}
+
+Median availability of 16 days per 30 confirms strong demand pressure — listings
+are occupied roughly half the time. The 87\% of listings with review scores above
+4.5 suggests either genuine quality or a platform selection effect (underperforming
+listings are delisted before accumulating reviews).
+
+% ---------------------------------------------------------------------------
+\section{Challenge and Interview Questions}
+\label{sec:airbnb-questions}
+% ---------------------------------------------------------------------------
+
+\begin{challengebox}
+  \textbf{Static JSON vs. live API — when does the pattern break?}
+
+  The dashboard reads pre-computed JSON files from the filesystem at request time.
+  Identify three scenarios where this architecture would require replacement with a
+  live API, and describe what changes to the codebase and infrastructure would be
+  needed for each.
+
+  \medskip
+  \textit{Consider:} update frequency requirements, personalisation needs, dataset
+  size growth, and the cost of adding a database versus the cost of stale data.
+\end{challengebox}
+
+\begin{challengebox}
+  \textbf{SVG fill inheritance and dark mode}
+
+  A developer adds a new chart component and writes:
+  \begin{verbatim}
+  <XAxis tick={{ fill: '#6B6B6B' }} />
+  \end{verbatim}
+  Explain why this breaks in dark mode even though the dark mode CSS class is
+  correctly applied to \texttt{document.documentElement}. Describe two ways to fix
+  it, and explain which approach is more maintainable in a multi-chart project.
+\end{challengebox}
+
+\begin{challengebox}
+  \textbf{Geo scatter vs. choropleth map}
+
+  The current geographic visualization plots individual listing coordinates as
+  colored dots. An alternative would be a choropleth map where each borough polygon
+  is filled with a color proportional to listing count or average price.
+
+  Compare the two approaches on: (a) information density, (b) accessibility for
+  colorblind users, (c) implementation complexity given the current Recharts stack,
+  and (d) suitability for the three audience questions listed in
+  Section~\ref{sec:airbnb-business}.
+\end{challengebox}
+
+\begin{interviewbox}
+  \textbf{Explain the host segmentation design to a product manager.}
+
+  You have classified hosts into casual (1 listing), professional (2--5 listings),
+  and enterprise (6+ listings). A PM asks: ``Why those thresholds? Could the
+  segmentation be done better?''
+
+  Give a one-minute answer that acknowledges the heuristic nature of the current
+  approach, proposes a data-driven alternative (such as clustering), and explains
+  the trade-off between analytical rigor and interpretability for a dashboard
+  audience.
+\end{interviewbox}
+
+\begin{interviewbox}
+  \textbf{Stakeholder question: why are enterprise hosts cheaper than casual hosts?}
+
+  The host segmentation data shows that enterprise hosts have a lower average
+  nightly price than casual hosts. A stakeholder finds this counterintuitive and
+  asks for an explanation.
+
+  Walk through at least two alternative hypotheses (e.g., volume pricing strategy,
+  geographic mix, accommodation type mix) and explain how you would distinguish
+  between them using the available data without additional data collection.
+\end{interviewbox}
