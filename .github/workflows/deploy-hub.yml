@@ -110,6 +110,49 @@ jobs:
         # backend runs here; the specs assert only on what renders without data.
         run: npx playwright test --config=e2e/hub.config.ts
 
+      # Runs only when the gate failed, and never fails the job itself.
+      #
+      # The gate has three times died mid-run rather than failing an assertion:
+      # `wrangler pages dev` stops answering and every remaining spec reports
+      # ERR_CONNECTION_REFUSED. Wrangler writes a crash report when that
+      # happens -- "Logs were written to .../wrangler-*.log" -- but the file
+      # lives inside the runner and disappears with it, so all three were
+      # diagnosed from Playwright's output alone, which only shows the
+      # aftermath. That log has never been read.
+      #
+      # It has not recurred since 2026-08-24, and it does not reproduce on
+      # demand, so capturing the evidence when it next happens is the only
+      # realistic way to close it out.
+      - name: Capture wrangler crash log on gate failure
+        if: failure()
+        continue-on-error: true
+        run: |
+          mkdir -p gate-diagnostics
+          # Wrangler's log directory moves with XDG_CONFIG_HOME; check both.
+          # -mmin -120 keeps this to the current run. A CI runner is fresh so it
+          # changes nothing there, but the same step run on a developer machine
+          # would otherwise sweep up every wrangler log ever written locally
+          # (415 files / 31 MB on the machine this was written on).
+          for d in "$HOME/.config/.wrangler/logs" "$XDG_CONFIG_HOME/.wrangler/logs"; do
+            [ -d "$d" ] || continue
+            find "$d" -name 'wrangler-*.log' -mmin -120 -exec cp {} gate-diagnostics/ \; 2>/dev/null || true
+          done
+          # A dead server leaves nothing in the Playwright report, so record
+          # whether the port was still listening when the job ended.
+          (ss -ltnp 2>/dev/null || netstat -ltnp 2>/dev/null || true) > gate-diagnostics/listening-ports.txt
+          echo "collected: $(ls gate-diagnostics | wc -l) file(s)"
+          ls -la gate-diagnostics || true
+
+      - name: Upload gate diagnostics
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: gate-diagnostics/
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: Deploy to Cloudflare Pages
         id: deploy
         if: github.event_name != 'pull_request'
