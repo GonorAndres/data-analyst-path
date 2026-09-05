@@ -20,7 +20,8 @@ data-analyst/
 │   ├── tools/                   # Power BI, SQL analytics, Python EDA, R stats patterns
 │   ├── templates/               # Reusable project README, exec summary, stakeholder brief
 │   └── design/                  # Dashboard design principles, chart selection
-├── projects/                    # 7 portfolio projects (each self-contained)
+├── apps/web/                    # Sole Next.js frontend: shared shell + domain features
+├── projects/                    # Research, backend modules, and retained public artifacts
 │   ├── 00-demo-aestehtics/              # Next.js + Recharts (Airbnb CDMX, zero-backend)
 │   ├── 01-insurance-claims-dashboard/   # Next.js + FastAPI + SQL (actuarial domain)
 │   ├── 02-ecommerce-cohort-analysis/    # SQL + Python + Next.js (product analyst angle)
@@ -75,7 +76,7 @@ wrong page count; delete it before re-running rather than debugging the count.
 
 - **SQL** (PostgreSQL dialect, BigQuery where relevant): Primary analysis language. Window functions, CTEs, multi-table joins.
 - **Python**: pandas, plotly, seaborn, scipy. For EDA, automation, and the pre-aggregation pipelines behind the dashboards.
-- **Next.js + TypeScript**: Primary dashboard framework. Built as static exports and merged into one Cloudflare Pages project, with Recharts/D3.js for visualization.
+- **Next.js + TypeScript**: Primary dashboard framework. Built as one static export from `apps/web` into one Cloudflare Pages project, with Recharts/D3.js for visualization.
 - **FastAPI**: Backend APIs serving processed data to dashboards. Deployed to Cloud Run as a consolidated service.
 - **Jupyter Notebooks**: For reproducible analytical narratives. Write like blog posts with markdown between code.
 
@@ -95,67 +96,49 @@ Rscript projects/<project>/analysis.R
 # Execute SQL against local PostgreSQL
 psql -d <database> -f projects/<project>/sql/queries.sql
 
-# Consolidated backend (insurance + olist on single port)
+# Consolidated backend (all six services on one port)
 cd backend && bash dev.sh   # serves on port 8080
 # /insurance/api/v1/* and /olist/api/v1/*
 
-# Frontend hub: build all six dashboards and merge into dist/
-npm run build          # npm ci + next build + merge, per project
+# Unified frontend (commands from repository root)
+npm run dev            # shared Next.js app on port 3000
+npm run typecheck:web
+npm run build          # npm ci + one Next.js build + stage dist/
 npm run build:fast     # skip npm ci (node_modules already present)
 npm run preview        # wrangler pages dev -- serves dist/ + functions/
-npm run test:e2e       # Playwright against the merged site
+npm run test:e2e       # Playwright against the unified site
 npm run typecheck:functions
 ```
 
-## Consolidated Frontend (the Pages hub)
+## Unified Frontend
 
-The seven Next.js dashboards are **one** Cloudflare Pages project, `data-analyst-hub`,
-serving `data-analyst.gonor.me`. This mirrors the backend: one service, several
-sub-applications under path prefixes.
+`apps/web` is the only maintained frontend. One Next.js app, one router, one
+shared shell, and one static export serve `data-analyst.gonor.me`. See
+`docs/architecture.md` for ownership and `docs/retirement.md` for the exact
+retirement ledger. Original frontend copies and legacy cloud services have
+been removed; do not recreate them.
 
-| Path | Project | Notes |
-|------|---------|-------|
-| `/` | 00-demo-aestehtics | Owns the root: landing page, `favicon.svg`, `404.html` |
-| `/airbnb`, `/olist` | 00-demo-aestehtics | |
-| `/insurance` | 01-insurance-claims-dashboard | |
-| `/cohorts`, `/cohorts/{retencion,segmentos,geografia,metodologia,notebooks}` | 02-ecommerce-cohort-analysis/**web** | Zero-backend: reads static JSON from `public/cohorts/data/` |
-| `/abtest`, `/abtest/notebooks` | 03-ab-test-analysis | |
-| `/kpi` | 04-executive-kpi-report | |
-| `/portfolio` | 05-financial-portfolio-tracker | |
-| `/operations` | 06-operational-efficiency | |
-| `/api/<svc>/*` | `functions/api/[[path]].ts` | Proxies to Cloud Run; `<svc>` checked against a fixed list |
-| `/ingest/*` | `functions/ingest/[[path]].ts` | Same-origin PostHog proxy |
-| *(every request)* | `functions/_middleware.ts` | 301s the bare `data-analyst-hub.pages.dev` apex to `data-analyst.gonor.me`, path and query preserved. Exact hostname match, so `dev.*` and `<hash>.*` previews are untouched and stay testable. |
-
-**How the merge works.** Each app builds with `output: 'export'` (production) and
-keeps `rewrites()` for `npm run dev` only — see any `projects/*/next.config.js`.
-No `basePath` is needed because each app already namespaces its routes under its
-target path. `scripts/build-hub.mjs` merges the seven `out/` trees into `dist/` and
-**fails the build** if two apps emit the same path with different content.
-
-Project 02 is the odd one out in two ways, both of which need their own handling:
-its Next app lives at `projects/02-ecommerce-cohort-analysis/**web**/` rather than
-at the project root (the project also holds notebooks, parquet and the retired
-Streamlit app), so `projects/*/…` globs miss it — `deploy-hub.yml` carries
-explicit path filters and a second cache-key glob for it. And it has no backend:
-its data is committed JSON under `public/cohorts/data/`, which the repo's global
-`*.json` ignore rule excluded until `.gitignore` gained an explicit negation.
-
-**Rules when touching a dashboard:**
-- Anything in `public/` must live under the app's own slug (`public/kpi/...`),
-  never at the root — seven apps share one origin. Only project 00 owns root assets.
-- Do not add a root `page.tsx` to projects 01/02/03/04/05/06. `/` belongs to project 00.
-- **Charts: ≤3 simultaneous series per chart, or facet into small multiples.** The
-  seven `--series-*` hues pass the dataviz validator on *adjacent pairs only* —
-  three of them are blues, and `#2563EB`/`#7C3AED` are ΔE 0.4 apart under
-  deuteranopia. Validate the exact coexisting set with
-  `validate_palette.js "<hex,...>" --pairs all` in both modes before shipping.
-  See the comment block atop `projects/02-.../web/src/app/globals.css`.
-- Keep fetches on the relative `/api/<svc>` default. Setting `NEXT_PUBLIC_*_API_URL`
-  at build time bakes an absolute Cloud Run URL into the bundle and bypasses the
-  proxy; `scripts/build-hub.mjs` strips those vars for exactly this reason.
-- Server-only Next features (route handlers, `next/headers`, `next/image`,
-  `redirect()` in a page) break `output: 'export'`. None are in use today.
+- Shared components own the header, footer, breadcrumbs, project switcher,
+  section navigation, loading/error states, and persistent EN/ES + light/dark
+  preferences. First visit is English/light.
+- Seven case studies expose eight analyses. E-commerce groups `/olist/` and
+  `/cohorts/`; all existing analysis and notebook paths are preserved.
+- Domain code lives under `apps/web/src/features/`. Domain filters stay isolated.
+- Use fully namespaced `/api/<service>/api/v1/...` SWR keys and request URLs.
+  Never use shared bare `/api/v1/filters` keys or public origin overrides.
+- Shared CSS tokens live in `apps/web/src/app/globals.css`; retain semantic chart
+  scales, but do not add another domain theme, font, header, or language control.
+- Keep charts to at most three simultaneous series or use small multiples;
+  validate coexisting colors, contrast, and labels in both themes.
+- `scripts/stage-web-assets.mjs` copies namespaced public research artifacts
+  into generated `apps/web/public`. Edit original artifacts in `projects/`,
+  not generated copies. Duplicate paths with differing content fail staging.
+- `scripts/build-hub.mjs` builds once, stages `dist/`, and stamps canonicals.
+- Production Functions preserve `/api/<service>/*` and `/ingest/*` proxies.
+  Middleware redirects only the bare production Pages hostname to the canonical
+  domain; preview hosts remain accessible.
+- Server-only Next features cannot be used with the static export. Images must
+  be compatible with unoptimized export.
 
 ## Consolidated Backend
 
@@ -176,20 +159,10 @@ A unified FastAPI entry point at `backend/main.py` mounts all project backends u
 - **Consolidated**: `cd backend && bash dev.sh` (port 8080)
 - **Docker**: `docker build -f backend/Dockerfile -t da-portfolio-api . && docker run -p 8080:8080 da-portfolio-api`
 
-**Frontend env var adjustment** (no code changes needed). These feed each app's
-`rewrites()`, which exists for `npm run dev` only:
-
-| Mode | `INSURANCE_BACKEND_URL` | `OLIST_BACKEND_URL` |
-|------|-------------------------|---------------------|
-| Standalone | `http://localhost:2051` | `http://localhost:2050` |
-| Consolidated | `http://localhost:8080/insurance` | `http://localhost:8080/olist` |
-
-**There is no production row.** A static export has no server to run `rewrites()`,
-so in production `/api/<svc>/*` is answered by `functions/api/[[path]].ts`, which
-holds the Cloud Run origin itself (`API_ORIGIN`, defaulting to the URL in
-`ops/urls.yml`). Setting these variables at build time changes nothing; setting
-`NEXT_PUBLIC_*_API_URL` actively breaks the arrangement, which is why
-`scripts/build-hub.mjs` strips it.
+**Frontend development:** `API_ORIGIN` defaults to `http://localhost:8080`.
+The shared Next.js development rewrites map all six service prefixes to it.
+Production uses the Pages API Function and its runtime `API_ORIGIN`; static
+exports do not execute rewrites. Do not add `NEXT_PUBLIC_*_API_URL` overrides.
 
 ## Conventions
 
@@ -230,7 +203,7 @@ Every project README must follow `docs/templates/project-readme-template.md`:
 - Differentiated from `data-enginer/docs/`: NO infrastructure, pipelines, or cloud architecture content
 
 ### Output Delivery
-- Next.js dashboards: Merged into one Cloudflare Pages project at `data-analyst.gonor.me/<path>`. Screenshots in `dashboards/screenshots/`. Live URLs in project README.
+- Next.js dashboards: One app exported to one Cloudflare Pages project at `data-analyst.gonor.me/<path>`. Screenshots in `dashboards/screenshots/`. Live URLs in project README.
 - Notebooks: Renderable via nbviewer/GitHub. Include "View on nbviewer" badge in project README.
 - Reports: PDF exports in `reports/`, source files (if editable) alongside them.
 
@@ -238,7 +211,7 @@ Every project README must follow `docs/templates/project-readme-template.md`:
 Where a dashboard has supporting notebooks, publish them inside it as a browsable
 page rather than linking out to GitHub:
 1. Convert to HTML: `jupyter nbconvert --to html --output-dir=public/<slug>/notebooks notebooks/*.ipynb`
-2. Commit the HTML under the app's own `public/` slug -- seven apps share one origin
+2. Commit the HTML under the app's own `public/` slug -- all analyses share one origin
 3. Render each in an iframe on a "Proceso Técnico" route, one tab per notebook,
    each with a card explaining its inputs and outputs
 4. Re-export whenever the notebooks are re-run, so the published outputs match
@@ -272,7 +245,7 @@ and require a PR to merge.
 
 | Branch | Environment (GitHub) | Cloudflare Pages | Cloud Run |
 |--------|----------------------|------------------|-----------|
-| `main` | `production`         | publishes to `data-analyst.gonor.me` | deploys to `da-portfolio-api` / `da-cohort-streamlit` |
+| `main` | `production`         | publishes to `data-analyst.gonor.me` | deploys to `da-portfolio-api` |
 | `dev`  | `preview`            | preview deploy (Pages-assigned `*.pages.dev`) | **skipped** — only test job runs |
 
 **Daily flow:**
@@ -284,25 +257,25 @@ and require a PR to merge.
 ```
 
 - Feature branches are named by date (`11abril`, `12abril`, ...). Never push to `main` or `dev` directly; protection will reject it.
-- On push to `dev`: the hub deploys as a Pages preview; the API runs tests but does **not** redeploy Cloud Run (keeps one canonical production service to avoid confusion). The cohort redirect only ever deploys from `main` -- there is nothing in it to test.
+- On push to `dev`: the hub deploys as a Pages preview; the API runs tests but does **not** redeploy Cloud Run (keeps one canonical production service to avoid confusion). The legacy cohort deployment workflow is disabled on GitHub and removed locally.
 - On push to `main`: everything deploys to production, same as before.
 - The `ops/urls.yml` file is the **single source of truth** for every live URL. Update it when a canonical URL changes (new custom domain, Cloud Run service rename), then workflows and health checks pick it up.
 
 ### How It Works
 
-Four workflows: three deploy workflows (path-filtered) and one health-check
-cron. The deploy workflows share the `main` / `dev` routing described above.
+Two deploy workflows (path-filtered) and one health-check workflow remain.
+The deploy workflows share the `main` / `dev` routing described above. The health
+workflow was found disabled by inactivity; do not silently assume monitoring is running.
 
 | Workflow | File | Deploys to | Service/Project |
 |----------|------|------------|-----------------|
 | API | `deploy-api.yml` | Cloud Run (main only) | `da-portfolio-api` (port 8080) |
-| Cohort redirect | `deploy-cohort-redirect.yml` | Cloud Run (main only) | `da-cohort-streamlit` (port 8080) |
-| Portfolio Hub | `deploy-hub.yml` | Cloudflare Pages | all six Next.js dashboards, merged |
+| Portfolio Hub | `deploy-hub.yml` | Cloudflare Pages | one Next.js application (`apps/web`) |
 | Health cron | `ops-health.yml` | -- | curls every URL in `ops/urls.yml` every 6h |
 
-`deploy-hub.yml` replaced six `deploy-frontend-*.yml` workflows. One workflow,
-not six, because the dashboards now share a merged `dist/` tree: building only
-the project that changed would publish a tree missing the other five.
+`deploy-hub.yml` builds the single `apps/web` application and tests the complete
+`dist/` output. The retired cohort workflow was removed locally and disabled
+on GitHub so it cannot recreate the deleted service.
 
 **Merge behavior**: When a PR merges into `main` or `dev`, GitHub evaluates path filters against *all changed files* in that push. Each workflow is independent; multiple can fire in parallel.
 
@@ -319,14 +292,10 @@ GitHub Actions (Workload Identity Federation -- no SA keys)
     |     /olist /insurance /abtest /kpi           |
     |     /portfolio /ops + /health)               |
     |                                              |
-    +--> deploy-cohort-redirect --> Cloud Run      +--> (no job: main only)
-    |    (da-cohort-streamlit :8080,               |
-    |     nginx, 308 -> /cohorts/)                 |
-    |                                              |
     +--> deploy-hub.yml --------> Cloudflare       +--> Pages preview
          (data-analyst.gonor.me,   Pages                (*.pages.dev)
-          6 dashboards merged
-          into one dist/ tree)
+          one shared Next.js app
+          exported into dist/)
 
 Separately, ops-health.yml runs every 6h (schedule cron) + on-demand
 (workflow_dispatch). It reads ops/urls.yml, curls each endpoint, writes
@@ -366,7 +335,8 @@ To update data: `gcloud storage cp <local-file> gs://da-portfolio-data-assets/<p
 | `CLOUDFLARE_API_TOKEN` | API token with **Cloudflare Pages: Edit** on this account |
 
 The Vercel secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`) are no longer read by any
-workflow. Leave them until the Vercel projects are decommissioned, then remove.
+workflow. Vercel projects are decommissioned; credential revocation/removal is
+a separate account-level action and was not performed by the site retirement.
 
 ### Adding a New Service
 
@@ -380,14 +350,12 @@ To deploy a new project to Cloud Run:
 | Service | Dockerfile | Build context | Port |
 |---------|-----------|---------------|------|
 | Consolidated API | `backend/Dockerfile` | repo root | 8080 |
-| Cohort redirect | `ops/cohort-redirect/Dockerfile` | `ops/cohort-redirect` | 8080 |
 
 The API Dockerfile uses repo root as build context (run `docker build -f <path> .`
-from root). The redirect image is self-contained and builds from its own folder.
+from root). Legacy redirect images and deployment code were removed.
 
-`projects/02-ecommerce-cohort-analysis/Dockerfile` still builds the retired
-Streamlit app. No workflow references it; it is kept alongside `streamlit/` as a
-record of the first implementation.
+The old project 02 Streamlit Dockerfile and `streamlit/` source were archived
+and deleted. Preserve its research and `web/public/` artifacts.
 
 ### Health Monitoring
 
@@ -427,18 +395,18 @@ Playwright tests that run **before** every deploy. They verify the frontend buil
 
 **Architecture:**
 - Root `package.json` provides `@playwright/test`, `wrangler`, and `typescript` -- do not add app deps here
-- **One config**, `e2e/hub.config.ts`, runs every spec against the merged `dist/`. The six per-project configs are gone along with their ports; they existed only because each dashboard had its own Vercel deployment.
+- **One config**, `e2e/hub.config.ts`, runs every spec against the unified `dist/`. The six per-project configs are gone along with their ports; they existed only because each dashboard had its own Vercel deployment.
 - The server is `wrangler pages dev`, not a static file server, so the tests see the runtime that actually serves production: Pages URL semantics (trailing slashes, `.html` stripping) and the Functions in `functions/`.
 - There is no longer a second config. `e2e/ecommerce-cohorts.{config,spec}.ts` covered the Streamlit app on Cloud Run; that app was rebuilt into the hub at `/cohorts`, so its specs went with it and `hub.config.ts` no longer needs a `testIgnore`.
-- `e2e/hub.spec.ts` gates what the per-dashboard specs structurally cannot see: that all six live on one origin, each keeps its own favicon, and no two share a PostHog `app_id`.
+- `e2e/hub.spec.ts` gates what the per-dashboard specs structurally cannot see: that all eight analyses live on one origin, each keeps its own favicon, and no two share a PostHog `app_id`.
 
 **Key constraints (things that broke before):**
-- Tests must NOT assert on backend-dependent data (KPI values, API responses). No backend runs in CI.
+- No backend runs in CI. Use `e2e/fixtures.ts` for deterministic API failure states and explicit route fixtures to verify populated charts and KPI values; never rely on live service availability.
 - Use `{ exact: true }` or `getByRole()` to avoid Playwright strict mode violations when text appears multiple times
 - Spanish accented characters (`a` vs `a`) don't match in regex -- use actual accents or match by role
 - Paths are built with `trailingSlash: true`. `/insurance` answers 308 and only `/insurance/` is a 200 -- matters for any check that asserts a strict status code, including `ops/urls.yml` sub_services.
 - API test job uses `curl ... || true` in retry loops to prevent `set -e` from aborting on connection refused
-- `/` is project 00's landing page, not a redirect. Specs must not assert that `/` bounces to a dashboard -- that was true only when each app owned a Vercel root.
+- `/` is the shared portfolio landing page, not a redirect. Specs must not assert that `/` bounces to a dashboard -- that was true only when each app owned a Vercel root.
 - **`webServer.cwd` must stay pinned to the repo root.** Playwright defaults it to the config file's directory (`e2e/`), and wrangler resolves `functions/` relative to its working directory -- so it silently serves `dist/` with no Functions, every `/api/*` and `/ingest/*` 404s into the HTML SPA fallback, and the only visible symptom is a browser console error about `array.js` having MIME type `text/html`. It stays hidden locally whenever a manually started server (launched from the root, with Functions) is already on port 4173.
 - `webServer.url` points at `/health`, a Function, not `/`. Static assets answer before the Functions bundle is ready, so probing `/` declares the server up while the routes half these specs rely on are still 404ing.
 - Node 22+ is required (`engines` in the root `package.json`). wrangler 4.123 refuses to start on Node 20, which takes `wrangler pages dev` -- and therefore the whole gate -- down with it.

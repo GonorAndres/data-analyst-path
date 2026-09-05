@@ -22,7 +22,7 @@ How are Mexico City's short-term rental market structured — and what does pric
 ## Methodology
 
 - **ETL**: Python (pandas) — price cleaning (`$X,XXX.00` → float), null handling, host segmentation, geo sampling to 3,000 points
-- **Frontend**: Next.js 14 App Router, TypeScript, Tailwind CSS
+- **Frontend**: Shared Next.js 14 application in `../../apps/web`, TypeScript, Tailwind CSS
 - **Charts**: Recharts — BarChart (price distribution, neighborhoods), ScatterChart (geo), custom tooltip components
 - **Architecture**: Static JSON (5 files < 500 KB total) preloaded at build time via `fs.readFileSync`. No API routes, no database
 - **Alternatives considered**: Map library (Leaflet/Mapbox) — deferred for MVP; geo scatter with Recharts ScatterChart used instead
@@ -46,7 +46,8 @@ How are Mexico City's short-term rental market structured — and what does pric
 
 ```bash
 # 1. Install Python dependencies
-cd data-pipeline
+# Start from the repository root
+cd projects/00-demo-aestehtics/data-pipeline
 pip install -r requirements.txt
 
 # 2. Download raw data (requires Google Drive access)
@@ -55,20 +56,39 @@ pip install -r requirements.txt
 # 3. Run ETL — produces 5 JSON files in public/data/airbnb/
 python airbnb_etl.py
 
-# 4. Install Node.js dependencies
-cd ..
-npm install
-
-# 5. Development server
+# 4. From the repository root, install and start the shared frontend
+cd ../../..
+npm ci --prefix apps/web
 npm run dev
-
-# 6. Production build
-npm run build && npm start
+# Airbnb: http://localhost:3000/airbnb/
+# Marketplace analysis: http://localhost:3000/olist/
 ```
+
+For the API-backed Olist analysis, start the consolidated backend in a separate
+terminal from the repository root. The static Airbnb analysis does not require it.
+
+```bash
+pip install -r backend/requirements.txt
+bash backend/dev.sh
+# API: http://localhost:8080
+```
+
+Build the single static frontend from the repository root:
+
+```bash
+npm run build
+```
+
+Frontend components live in `apps/web/src/features/market`. The shared site shell,
+light/dark themes, and English/Spanish preferences apply to both analyses; the
+first-visit defaults are English and light mode. Pipeline outputs remain in this
+project's `public/data/airbnb/` and are staged into the shared application.
+Legacy frontend source and configuration have been archived outside the repository
+and removed. Public artifacts and research remain here; do not recreate a separate frontend.
 
 ## Tech Stack
 
 - Python 3.11, pandas 2.x
 - Next.js 14.2, TypeScript 5, Tailwind CSS 3.4
 - Recharts 2.13, Framer Motion 11, Lucide React
-- Deployed on Vercel (static export)
+- Static export built through the repository's Cloudflare Pages pipeline; publishing the migration is a separate step

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { baseConfig } from './shared.config';
 
 /**
- * One config for the merged site, replacing the six per-project configs that
+ * One config for the unified app, replacing the per-project configs that
  * each ran against their own `next start` port.
  *
  * The server is `wrangler pages dev`, not a plain static file server, because
@@ -11,13 +11,12 @@ import { baseConfig } from './shared.config';
  * semantics (trailing slashes, `.html` stripping) and it runs the Functions in
  * `functions/`. A static server would pass tests that the real host fails.
  *
- * No backend runs in CI. The `/api/*` Function forwards to Cloud Run and those
- * calls may fail or time out here -- that is expected, and the specs assert
- * only on what renders without data, exactly as they did on Vercel.
+ * No backend runs in CI. Shared fixtures provide deterministic failures;
+ * populated-data specs override them with explicit service responses.
  */
 export default defineConfig({
   ...baseConfig,
-  // Every spec in here runs against the merged dist/. The Streamlit cohort app
+  // Every spec in here runs against the unified dist/. The Streamlit cohort app
   // used to be the one exception -- a separate Cloud Run service with its own
   // config -- but it was rebuilt into the hub at /cohorts, so there is nothing
   // left to exclude.
@@ -36,11 +35,9 @@ export default defineConfig({
         // exercise /api/*, so the blame landed on whichever spec ran next --
         // /operations, alphabetically -- and looked like a broken dashboard.
         //
-        // Nothing is lost by cutting the origin. These specs are forbidden from
-        // asserting on backend data (no backend runs in CI), the try/catch in
-        // functions/api/[[path]].ts turns a refused connection into a clean 504,
-        // and that is the same path the dashboards' ColdStartBanner already
-        // handles. Port 9 is discard: it refuses immediately rather than hanging.
+        // Browser fixtures verify failure and populated-data states without a
+        // live backend. Any unmocked proxy request fails cleanly with a 504.
+        // Port 9 refuses immediately rather than hanging.
         command:
           'npx wrangler pages dev --port 4173 --ip 127.0.0.1 --binding API_ORIGIN=http://127.0.0.1:9',
 

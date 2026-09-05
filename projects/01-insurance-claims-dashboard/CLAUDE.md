@@ -2,29 +2,41 @@
 
 Project-level instructions for the Insurance Claims / Loss Reserving dashboard.
 
-## Local Development Ports
+## Shared Application Development
 
-- **Next.js frontend**: `PORT=3051 npm run dev` → `http://localhost:3051`
-- **FastAPI backend**: always run on port **2051**
-  ```bash
-  cd backend && python3 -m uvicorn insurance_backend.main:app --host 0.0.0.0 --port 2051
-  ```
-- Only **port 3051** needs to be forwarded to your local machine. Port 2051 is internal — the browser never calls it directly.
+The frontend is owned by `../../apps/web`; insurance components live in
+`apps/web/src/features/insurance` relative to the repository root. Start the
+shared frontend from the repository root:
+
+```bash
+npm ci --prefix apps/web
+npm run dev
+# http://localhost:3000/insurance/
+```
+
+In a separate terminal, also from the repository root:
+
+```bash
+pip install -r backend/requirements.txt
+bash backend/dev.sh
+# Consolidated API on http://localhost:8080
+```
+
+Browser access is through port 3000; the shared development server forwards API
+requests to port 8080. Do not introduce a separate project frontend or backend
+development port.
 
 ## Backend Proxy Architecture
 
-Same pattern as 00-demo. The browser never calls FastAPI directly:
+The browser uses the shared application's same-origin API path:
 
 ```
-Browser → localhost:3051/api/insurance/<path> → Next.js (server-side) → localhost:2051/<path>
+Browser → localhost:3000/api/insurance/<path> → shared Next.js proxy → localhost:8080/insurance/<path>
 ```
 
-Defined in `next.config.js` using `rewrites()`. Controlled by `INSURANCE_BACKEND_URL` (server-side env var).
-
-**`.env.local` (dev):**
-```
-INSURANCE_BACKEND_URL=http://localhost:2051
-```
+Development rewrites are defined in `apps/web/next.config.js`. Production API
+proxying belongs to the repository's Cloudflare Pages Functions. Project-specific
+frontend environment variables are not needed for local development.
 
 ## Data Sources
 
@@ -41,18 +53,27 @@ python3 03_generate_claims.py     # Generate → claims_synthetic.parquet
 python3 04_compute_reserves.py    # Chain-ladder + BF → ibnr_results.parquet + lob_summary.parquet
 ```
 
-## Dark / Light Mode Contrast Rule
+## Shared Theme and Language Rules
 
-Same rules as 00-demo. Additionally:
+Use the common site shell, Inter typography, semantic surfaces, and shared
+English/Spanish preference. English and light mode are the first-visit defaults.
+Translate visitor-facing React content explicitly; retain original research
+artifacts and their language.
 
-- LOB-specific colors (`--lob-auto`, `--lob-workers`, etc.) have separate light/dark values in `globals.css`.
+- LOB-specific colors (`--lob-auto`, `--lob-workers`, etc.) have separate light/dark values in `apps/web/src/app/globals.css`.
 - Ratio classification colors (`--ratio-profitable`, `--ratio-breakeven`, `--ratio-loss`) also have dark-mode overrides.
-- Triangle heatmap colors (`--triangle-*`) follow the same pattern as 00-demo's `--heatmap-*` vars.
-- After any color change: verify on `#FAFAF8` (light bg) AND `#141414` (dark bg).
+- Triangle heatmap colors (`--triangle-*`) and market heatmaps (`--heatmap-*`) use the shared theme tokens.
+- After any color change, verify both shared themes, including chart labels, tooltips, and projected cells. Do not hardcode project-specific page backgrounds.
 
 ## Consolidated Backend
 
-This backend can also run as part of the unified portfolio API at `backend/main.py` (repo root). In that mode, all routes are prefixed with `/insurance` (e.g., `/insurance/api/v1/loss-triangle`). Set `INSURANCE_BACKEND_URL=http://localhost:8080/insurance` in `.env.local` to use the consolidated backend.
+The supported development entrypoint is `backend/main.py` at the repository
+root, started by `bash backend/dev.sh`. Insurance routes are mounted under
+`/insurance`, for example `/insurance/api/v1/loss-triangle`. Backend source,
+pipelines, notebooks, and existing `public/` artifacts remain project-owned.
+Superseded frontend source/configuration copies have been archived outside the
+repository and removed. Do not recreate a project-local frontend or treat local
+cleanup as proof of deployment or hosting retirement; consult `../../docs/retirement.md`.
 
 ## Key Actuarial Concepts
 

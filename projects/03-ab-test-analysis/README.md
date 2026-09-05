@@ -31,7 +31,7 @@ Did an e-commerce landing page redesign significantly improve conversion rates? 
 ## Architecture
 
 ```
-Next.js 14 (port 3053)  -->  FastAPI (port 2053)  -->  Enriched Parquet
+apps/web (port 3000)  -->  Consolidated FastAPI (port 8080)  -->  Enriched Parquet
     |                            |
     Tab-based dashboard          6 statistical endpoints
     SWR data fetching            scipy + numpy computations
@@ -62,13 +62,27 @@ python data-pipeline/01_download.py
 python data-pipeline/02_clean.py
 python data-pipeline/03_enrich.py
 
-# 3. Backend
-cd backend && PYTHONPATH=. uvicorn abtest_backend.main:app --port 2053
-
-# 4. Frontend (separate terminal)
-npm install && npm run dev
-# Open http://localhost:3053/abtest
+# 3. From the repository root, start the consolidated backend
+cd ../..
+pip install -r backend/requirements.txt
+bash backend/dev.sh
+# API: http://localhost:8080/abtest/
 ```
+
+In a separate terminal, from the repository root:
+
+```bash
+npm ci --prefix apps/web
+npm run dev
+# Open http://localhost:3000/abtest/
+```
+
+Frontend code lives in `apps/web/src/features/abtest`. It uses the common site
+shell, light/dark themes, and English/Spanish preferences; English and light mode
+are the first-visit defaults. Browser requests use `/api/abtest` through the
+shared development proxy. Project pipelines, notebooks, and `public/` artifacts
+remain here. Legacy frontend source and configuration have been archived outside
+the repository and removed.
 
 ## Recommendations
 
@@ -83,4 +97,4 @@ npm install && npm run dev
 - Simpson's Paradox detection and communication
 - Interactive power analysis / experiment design tools
 - Sequential monitoring and multiple testing awareness
-- Full-stack dashboard (Next.js + FastAPI) with editorial design system
+- Full-stack dashboard (Next.js + FastAPI) within the shared bilingual, light/dark design system

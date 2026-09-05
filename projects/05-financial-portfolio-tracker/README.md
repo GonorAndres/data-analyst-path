@@ -33,7 +33,7 @@ This project builds a full-stack analytics dashboard that tracks a 6-ETF portfol
 
 ### Tools
 - **Python** (FastAPI, pandas, numpy, scipy, yfinance): Backend API with 6 analytical endpoints
-- **Next.js 14 + React + Recharts**: Interactive dashboard with dark theme, 8-tab layout, animated transitions
+- **Next.js 14 + React + Recharts**: Shared frontend in `../../apps/web`, with common light/dark themes, English/Spanish preferences, an 8-tab layout, and animated transitions
 - **Tailwind CSS + Framer Motion**: UI styling and micro-animations
 - **Jupyter Notebooks**: 5 notebooks documenting the full analytical pipeline with LaTeX derivations
 - **SWR**: Client-side data fetching with deduplication and error retry
@@ -116,30 +116,41 @@ All analytical endpoints accept a `period` query parameter (`1y`, `2y`, `3y`, `5
 ## How to Reproduce
 
 ```bash
-# 1. Clone the repo and navigate to the project
+# 1. From the repository root, navigate to the project
 cd projects/05-financial-portfolio-tracker
 
 # 2. Install Python backend dependencies
 pip install -r requirements.txt
 
-# 3. Start the FastAPI backend (fetches live data from Yahoo Finance)
-cd backend && python3 -m uvicorn portfolio_backend.main:app --host 0.0.0.0 --port 2055
-# API docs available at http://localhost:2055/docs
+# 3. Start the consolidated backend (portfolio data comes from Yahoo Finance)
+cd ../..
+pip install -r backend/requirements.txt
+bash backend/dev.sh
+# API docs available at http://localhost:8080/portfolio/docs
+```
 
-# 4. In another terminal, install frontend dependencies and start the dashboard
-cd projects/05-financial-portfolio-tracker
-npm install && npm run dev
-# Dashboard at http://localhost:3055
+In another terminal, from the repository root:
 
-# 5. (Optional) Run the Jupyter notebooks
+```bash
+npm ci --prefix apps/web
+npm run dev
+# Dashboard at http://localhost:3000/portfolio/
+```
+
+Optional research workflows, run from this project directory:
+
+```bash
+# Run the Jupyter notebooks
 jupyter notebook notebooks/
 
-# 6. (Optional) Export notebooks to HTML for the Methodology tab
+# Export notebooks to HTML for the Methodology tab
 jupyter nbconvert --to html --output-dir=public/notebooks_html notebooks/*.ipynb
 ```
 
-**Environment variables** (optional, defaults work for local dev):
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORTFOLIO_BACKEND_URL` | `http://localhost:2055` | FastAPI backend URL for Next.js proxy rewrites |
+Frontend components live in `apps/web/src/features/portfolio`. English and light
+mode are the first-visit defaults; language, theme, and site navigation are shared
+across projects. Browser requests use `/api/portfolio` through the common
+development proxy, with no project-specific frontend environment setup. Exported
+notebooks remain in this project's `public/notebooks_html/` and are staged into
+the shared app. Legacy frontend source and configuration have been archived
+outside the repository and removed; backend and research remain here.
