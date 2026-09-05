@@ -70,7 +70,14 @@ projects/*/out/
 projects/*/*/out/
 /dist/
 /apps/web/out/
-/apps/web/public/
+/apps/web/public/*
+# The unified frontend serves these checked-in responsive illustrations. Keep
+# the rest of public/ available for local/generated files without tracking it.
+!/apps/web/public/images/
+!/apps/web/public/images/cases/
+/apps/web/public/images/*
+!/apps/web/public/images/cases/*-v2-*.webp
+!/apps/web/public/images/making-sense-*.webp
 .wrangler/
 
 # Playwright failure artifacts (screenshots, traces) -- written only when a spec
