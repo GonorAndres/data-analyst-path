@@ -11,6 +11,9 @@ export const baseConfig = {
   reporter: [['list']] as const,
   use: {
     headless: true,
+    launchOptions: process.env.CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH }
+      : undefined,
     screenshot: 'only-on-failure' as const,
     navigationTimeout: 30000,
     actionTimeout: 15000,

@@ -38,7 +38,7 @@ test.describe('Unified portfolio — deploy gate', () => {
   })
 
   test('cohorts renders figures from its bundled JSON', async ({ page }) => {
-    await page.goto('/cohorts/')
+    await page.goto('/cohorts/?view=explore')
     await expect(page.getByText('93,358', { exact: true }).first()).toBeVisible({ timeout: 15_000 })
   })
 

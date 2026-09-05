@@ -4,6 +4,7 @@ import { SitePreferences } from '@/components/SitePreferences'
 import { SiteShell } from '@/components/SiteShell'
 import { Analytics } from '@/components/Analytics'
 import './globals.css'
+import './publication.css'
 
 const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-inter' })
 

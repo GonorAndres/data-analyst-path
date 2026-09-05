@@ -39,9 +39,7 @@ def _fmt_value(value: float, fmt: str) -> str:
             return f"${value / 1_000:,.0f}K"
         return f"${value:,.0f}"
     elif fmt == "pct":
-        if abs(value) <= 1:
-            return f"{value * 100:.1f}%"
-        return f"{value:.1f}%"
+        return f"{value * 100:.1f}%"
     elif fmt == "ratio":
         return f"{value:.1f}x"
     elif fmt == "months":

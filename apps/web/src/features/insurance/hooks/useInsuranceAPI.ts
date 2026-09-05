@@ -34,7 +34,9 @@ export function useLossTriangle(filters: InsuranceFilters, type: 'incurred' | 'p
 }
 
 export function useCLvsBF(filters: InsuranceFilters, type: 'incurred' | 'paid' = 'paid') {
-  return useSWR(`/api/insurance/api/v1/cl-vs-bf${buildQuery(filters)}&type=${type}`, insuranceFetcher, SWR_CONFIG)
+  // Precomputed comparisons have no company dimension. Do not treat an
+  // intentionally unavailable comparison as a failing backend request.
+  return useSWR(filters.company ? null : `/api/insurance/api/v1/cl-vs-bf${buildQuery(filters)}&type=${type}`, insuranceFetcher, SWR_CONFIG)
 }
 
 export function useFrequencySeverity(filters: InsuranceFilters) {

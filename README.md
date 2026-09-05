@@ -4,6 +4,8 @@ Andrés González Ortega · Actuarial Science, UNAM · Mexico City
 
 One bilingual analytics site at [data-analyst.gonor.me](https://data-analyst.gonor.me), with seven case studies and eight interactive analyses.
 
+The current source presents visual case studies first: a business question, annotated evidence, interpretation, a supported decision, and methods. Insurance leads the homepage. **Explore** opens the analytical workspace; **Methods & sources** connects the case to its research and reports. The presentation changes described here have been verified locally and are not yet deployed.
+
 The unified implementation was deployed on 2026-09-05. Approved legacy source and hosting retirement is complete; see the retirement ledger for verification and backup details.
 
 ## Application structure
@@ -58,6 +60,7 @@ Public JSON and notebook HTML remain alongside their research project. `scripts/
 npm run build
 npm run typecheck:web
 npm run typecheck:functions
+npm run evidence:check
 npm run test:e2e
 npm run preview
 ```
@@ -73,6 +76,8 @@ Deployment, deletions, and all git actions require explicit user approval.
 - [Unified architecture](docs/architecture.md)
 - [Legacy retirement inventory](docs/retirement.md)
 - [Analytical follow-up issues](docs/analysis-followups.md)
+- [Case-study presentation and evidence maintenance](docs/presentation.md)
+- [Evidence audit](docs/evidence-audit.md)
 - [Analyst workflow](docs/workflow/00-overview.md)
 - [Dashboard design principles](docs/design/dashboard-design.md)
 

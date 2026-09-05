@@ -37,7 +37,7 @@ test('project selector supports keyboard dismissal and returns focus', async ({ 
 })
 
 test('sections survive refresh and browser back/forward', async ({ page }) => {
-  await page.goto('/portfolio/')
+  await page.goto('/portfolio/?view=explore')
   await page.getByRole('button', { name: 'Risk', exact: true }).click()
   await expect(page).toHaveURL(/section=risk/)
   await page.getByRole('button', { name: 'Correlation', exact: true }).click()
@@ -63,11 +63,12 @@ test('filter caches remain isolated during cross-project SPA navigation', async 
     requested.push(service)
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtures[service] ?? {}) })
   })
-  await page.goto('/insurance/')
+  await page.goto('/insurance/?view=explore')
   await expect(page.getByRole('option', { name: 'Insurance only', exact: true })).toHaveCount(1)
   await page.evaluate(() => { (window as any).__navigationMarker = true })
   for (const [path, option] of [['/olist/', 'Olist only'], ['/kpi/', 'KPI only'], ['/abtest/', 'AB only']]) {
     await switchProject(page, path)
+    await page.getByRole('navigation', { name: 'Case study views' }).getByRole('button', { name: 'Explore', exact: true }).click()
     await expect(page.getByRole('option', { name: option, exact: true })).toHaveCount(1)
     await expect(page.getByRole('option', { name: 'Insurance only', exact: true })).toHaveCount(0)
     expect(await page.evaluate(() => (window as any).__navigationMarker)).toBe(true)
@@ -106,6 +107,7 @@ test('e-commerce grouping retains both analyses and cohort deep links', async ({
   await expect(page.locator('.case-card')).toHaveCount(7)
   await page.locator('.case-analyses a[href="/cohorts/"]').click()
   await expect(page.locator('.analysis-switch a')).toHaveCount(2)
+  await page.getByRole('navigation', { name: 'Case study views' }).getByRole('button', { name: 'Explore', exact: true }).click()
   await page.locator('a[href="/cohorts/retencion/"]').click()
   await expect(page).toHaveURL(/\/cohorts\/retencion\//)
   await page.reload()

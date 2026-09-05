@@ -8,16 +8,16 @@ Did an e-commerce landing page redesign significantly improve conversion rates? 
 
 ## Key Findings
 
-- **Aggregate result**: Treatment conversion (12.33%) beats control (12.04%) with p=0.017 -- statistically significant at alpha=0.05, but with a small effect size (Cohen's h = 0.009)
-- **Simpson's Paradox**: Aggregate result is positive, but treatment *hurts* returning users (11.82% vs 12.28%). The lift is driven entirely by new users on mobile
-- **Revenue uplift**: Treatment converters spend ~$67 vs $61 for control (+9.6% AOV), making the revenue case stronger than the conversion case
-- **Device heterogeneity**: Treatment excels on mobile (+8.2% lift) but underperforms on desktop (-4.5%) and tablet (-4.5%)
-- **Bayesian confirmation**: P(Treatment > Control) = 99.2%, expected loss if wrong is near zero
+- **Evidence classification: modified-outcome demonstration.** Conversion outcomes themselves are changed in `data-pipeline/03_enrich.py`; this is not a reanalysis of the original experiment's treatment effect.
+- The seeded enrichment flips 1.5% of mobile-treatment non-converters into converters, then flips 8% of returning-treatment converters back. These probabilities apply to eligible rows, not to the whole population.
+- Device, customer segment, and revenue are simulated. Their treatment differences illustrate analytical methods; they do not establish customer behavior or commercial revenue gains.
+- An aggregate/segment disagreement can indicate heterogeneous effects. It is not sufficient by itself to establish Simpson's paradox, which requires checking the direction within the relevant strata and their weights.
+- Exact conversion rates, p-values, and posterior probabilities must be recomputed from the enriched parquet for the selected population. That parquet was unavailable in the 2026-09-05 local evidence audit; historical headline numbers are withdrawn from this summary.
 
 ## Data Source
 
 - **Base**: [Udacity E-Commerce A/B Test](https://www.kaggle.com/datasets/zhangluyuan/ab-testing) -- ~294K users, binary conversion, Jan 2017
-- **Enrichment**: Synthetic columns (device, browser, country, revenue, session duration, pages viewed, user segment, traffic source) added with seed=42 for reproducibility
+- **Enrichment**: Synthetic columns (device, browser, country, revenue, session duration, pages viewed, user segment, traffic source) AND modified `converted` outcomes, with seed=42 for reproducibility
 - **Heterogeneous treatment effects** baked into enrichment to create analytical depth (Simpson's paradox, device interactions)
 
 ## Methodology
@@ -86,10 +86,19 @@ the repository and removed.
 
 ## Recommendations
 
-1. **Do not ship universally** -- the aggregate lift masks a negative effect on returning users
-2. **Ship for mobile new users only** -- strongest positive effect (+8.2% conversion, +9.6% AOV)
-3. **Investigate desktop regression** -- the new page underperforms on desktop; run a desktop-specific test
-4. **Revenue focus** -- even where conversion lift is marginal, AOV uplift makes the treatment worthwhile for converters
+1. Use the demonstration to specify a new experiment with original outcomes, a primary metric, minimum worthwhile effect, and planned segment checks.
+2. Validate allocation, exposure, and stopping rules before interpreting a treatment estimate.
+3. Evaluate revenue per assigned user, including non-converters; converter-only average order value can reflect selection effects.
+4. Treat all rollout decisions here as hypothetical. The generated segment and revenue patterns cannot justify a production launch.
+
+## Decisions & Trade-offs
+
+| Decision | Alternative | Reason |
+|---|---|---|
+| Label modified outcomes at the opening | Describe only extra columns as synthetic | Readers need to know that even conversion estimates are simulated. |
+| Present segment checks as exploratory | Treat every subgroup p-value as confirmatory | Multiple comparisons and designed heterogeneity limit interpretation. |
+
+Evidence definitions and audit limits: [portfolio evidence ledger](../../docs/evidence-audit.md).
 
 ## Skills Demonstrated
 

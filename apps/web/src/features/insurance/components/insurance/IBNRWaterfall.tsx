@@ -1,5 +1,6 @@
 'use client'
 import { useProjectText } from '@/features/market/components/useProjectText'
+import { usePreferences } from '@/components/SitePreferences'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
@@ -24,6 +25,7 @@ interface WaterfallData {
 interface Props {
   data: WaterfallData | undefined
   isLoading: boolean
+  basis: 'paid' | 'incurred'
 }
 
 function formatAmount(v: number): string {
@@ -32,8 +34,11 @@ function formatAmount(v: number): string {
   return `$${v.toFixed(0)}`
 }
 
-export function IBNRWaterfall({ data, isLoading }: Props) {
+export function IBNRWaterfall({ data, isLoading, basis }: Props) {
   const tx = useProjectText()
+  const { t } = usePreferences()
+  const residualLabel = basis === 'paid' ? t('Projected unpaid', 'Pendiente proyectado') : t('IBNR estimate', 'IBNR estimado')
+  const observedLabel = basis === 'paid' ? t('Observed paid', 'Pagado observado') : t('Reported incurred', 'Incurrido reportado')
   if (isLoading || !data) {
     return <div className="animate-pulse bg-surface rounded" style={{ height: 400 }} />
   }
@@ -46,15 +51,15 @@ export function IBNRWaterfall({ data, isLoading }: Props) {
     )
   }
 
-  const chartData = data.ibnr_by_year.map(row => ({
+  const chartData = data.ibnr_by_year.filter(row => row.latest_value != null && row.ultimate != null).map(row => ({
     year: String(row.accident_year),
-    observed: row.latest_value ?? 0,
-    ibnr: row.ibnr ?? 0,
+    observed: row.latest_value!,
+    ibnr: row.ultimate! - row.latest_value!,
   }))
 
   return (
     <ResponsiveContainer width="100%" height={400}>
-      <BarChart data={chartData} margin={{ top: 4, right: 24, left: 0, bottom: 4 }}>
+      <BarChart data={chartData} stackOffset="sign" margin={{ top: 4, right: 24, left: 0, bottom: 4 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
         <XAxis
           dataKey="year"
@@ -85,8 +90,8 @@ export function IBNRWaterfall({ data, isLoading }: Props) {
                 minWidth: 200,
               }}>
                 <p style={{ fontWeight: 600, marginBottom: 6 }}>{tx("Año de accidente:") + " "}{label}</p>
-                <p>{tx("Observado:") + " "}{formatAmount(observed)}</p>
-                <p>IBNR: {formatAmount(ibnr)}</p>
+                <p>{observedLabel}: {formatAmount(observed)}</p>
+                <p>{residualLabel}: {formatAmount(ibnr)}</p>
                 <p style={{ fontWeight: 600, marginTop: 4, borderTop: '1px solid var(--chart-grid)', paddingTop: 4 }}>
                   Ultimate: {formatAmount(ultimate)}
                 </p>
@@ -97,8 +102,8 @@ export function IBNRWaterfall({ data, isLoading }: Props) {
         <Legend
           formatter={(value: string) => {
             const labels: Record<string, string> = {
-              observed: tx("Observado"),
-              ibnr: 'IBNR',
+              observed: observedLabel,
+              ibnr: residualLabel,
             }
             return labels[value] || value
           }}

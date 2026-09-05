@@ -29,6 +29,9 @@ __pycache__/
 !projects/00-demo-aestehtics/public/data/**/*.json
 !projects/02-ecommerce-cohort-analysis/web/public/cohorts/data/*.json
 !apps/web/src/features/cohorts/data/*.json
+!projects/01-insurance-claims-dashboard/public/insurance/evidence/*.json
+!projects/04-executive-kpi-report/public/kpi/evidence/*.json
+!apps/web/src/lib/evidence-snapshots.json
 
 # Power BI temp files
 *.pbix.tmp
@@ -67,7 +70,14 @@ projects/*/out/
 projects/*/*/out/
 /dist/
 /apps/web/out/
-/apps/web/public/
+/apps/web/public/*
+# The unified frontend serves these checked-in responsive illustrations. Keep
+# the rest of public/ available for local/generated files without tracking it.
+!/apps/web/public/images/
+!/apps/web/public/images/cases/
+/apps/web/public/images/*
+!/apps/web/public/images/cases/*-v2-*.webp
+!/apps/web/public/images/making-sense-*.webp
 .wrangler/
 
 # Playwright failure artifacts (screenshots, traces) -- written only when a spec

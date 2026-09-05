@@ -115,12 +115,25 @@ export interface ForecastResponse {
   commentary: string
 }
 
+export interface AnomalyEvidence {
+  method: 'zscore' | 'iqr'
+  expected: number
+  baseline_kind: 'mean' | 'median'
+  lower_bound: number
+  upper_bound: number
+}
+
 export interface AnomalyItem {
   id: string
   metric: string
   month: string
   value: number
   expected: number
+  method?: 'zscore' | 'iqr' | 'both'
+  baseline_kind?: 'mean' | 'median'
+  lower_bound?: number
+  upper_bound?: number
+  evidence?: AnomalyEvidence[]
   z_score: number
   severity: 'critical' | 'warning' | 'info'
   description: string

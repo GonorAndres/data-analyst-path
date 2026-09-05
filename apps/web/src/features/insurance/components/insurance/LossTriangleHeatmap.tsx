@@ -1,5 +1,6 @@
 'use client'
 import { useProjectText } from '@/features/market/components/useProjectText'
+import { usePreferences } from '@/components/SitePreferences'
 import { useRef, useState } from 'react'
 
 interface IBNRRow {
@@ -28,6 +29,7 @@ interface Props {
   onViewModeChange: (mode: ViewMode) => void
   reserveMethod: ReserveMethod
   onReserveMethodChange: (method: ReserveMethod) => void
+  bfAvailable?: boolean
 }
 
 interface TooltipState {
@@ -39,8 +41,9 @@ interface TooltipState {
   visible: boolean
 }
 
-export function LossTriangleHeatmap({ data, isLoading, viewMode, onViewModeChange, reserveMethod, onReserveMethodChange }: Props) {
+export function LossTriangleHeatmap({ data, isLoading, viewMode, onViewModeChange, reserveMethod, onReserveMethodChange, bfAvailable = true }: Props) {
   const tx = useProjectText()
+  const { t } = usePreferences()
   const containerRef = useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<TooltipState>({ x: 0, y: 0, accidentYear: 0, lag: 0, value: 0, visible: false })
 
@@ -62,7 +65,7 @@ export function LossTriangleHeatmap({ data, isLoading, viewMode, onViewModeChang
   const CELL_H = 32
   const LEFT_MARGIN = 70
   const TOP_MARGIN = 56
-  const IBNR_COL_W = 90
+  const IBNR_COL_W = 140
   const LEGEND_HEIGHT = 44
   const gridWidth = data.development_lags.length * CELL_W - 2
   const svgWidth = LEFT_MARGIN + data.development_lags.length * CELL_W + IBNR_COL_W + 20
@@ -123,8 +126,10 @@ export function LossTriangleHeatmap({ data, isLoading, viewMode, onViewModeChang
           {(['cl', 'bf'] as ReserveMethod[]).map(method => (
             <button
               key={method}
+              disabled={method === 'bf' && !bfAvailable}
+              title={method === 'bf' && !bfAvailable ? t('Available only for all companies', 'Disponible solo para todas las compañías') : undefined}
               onClick={() => onReserveMethodChange(method)}
-              className={`font-sans text-xs px-3 py-1.5 border transition-colors ${
+              className={`font-sans text-xs px-3 py-1.5 border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                 reserveMethod === method
                   ? 'border-ink bg-ink text-paper'
                   : 'border-border text-muted hover:border-muted'
@@ -171,7 +176,7 @@ export function LossTriangleHeatmap({ data, isLoading, viewMode, onViewModeChang
             fontWeight={700}
             fill="var(--ratio-loss)"
           >
-            IBNR
+            {viewMode === 'paid' ? t('Projected unpaid', 'Pendiente proyectado') : t('IBNR estimate', 'IBNR estimado')}
           </text>
 
           {/* Rows: accident years */}
@@ -241,8 +246,8 @@ export function LossTriangleHeatmap({ data, isLoading, viewMode, onViewModeChang
                     fontWeight={600}
                     fill="var(--ratio-loss)"
                   >
-                    {ibnrRow?.ibnr != null
-                      ? `$${formatAmount(ibnrRow.ibnr)}`
+                    {ibnrRow?.ultimate != null && ibnrRow.latest_value != null
+                      ? `$${formatAmount(ibnrRow.ultimate - ibnrRow.latest_value)}`
                       : '--'}
                   </text>
                 )

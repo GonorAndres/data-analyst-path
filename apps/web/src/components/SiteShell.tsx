@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, ChevronDown, Moon, Sun } from 'lucide-react'
 import { analysisName, projectForPath, projects, routeTitles } from '@/lib/projects'
 import { usePreferences } from './SitePreferences'
+import { CaseExperience } from './CaseExperience'
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
   const { locale, theme, setLocale, setTheme, t } = usePreferences()
@@ -37,7 +38,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
       <div className="site-header-inner">
         <Link className="site-brand" href="/" aria-label={t('Andrés González — home', 'Andrés González — inicio')}>
           <span className="brand-mark" aria-hidden="true">ag<span>.</span></span>
-          <span className="brand-caption">{t('Analytics portfolio', 'Portafolio de analítica')}</span>
+          <span className="brand-caption">{t('Analytics portfolio', 'Portafolio de analítica')}<span className="color-signature" aria-hidden="true"><i /><i /><i /></span></span>
         </Link>
         <div className="site-controls">
           <div className="project-menu" ref={menu}>
@@ -70,7 +71,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
         {active.paths.map(path => <Link key={path} href={path} aria-current={pathname.startsWith(path) ? 'page' : undefined}>{analysisName(path, locale)}</Link>)}
       </nav>}
     </div>}
-    <div id="main-content" tabIndex={-1} className={active ? `project-content feature-${active.id}` : 'home-content'}>{children}</div>
+    <div id="main-content" tabIndex={-1} className={active ? `project-content feature-${active.id}` : 'home-content'}>{active ? <CaseExperience key={pathname} project={active}>{children}</CaseExperience> : children}</div>
     <footer className="site-footer">
       <div><strong>Andrés González Ortega</strong><p>{t('Actuarial science · UNAM · Mexico City', 'Actuaría · UNAM · Ciudad de México')}</p></div>
       <Link href="/">{t('All case studies', 'Todos los casos de estudio')}<ArrowUpRight size={14} aria-hidden="true" /></Link>

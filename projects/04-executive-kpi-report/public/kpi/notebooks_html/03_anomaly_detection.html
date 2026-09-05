@@ -7796,13 +7796,13 @@ a.anchor-link {
 <!-- End of mermaid configuration --></head>
 <body class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
 <main>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=a72f5757">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=9611bb5d">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="Anomaly-Detection-in-SaaS-KPIs:-Z-Score-vs-IQR-Methods">Anomaly Detection in SaaS KPIs: Z-Score vs IQR Methods<a class="anchor-link" href="#Anomaly-Detection-in-SaaS-KPIs:-Z-Score-vs-IQR-Methods">¶</a></h1><p><strong>Project 04 -- Executive KPI Report</strong> | Notebook 3 of 5</p>
+<h1 id="Anomaly-Detection-in-SaaS-KPIs:-Z-Score-vs-IQR-Methods">Anomaly Detection in SaaS KPIs: Z-Score vs IQR Methods<a class="anchor-link" href="#Anomaly-Detection-in-SaaS-KPIs:-Z-Score-vs-IQR-Methods">¶</a></h1><p><strong>Project 04 -- Executive KPI Report</strong> | Notebook 3 of 9</p>
 <h2 id="Purpose">Purpose<a class="anchor-link" href="#Purpose">¶</a></h2><p>Anomaly detection transforms a KPI dashboard from a passive display into an <strong>active alerting system</strong>. This notebook compares two statistical methods for flagging unusual values in SaaS metrics:</p>
 <ol>
 <li><strong>Z-Score Method</strong> -- flags values beyond a z-score threshold from the global mean</li>
@@ -7823,7 +7823,21 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=d5ffaae8">
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=30355082">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Publication-review-%E2%80%94-September-5,-2026">Publication review — September 5, 2026<a class="anchor-link" href="#Publication-review-%E2%80%94-September-5,-2026">¶</a></h2><p><strong>Synthetic scenario; unexecuted research walkthrough.</strong> This notebook has no saved execution outputs. It was reviewed and exported without executing its code; proposed evaluations and example formulas are not independently validated results. See the <a href="https://data-analyst.gonor.me/kpi/">current case study</a> and project README for separately reproduced findings.</p>
+<p><strong>Current definitions:</strong> the API/report anomaly scan uses all company segments over the selected months. Z-score displays the actual mean and sample-standard-deviation bounds; IQR displays the median and quartile fences. Both-method flags preserve both evidence records. These descriptive references differ from the pre-aggregation pipeline's trailing-six-month z-scores.</p>
+<p><strong>Report corrections:</strong> December 2025 NRR is 112.348% (stored ratio 1.12348), MRR growth is 1.8346%, and API/report health score is 73.5/100. Starting MRR plus net movements reconciles to ending MRR; the ending balance is not the starting balance. Targets and score scales are illustrative. Current nominal 95% forecast bands are residual-based approximations with unvalidated coverage. Historical standalone code examples can differ from the current API; regenerate retained PDFs with <code>backend/regenerate_reports.py</code>, not an exploratory payload.</p>
+<p><strong>Revisión:</strong> escenario sintético; celdas sin ejecutar. Las cifras actuales se verificaron por separado. Los límites de anomalía son referencias descriptivas, no pronósticos; las metas y ponderaciones son supuestos. El filtro de segmento no modifica los resultados agregados del informe.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=2a994f9c">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7831,12 +7845,12 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-python"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">plotly.express</span> <span class="k">as</span> <span class="nn">px</span>
-<span class="kn">import</span> <span class="nn">plotly.graph_objects</span> <span class="k">as</span> <span class="nn">go</span>
-<span class="kn">from</span> <span class="nn">plotly.subplots</span> <span class="kn">import</span> <span class="n">make_subplots</span>
-<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">stats</span> <span class="k">as</span> <span class="n">sp_stats</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.express</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">px</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.graph_objects</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">go</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">plotly.subplots</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_subplots</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span> <span class="k">as</span> <span class="n">sp_stats</span>
 
 <span class="c1"># Color palette</span>
 <span class="n">COLORS</span> <span class="o">=</span> <span class="p">{</span>
@@ -7862,21 +7876,21 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=b405a44b">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=a40f433c">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="1.-Z-Score-Methodology">1. Z-Score Methodology<a class="anchor-link" href="#1.-Z-Score-Methodology">¶</a></h2><p>The z-score measures how many standard deviations a value is from the global mean:</p>
-<p>$$z_i = \frac{x_i - \bar{x}}{\sigma}$$</p>
-<p>A value is flagged as anomalous if $|z_i| &gt; \theta$ where $\theta$ is the threshold.</p>
+<h2 id="1.-Z-Score-Methodology">1. Z-Score Methodology<a class="anchor-link" href="#1.-Z-Score-Methodology">¶</a></h2><p>The z-score measures how many standard deviations a value is from the selected-window mean using sample standard deviation s:</p>
+<p>$$z_i = \frac{x_i - \bar{x}}{s}$$</p>
+<p>A value is flagged as anomalous if $|z_i| \geq \theta$ where $\theta$ is the threshold.</p>
 <p><strong>Pros</strong>: Simple, interpretable, works well for normally distributed data.
 <strong>Cons</strong>: Sensitive to outliers in the mean/std calculation, assumes symmetry.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=9ef0ebc4">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=ab3d7b5c">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7885,7 +7899,7 @@ a.anchor-link {
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-python"><pre><span></span><span class="c1"># Implement z-score anomaly detection</span>
-<span class="k">def</span> <span class="nf">detect_anomalies_zscore</span><span class="p">(</span><span class="n">series</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">detect_anomalies_zscore</span><span class="p">(</span><span class="n">series</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Detect anomalies via z-score method."""</span>
     <span class="k">if</span> <span class="n">series</span><span class="o">.</span><span class="n">empty</span> <span class="ow">or</span> <span class="n">series</span><span class="o">.</span><span class="n">std</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
@@ -7927,7 +7941,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=415d051e">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=67cf5af5">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7942,7 +7956,7 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=6777edab">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=e6b9417e">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7951,7 +7965,7 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-python"><pre><span></span><span class="c1"># Implement IQR anomaly detection</span>
-<span class="k">def</span> <span class="nf">detect_anomalies_iqr</span><span class="p">(</span><span class="n">series</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">multiplier</span><span class="o">=</span><span class="mf">1.5</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">detect_anomalies_iqr</span><span class="p">(</span><span class="n">series</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">multiplier</span><span class="o">=</span><span class="mf">1.5</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Detect anomalies via IQR method."""</span>
     <span class="k">if</span> <span class="n">series</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
@@ -8001,7 +8015,7 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=137cb316">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=bd0aa6e5">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8016,7 +8030,7 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=149f94ee">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=495ba4fe">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8028,7 +8042,7 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 <span class="n">z_thresholds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">4.1</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">)</span>
 <span class="n">iqr_multipliers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">4.1</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">evaluate_threshold</span><span class="p">(</span><span class="n">detect_fn</span><span class="p">,</span> <span class="n">series</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">thresholds</span><span class="p">,</span> <span class="n">param_name</span><span class="o">=</span><span class="s2">"threshold"</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">evaluate_threshold</span><span class="p">(</span><span class="n">detect_fn</span><span class="p">,</span> <span class="n">series</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">thresholds</span><span class="p">,</span> <span class="n">param_name</span><span class="o">=</span><span class="s2">"threshold"</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Evaluate detection at multiple thresholds against known events."""</span>
     <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">thresholds</span><span class="p">:</span>
@@ -8111,19 +8125,19 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=536009b0">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=c0a3a47e">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <blockquote>
-<p><strong>So What?</strong> The ROC-like curve shows that z-score threshold of <strong>2.0</strong> offers a good balance between true positive rate and false positive rate for churn detection. The IQR method with <strong>k=1.5</strong> provides similar sensitivity but slightly different false positive characteristics. Lower thresholds catch more events but generate more noise for executives to filter through.</p>
+<p><strong>Interpretation:</strong> Threshold sweeps are a proposed sensitivity analysis on constructed event labels. With no saved execution or external validation, this walkthrough does not establish an optimal threshold or real-world false-positive rate. Lower thresholds can increase both detections and review workload.</p>
 </blockquote>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=58625b56">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=71da828b">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8186,17 +8200,17 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=9ef01328">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=6f6cf177">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="4.-Anomalies-Overlaid-on-Time-Series">4. Anomalies Overlaid on Time Series<a class="anchor-link" href="#4.-Anomalies-Overlaid-on-Time-Series">¶</a></h2><p>The most intuitive way to validate anomaly detection is to overlay flagged points on the original time series. Executives can immediately see whether the flagged points correspond to real business events.</p>
+<h2 id="4.-Anomalies-Overlaid-on-Time-Series">4. Anomalies Overlaid on Time Series<a class="anchor-link" href="#4.-Anomalies-Overlaid-on-Time-Series">¶</a></h2><p>Overlay flagged observations to inspect their timing against the simulator's known events. Agreement with constructed events is a scenario check, not validation against real business events.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=b73727d1">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=baa41aac">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8276,35 +8290,18 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=95b419af">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=27c27406">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.-Why-the-Events-Are-Flagged">5. Why the Events Are Flagged<a class="anchor-link" href="#5.-Why-the-Events-Are-Flagged">¶</a></h2><h3 id="Q3-2024-Pricing-Change-(Churn-Spike)">Q3 2024 Pricing Change (Churn Spike)<a class="anchor-link" href="#Q3-2024-Pricing-Change-(Churn-Spike)">¶</a></h3><p>The pricing change injected into the data creates a sudden increase in:</p>
-<ul>
-<li><strong>Logo churn rate</strong>: jumps from ~2.5% baseline to ~4.5% in July 2024 (z ~ +2.3)</li>
-<li><strong>Support tickets</strong>: spike from ~120 to ~160+ as customers complain</li>
-<li><strong>NPS</strong>: drops by ~10 points as satisfaction plummets</li>
-<li><strong>Revenue churn</strong>: follows logo churn with a slight lag</li>
-</ul>
-<p>Both z-score and IQR methods successfully flag July 2024 as the most anomalous month. August and September show diminishing but still elevated anomaly signals -- consistent with the "severity decay" built into the generation model.</p>
-<h3 id="Q2-2025-Product-Launch">Q2 2025 Product Launch<a class="anchor-link" href="#Q2-2025-Product-Launch">¶</a></h3><p>The product launch creates positive anomalies:</p>
-<ul>
-<li><strong>New MRR</strong>: surges 40% above trend in May 2025</li>
-<li><strong>Expansion MRR</strong>: increases 70% from cross-sell opportunities</li>
-<li><strong>NPS</strong>: jumps +8 points as new features delight users</li>
-<li><strong>CAC</strong>: drops as inbound demand increases</li>
-</ul>
-<p>These "positive anomalies" are equally important for executives to understand -- growth acceleration events deserve as much scrutiny as problems.</p>
-<blockquote>
-<p><strong>So What?</strong> The anomaly detection system correctly identifies both injected events without excessive false positives. For the executive dashboard, we recommend <strong>z=2.0</strong> as the primary threshold with <strong>z=3.0</strong> for critical alerts. The IQR method provides a useful cross-check but adds minimal incremental detection at default settings.</p>
-</blockquote>
+<h2 id="5.-Separately-reproduced-scenario-check">5. Separately reproduced scenario check<a class="anchor-link" href="#5.-Separately-reproduced-scenario-check">¶</a></h2><p>The current backend scan across all 24 months and its 12 configured metrics yields 13 unique metric-month flags at default settings. July 2024 revenue churn is flagged by both methods and classified critical. May 2025 NRR is flagged by both methods; May CAC is flagged by z-score. The IQR union also flags observations below the z-score threshold.</p>
+<p>These observations show how the detectors respond to the constructed scenario. They do not establish that all events are detected, that unlabelled observations are false positives, or that production alert quality is sufficient.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=7b3b29f7">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=d75d42da">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8356,7 +8353,7 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=eebf2f1c">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=c70d30be">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8366,7 +8363,7 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=4b3baacb">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=438b4f8b">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8416,55 +8413,14 @@ $$\text{Upper fence} = Q_3 + k \cdot \text{IQR}$$</p>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=87aaf385">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=6d187910">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="Summary-and-Recommendations">Summary and Recommendations<a class="anchor-link" href="#Summary-and-Recommendations">¶</a></h2><h3 id="Method-Comparison">Method Comparison<a class="anchor-link" href="#Method-Comparison">¶</a></h3><table>
-<thead>
-<tr>
-<th>Aspect</th>
-<th>Z-Score</th>
-<th>IQR</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Assumption</td>
-<td>Approximate normality</td>
-<td>None (distribution-free)</td>
-</tr>
-<tr>
-<td>Sensitivity tuning</td>
-<td>Threshold (z=2.0 recommended)</td>
-<td>Multiplier (k=1.5 standard)</td>
-</tr>
-<tr>
-<td>Severity classification</td>
-<td>Built-in via z magnitude</td>
-<td>Requires additional calculation</td>
-</tr>
-<tr>
-<td>Robustness to outliers</td>
-<td>Low (mean/std affected)</td>
-<td>High (quartiles resist outliers)</td>
-</tr>
-<tr>
-<td>Detection overlap</td>
-<td>~80% agreement with IQR at default settings</td>
-<td>~80% agreement with z-score</td>
-</tr>
-</tbody>
-</table>
-<h3 id="Recommended-Configuration-for-the-Dashboard">Recommended Configuration for the Dashboard<a class="anchor-link" href="#Recommended-Configuration-for-the-Dashboard">¶</a></h3><ul>
-<li><strong>Primary method</strong>: Z-Score with threshold=2.0 (warnings) and threshold=3.0 (critical alerts)</li>
-<li><strong>Cross-validation</strong>: IQR with k=1.5 as a secondary check</li>
-<li><strong>Display</strong>: Overlay anomaly markers on time-series charts with severity coloring</li>
-<li><strong>Rolling vs Global</strong>: Use rolling 6-month z-scores for trend-aware detection, global z-scores for absolute benchmarking</li>
-</ul>
-<h3 id="Detection-Results">Detection Results<a class="anchor-link" href="#Detection-Results">¶</a></h3><p>Both injected events (Q3 2024 pricing change, Q2 2025 product launch) were successfully detected across multiple metrics, validating the approach for production use in the executive dashboard.</p>
+<h2 id="Summary-and-current-dashboard-definitions">Summary and current dashboard definitions<a class="anchor-link" href="#Summary-and-current-dashboard-definitions">¶</a></h2><p>Z-score compares each observation with the selected series mean using sample standard deviation. IQR compares it with quartile fences and displays the median as its baseline. The API preserves each method's baseline and bounds when deduplicating a shared metric-month flag.</p>
+<p>Defaults are z-score threshold 2 and IQR multiplier 1.5; severity is critical for |z| &gt; 3, warning for |z| &gt; 2, info otherwise. The plotted magnitude is |z| even for IQR-only flags. Global and trailing-six-month baselines answer different questions; the current API uses the full selected window. None of these references is a forecast, target or independent validation result.</p>
 </div>
 </div>
 </div>

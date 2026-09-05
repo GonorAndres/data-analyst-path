@@ -7796,13 +7796,13 @@ a.anchor-link {
 <!-- End of mermaid configuration --></head>
 <body class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
 <main>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=fa7ca2fd">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=d9ef9daa">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="Time-Series-Forecasting-for-SaaS-Metrics">Time-Series Forecasting for SaaS Metrics<a class="anchor-link" href="#Time-Series-Forecasting-for-SaaS-Metrics">¶</a></h1><p><strong>Project 04 -- Executive KPI Report</strong> | Notebook 4 of 5</p>
+<h1 id="Time-Series-Forecasting-for-SaaS-Metrics">Time-Series Forecasting for SaaS Metrics<a class="anchor-link" href="#Time-Series-Forecasting-for-SaaS-Metrics">¶</a></h1><p><strong>Project 04 -- Executive KPI Report</strong> | Notebook 4 of 9</p>
 <h2 id="Purpose">Purpose<a class="anchor-link" href="#Purpose">¶</a></h2><p>Executives don't just want to know where metrics are today -- they want to know <strong>where they're headed</strong>. This notebook builds and validates forecasting models for NovaCRM's key SaaS metrics:</p>
 <ul>
 <li><strong>MRR</strong> (Monthly Recurring Revenue) -- the single most important SaaS metric</li>
@@ -7823,7 +7823,21 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=a6831c5d">
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=4a9f8768">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Publication-review-%E2%80%94-September-5,-2026">Publication review — September 5, 2026<a class="anchor-link" href="#Publication-review-%E2%80%94-September-5,-2026">¶</a></h2><p><strong>Synthetic scenario; unexecuted research walkthrough.</strong> This notebook has no saved execution outputs. It was reviewed and exported without executing its code; proposed evaluations and example formulas are not independently validated results. See the <a href="https://data-analyst.gonor.me/kpi/">current case study</a> and project README for separately reproduced findings.</p>
+<p><strong>Current definitions:</strong> the API/report anomaly scan uses all company segments over the selected months. Z-score displays the actual mean and sample-standard-deviation bounds; IQR displays the median and quartile fences. Both-method flags preserve both evidence records. These descriptive references differ from the pre-aggregation pipeline's trailing-six-month z-scores.</p>
+<p><strong>Report corrections:</strong> December 2025 NRR is 112.348% (stored ratio 1.12348), MRR growth is 1.8346%, and API/report health score is 73.5/100. Starting MRR plus net movements reconciles to ending MRR; the ending balance is not the starting balance. Targets and score scales are illustrative. Current nominal 95% forecast bands are residual-based approximations with unvalidated coverage. Historical standalone code examples can differ from the current API; regenerate retained PDFs with <code>backend/regenerate_reports.py</code>, not an exploratory payload.</p>
+<p><strong>Revisión:</strong> escenario sintético; celdas sin ejecutar. Las cifras actuales se verificaron por separado. Los límites de anomalía son referencias descriptivas, no pronósticos; las metas y ponderaciones son supuestos. El filtro de segmento no modifica los resultados agregados del informe.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=f3c1d5bb">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7831,13 +7845,13 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-python"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">plotly.express</span> <span class="k">as</span> <span class="nn">px</span>
-<span class="kn">import</span> <span class="nn">plotly.graph_objects</span> <span class="k">as</span> <span class="nn">go</span>
-<span class="kn">from</span> <span class="nn">plotly.subplots</span> <span class="kn">import</span> <span class="n">make_subplots</span>
-<span class="kn">from</span> <span class="nn">statsmodels.tsa.holtwinters</span> <span class="kn">import</span> <span class="n">ExponentialSmoothing</span><span class="p">,</span> <span class="n">SimpleExpSmoothing</span>
-<span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">mean_absolute_error</span><span class="p">,</span> <span class="n">mean_squared_error</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.express</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">px</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.graph_objects</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">go</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">plotly.subplots</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_subplots</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">statsmodels.tsa.holtwinters</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExponentialSmoothing</span><span class="p">,</span> <span class="n">SimpleExpSmoothing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">mean_absolute_error</span><span class="p">,</span> <span class="n">mean_squared_error</span>
 
 <span class="c1"># Color palette</span>
 <span class="n">COLORS</span> <span class="o">=</span> <span class="p">{</span>
@@ -7857,30 +7871,18 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=c939574b">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=9ef8ccb9">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="1.-Model-Selection:-Why-Exponential-Smoothing?">1. Model Selection: Why Exponential Smoothing?<a class="anchor-link" href="#1.-Model-Selection:-Why-Exponential-Smoothing?">¶</a></h2><p>For monthly SaaS metrics with 24 data points, we need a model that:</p>
-<ul>
-<li>Works well with <strong>small samples</strong> (rules out ARIMA with seasonal components)</li>
-<li>Captures <strong>trend</strong> (MRR grows over time)</li>
-<li>Produces <strong>confidence intervals</strong> (executives need uncertainty ranges)</li>
-<li>Is <strong>interpretable</strong> (no black boxes for board presentations)</li>
-</ul>
-<p><strong>Holt-Winters with additive trend</strong> meets all criteria. We omit the seasonal component because:</p>
-<ol>
-<li>Only 24 months = 2 seasonal cycles -- not enough for reliable seasonal estimation</li>
-<li>Seasonality is weak relative to trend (shown in notebook 02)</li>
-</ol>
-<h3 id="Model-Specification">Model Specification<a class="anchor-link" href="#Model-Specification">¶</a></h3><p>$$\hat{y}_{t+h} = l_t + h \cdot b_t$$</p>
-<p>where $l_t$ is the smoothed level and $b_t$ is the smoothed trend. Parameters $\alpha$ (level) and $\beta$ (trend) are optimized via maximum likelihood.</p>
+<h2 id="1.-Model-choice:-a-small-interpretable-example">1. Model choice: a small interpretable example<a class="anchor-link" href="#1.-Model-choice:-a-small-interpretable-example">¶</a></h2><p>The backend fits additive-trend exponential smoothing without seasonality when available. The 24-month history contains only two annual cycles, so seasonal estimation and model comparisons need care. No ARIMA/Prophet comparison or superiority claim is established here.</p>
+<p>The forecast is level plus horizon times trend. Parameters are fitted by the statsmodels optimizer. The intervals use residual spread with an imposed horizon multiplier, rather than a calibrated prediction-interval procedure.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=81ad76fc">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=3c7ca784">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7933,7 +7935,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=de6f3444">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=c77ada19">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7943,7 +7945,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=c4dfaa08">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=f1acf82b">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8037,7 +8039,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=3787fffc">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=2e1dae25">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8054,7 +8056,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=b7a19b58">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=8ee3a1c4">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8119,7 +8121,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=572714d3">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=5d7b30af">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8162,20 +8164,20 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=d9a8a361">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=a7eaf334">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <blockquote>
-<p><strong>So What?</strong> Forecast accuracy degrades with horizon length, as expected. At 1-month ahead, MAPE is typically under 2%, which is well within the uncertainty tolerance for board-level planning. By 3 months, MAPE may rise to 3-5%, still useful for directional planning but less precise for budgeting.</p>
+<p><strong>Interpretation:</strong> Rolling-origin evaluation should measure errors by horizon. This notebook contains no saved execution, so the previously stated MAPE ranges are not presented as measured results or evidence of suitability for budgeting.</p>
 </blockquote>
-<h2 id="4.-Multi-Metric-Forecasting">4. Multi-Metric Forecasting<a class="anchor-link" href="#4.-Multi-Metric-Forecasting">¶</a></h2><p>Let's apply the same Holt-Winters approach to churn rate and NPS, generating forecasts with confidence intervals for the executive report.</p>
+<h2 id="4.-Multi-Metric-Forecasting">4. Multi-Metric Forecasting<a class="anchor-link" href="#4.-Multi-Metric-Forecasting">¶</a></h2><p>The following examples extend the model to churn and NPS. Check domain bounds and empirical interval coverage before using such projections.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=d259696b">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=cf2c9612">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8293,7 +8295,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=bb3ce311">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=555bfee4">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8303,7 +8305,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=ed912f1a">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=51940022">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8365,7 +8367,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=68e016d4">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=a736965e">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8404,7 +8406,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=72697db7">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=ac28cacc">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8414,7 +8416,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=96ca81ec">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=7b655c88">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8499,57 +8501,14 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=9e30cddc">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=a134fc07">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="Summary">Summary<a class="anchor-link" href="#Summary">¶</a></h2><h3 id="Model-Performance">Model Performance<a class="anchor-link" href="#Model-Performance">¶</a></h3><table>
-<thead>
-<tr>
-<th>Metric</th>
-<th>1-Month MAPE</th>
-<th>3-Month MAPE</th>
-<th>Recommendation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MRR</td>
-<td>~1-2%</td>
-<td>~3-5%</td>
-<td>Reliable for board planning</td>
-</tr>
-<tr>
-<td>Logo Churn</td>
-<td>~5-15%</td>
-<td>~10-25%</td>
-<td>Useful for directional trends</td>
-</tr>
-<tr>
-<td>NPS</td>
-<td>~3-8%</td>
-<td>~5-12%</td>
-<td>Good for satisfaction tracking</td>
-</tr>
-</tbody>
-</table>
-<h3 id="Key-Takeaways">Key Takeaways<a class="anchor-link" href="#Key-Takeaways">¶</a></h3><ol>
-<li><strong>Holt-Winters with additive trend</strong> provides robust forecasts for all three metrics with only 24 months of data</li>
-<li><strong>Confidence intervals widen predictably</strong> -- the widening factor ($\sqrt{1 + 0.1h}$) provides realistic uncertainty bands</li>
-<li><strong>MRR is the most forecastable</strong> metric due to its strong trend and lower relative volatility</li>
-<li><strong>Churn rate is the hardest to forecast</strong> because event-driven spikes (like the pricing change) create large residuals</li>
-<li><strong>Cross-validation confirms</strong> that models generalize well across the training period</li>
-</ol>
-<h3 id="Production-Configuration">Production Configuration<a class="anchor-link" href="#Production-Configuration">¶</a></h3><p>The analytics engine (<code>backend/kpi_backend/analytics_engine.py</code>) implements this exact approach:</p>
-<ul>
-<li><code>exponential_smoothing_forecast()</code> with Holt-Winters primary and simple ES fallback</li>
-<li>6-period forecast horizon</li>
-<li>95% CI with horizon-adjusted width</li>
-<li>Parameters optimized via MLE (statsmodels default)</li>
-</ul>
-<p>These forecasts feed directly into the executive report PDF (notebook 05) and the dashboard forecast panel.</p>
+<h2 id="Summary-and-limitations">Summary and limitations<a class="anchor-link" href="#Summary-and-limitations">¶</a></h2><p>The additive-trend model is an illustrative baseline. The backend's nominal 95% band is forecast +/- 1.96 times residual standard deviation times sqrt(1 + 0.1i), where i starts at zero for the first forecast period. This imposed widening factor does not establish 95% coverage. No bootstrap or 80% interval is used by the current backend.</p>
+<p>Validate rolling-origin errors and coverage before decision use. The fallback is simple exponential smoothing if model fitting fails or statsmodels is unavailable; fewer than three finite observations return empty forecast arrays. Current reports use six future periods for MRR, logo churn and NPS.</p>
 </div>
 </div>
 </div>

@@ -2,19 +2,19 @@ import { test, expect } from './fixtures';
 
 test.describe('Executive KPI Report -- Deploy Gate', () => {
   test('loads at /kpi', async ({ page }) => {
-    await page.goto('/kpi');
+    await page.goto('/kpi/?view=explore');
     await page.waitForLoadState('load');
     await expect(page.getByRole('heading', { name: /Executive KPI Report/i })).toBeVisible();
   });
 
   test('intro section renders', async ({ page }) => {
-    await page.goto('/kpi');
+    await page.goto('/kpi/?view=explore');
     await page.waitForLoadState('load');
     await expect(page.getByText('NovaCRM', { exact: true })).toBeVisible();
   });
 
   test('tab navigation works', async ({ page }) => {
-    await page.goto('/kpi');
+    await page.goto('/kpi/?view=explore');
     await page.waitForLoadState('load');
     await page.getByRole('button', { name: 'Overview' }).click();
     await page.waitForTimeout(1000);
@@ -24,7 +24,7 @@ test.describe('Executive KPI Report -- Deploy Gate', () => {
   test('no console errors', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (msg) => { if (msg.type() === 'error' && !msg.text().includes('Failed to load resource')) errors.push(msg.text()); });
-    await page.goto('/kpi');
+    await page.goto('/kpi/?view=explore');
     await page.waitForLoadState('load');
     expect(errors).toHaveLength(0);
   });

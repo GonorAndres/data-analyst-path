@@ -1,55 +1,28 @@
-# Resumen Ejecutivo: Analisis de Cohortes -- Olist E-Commerce
+# Olist: comprender la segunda compra
 
-**Preparado por**: Andres Gonzalez Ortega
-**Fecha**: Marzo 2026
-**Periodo de datos**: Septiembre 2016 -- Octubre 2018
-**Alcance**: 96,478 pedidos entregados | 93,358 clientes unicos
+**Analista:** Andres Gonzalez Ortega · **Revision:** 2026-09-05
+**Periodo de compras:** 2016-09-15 a 2018-08-29
+**Poblacion:** 96,478 pedidos entregados; 93,358 clientes identificados por customer_unique_id.
 
----
+## Decision
 
-## Contexto
+Que evidencia justifica probar una intervencion de recompra y como medirla sin confundir asociacion con efecto causal?
 
-Olist es un marketplace brasileno que conecta pequenos comerciantes con grandes canales de venta. Este analisis examina el comportamiento de compra de ~93K clientes para responder: **que cohortes retienen mejor, que factores predicen la recompra, y donde debe Olist enfocar sus esfuerzos de retencion?**
+## Evidencia verificada
 
-## Hallazgos Principales
+- **2,801 clientes recompran (3.0%).** Estos clientes suman 5,921 pedidos; los otros 90,557 clientes realizan un pedido cada uno.
+- El ingreso total medio por cliente es **R$308.53** entre repetidores y **R$160.73** entre compradores unicos. La media del valor medio por pedido de cada cliente es **R$145.85** y **R$160.73**, respectivamente. El mayor ingreso total refleja mas pedidos, no un ticket mayor. La afirmacion anterior de 1.8x mas gasto por pedido era incorrecta.
+- El coeficiente de voucher tiene **odds ratio 1.424**, IC 95% **[1.111, 1.826]**. Es una asociacion ajustada en datos observacionales, no un multiplicador de probabilidad ni evidencia de que entregar vouchers cause recompra.
+- La comparacion geografica es descriptiva: mezcla logistica, composicion de clientes y categorias. No identifica el efecto de reducir tiempos de entrega.
 
-### 1. La retencion es el desafio critico de Olist
+## Interpretacion y accion propuesta
 
-Solo el **3.0% de los clientes** realizan una segunda compra (2,801 de 93,358). Sin embargo, los clientes que regresan gastan **1.8x mas** por pedido en promedio. Esto convierte la retencion en la palanca de crecimiento de mayor impacto: un aumento del 1% en la tasa de recompra representaria ~930 clientes adicionales y un incremento estimado de R$150K en ingresos.
+Probar una intervencion de segunda compra con asignacion aleatoria y un horizonte de seguimiento comun. Medir recompra, ingreso incremental por cliente elegible y costo del incentivo. Ningun ingreso incremental ha sido demostrado; se retiran las proyecciones anteriores de R$150K y las recomendaciones causales sobre vouchers.
 
-### 2. El metodo de pago con voucher predice retencion
+Las cohortes recientes tienen menos tiempo para regresar: las celdas sin seguimiento suficiente son desconocidas, no retencion cero. El analisis de supervivencia trata la censura por separado; su poblacion elegible no debe confundirse con todos los clientes.
 
-El analisis de regresion logistica revela que los clientes que pagan con **voucher en su primera compra** tienen **1.42x mayor probabilidad** de regresar (p < 0.05). Tarjeta de credito y boleto no muestran diferencia significativa. Esto sugiere que incentivos tipo voucher son efectivos para generar habito de compra.
+## Metodos y fuentes
 
-### 3. La entrega es la variable mas influyente
+Resultados comprobados contra customers_summary.parquet y activation_coefficients.parquet; totales publicados en web/public/cohorts/data/meta.json. Los notebooks documentan las transformaciones y el dashboard compartido publica el caso y su exploracion.
 
-Existe una correlacion consistente entre **tiempos de entrega y retencion a nivel estatal**. Los estados con entregas mas rapidas (SP, PR) muestran las mejores tasas de retencion al mes 3. El 8.1% de entregas tardias se correlaciona con calificaciones mas bajas y menor probabilidad de recompra.
-
-### 4. Los ingresos estan altamente concentrados
-
-El analisis de Lorenz/Gini confirma una distribucion muy desigual: el segmento "Champions" (0.1% de clientes) genera un LTV de R$545/cliente a 12 meses, comparado con R$160 para el segmento promedio. La curva de Pareto muestra que un pequeno grupo de clientes repetidores genera valor desproporcionado.
-
-### 5. Patrones geograficos marcados
-
-Sao Paulo domina en volumen pero la retencion varia significativamente entre estados (chi-cuadrado significativo). Los estados con alto volumen pero baja retencion representan la mayor oportunidad de mejora, especialmente si el factor limitante es logistico.
-
-## Recomendaciones
-
-| Prioridad | Accion | Impacto Estimado |
-|-----------|--------|-----------------|
-| Alta | Campana de re-engagement a 30 dias post-primera-compra | Capturar clientes antes de la ventana de lapse (~90 dias mediana) |
-| Alta | Expandir incentivos tipo voucher para primeros compradores | Aumentar la tasa de recompra aprovechando el factor de activacion mas fuerte (OR=1.42) |
-| Media | Mejorar logistica en estados de alto volumen y baja retencion | Reducir tiempos de entrega donde el impacto en retencion es mayor |
-| Media | Mejorar precision de estimados de entrega | Reducir entregas percibidas como "tardias" (8.1%) sin necesariamente acelerar el envio |
-| Baja | Investigar caracteristicas del segmento Champions | Informar targeting y adquisicion basado en el perfil de los clientes mas valiosos |
-
-## Metodologia
-
-- **4 Jupyter notebooks** con narrativa analitica completa
-- **5 scripts SQL** (PostgreSQL) para cohort, retention, RFM, LTV, geografia
-- **Dashboard Streamlit** de 4 paginas con estilo ejecutivo
-- **Tecnicas estadisticas**: Kaplan-Meier, log-rank, chi-cuadrado, regresion logistica, intervalos de confianza bootstrap, coeficiente de Gini
-
----
-
-*Fuente: Olist Brazilian E-Commerce Public Dataset (Kaggle) | N = 96,478 pedidos entregados*
+La vista /olist conserva todos los estados de pedido; /cohorts usa pedidos entregados. Sus totales y ventanas no son intercambiables. Los pagos agregados por pedido incluyen flete y no son beneficio neto ni comisiones de Olist. [Registro de evidencia](../../../docs/evidence-audit.md).

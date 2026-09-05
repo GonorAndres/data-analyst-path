@@ -18,6 +18,7 @@ if ([...args].some(arg => arg !== '--no-install')) {
   throw new Error('Supported option: --no-install. Multi-app merge/prune modes have been retired.')
 }
 if (!args.has('--no-install')) execFileSync('npm', ['ci', '--no-audit', '--no-fund'], { cwd: WEB, stdio: 'inherit' })
+execFileSync('node', ['scripts/build-evidence-snapshots.mjs', '--check'], { cwd: ROOT, stdio: 'inherit' })
 execFileSync('npm', ['run', 'build'], { cwd: WEB, stdio: 'inherit' })
 if (!fs.existsSync(path.join(OUTPUT, 'index.html'))) throw new Error('Unified frontend did not produce index.html')
 

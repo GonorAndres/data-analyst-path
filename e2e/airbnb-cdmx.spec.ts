@@ -31,7 +31,7 @@ test.describe('Airbnb CDMX -- Deploy Gate', () => {
     }
     // No card may point off-origin: an external href here would mean a dashboard
     // was left behind by the consolidation.
-    await expect(page.locator('main a[href^="http"]')).toHaveCount(0);
+    await expect(page.locator('.case-card a[href^="http"]')).toHaveCount(0);
   });
 
   test('airbnb case study loads', async ({ page }) => {
@@ -41,7 +41,7 @@ test.describe('Airbnb CDMX -- Deploy Gate', () => {
   });
 
   test('olist case study loads', async ({ page }) => {
-    await page.goto('/olist');
+    await page.goto('/olist/?view=explore');
     await page.waitForLoadState('load');
     await expect(page.getByRole('heading', { name: /Olist.*e-commerce/i })).toBeVisible();
   });
@@ -55,7 +55,7 @@ test.describe('Airbnb CDMX -- Deploy Gate', () => {
   });
 
   test('chart container renders', async ({ page }) => {
-    await page.goto('/airbnb');
+    await page.goto('/airbnb/?view=explore');
     await page.waitForLoadState('load');
     const headings = page.getByRole('heading', { level: 2 });
     await expect(headings.first()).toBeVisible();

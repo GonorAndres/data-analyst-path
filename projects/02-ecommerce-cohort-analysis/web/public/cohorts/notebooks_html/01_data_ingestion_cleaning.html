@@ -3,7 +3,7 @@
 <html lang="en">
 <head><meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>01_data_ingestion_cleaning</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>Notebook</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 <style type="text/css">
     pre { line-height: 125%; }
 td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
@@ -7802,6 +7802,9 @@ a.anchor-link {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<blockquote>
+<p>Revision 2026-09-05: 96,478 pedidos entregados, 93,358 clientes; /olist conserva otros estados. Los 2,801 repetidores tienen ingreso total medio R$308.53 frente a R$160.73, pero media del AOV de cada cliente R$145.85 frente a R$160.73: no gastan mas por pedido. Voucher OR=1.424 (IC 95% 1.111–1.826) es asociacion en odds, no efecto causal. Celdas futuras sin seguimiento son censuradas, no cero.</p>
+</blockquote>
 <h1 id="01----Ingesta-de-Datos-y-Limpieza">01 -- Ingesta de Datos y Limpieza<a class="anchor-link" href="#01----Ingesta-de-Datos-y-Limpieza">¶</a></h1><p><strong>Pregunta de negocio</strong>: <em>Que aspecto tienen nuestros datos transaccionales, y como construimos una base analitica limpia para analisis de cohortes, retencion y LTV?</em></p>
 <p><strong>Dataset</strong>: Olist Brazilian E-Commerce (~99K pedidos, Sep 2016 - Oct 2018)</p>
 <p>Este notebook carga los 9 CSVs del dataset de Olist, los une en una tabla analitica maestra (<code>orders_enriched</code>), genera columnas derivadas para analisis de cohortes y activacion, y exporta archivos parquet listos para los notebooks siguientes.</p>
@@ -7817,9 +7820,9 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In [1]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="n">RAW</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"../data/raw"</span><span class="p">)</span>
 <span class="n">OUT</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"../data/processed"</span><span class="p">)</span>
@@ -8100,13 +8103,13 @@ Filas: 96,478
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Discrepancias (ceros no explicados por mismo mes): </span><span class="si">{</span><span class="n">mismatch</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 <span class="k">if</span> <span class="n">mismatch</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-    <span class="kn">import</span> <span class="nn">warnings</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
     <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
         <span class="sa">f</span><span class="s2">"months_since_cohort tiene </span><span class="si">{</span><span class="n">mismatch</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> valores en 0 que NO coinciden con "</span>
         <span class="sa">f</span><span class="s2">"order_month == cohort_month. Revisar la logica del calculo."</span>
     <span class="p">)</span>
 <span class="k">if</span> <span class="n">pct_zeros</span> <span class="o">&gt;</span> <span class="mf">0.50</span><span class="p">:</span>
-    <span class="kn">import</span> <span class="nn">warnings</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
     <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
         <span class="sa">f</span><span class="s2">"months_since_cohort=0 representa </span><span class="si">{</span><span class="n">pct_zeros</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2"> de los pedidos (&gt;50%). "</span>
         <span class="sa">f</span><span class="s2">"Proporcion sospechosamente alta -- posible corrupcion en el calculo."</span>
