@@ -64,7 +64,7 @@ Which customer cohorts retain best, what first-purchase behaviors predict long-t
 | Segmentation | statsmodels, scipy | RFM quintile scoring (7 segments), logistic regression activation analysis, Lorenz/Gini |
 | SQL | PostgreSQL | 5 standalone scripts: cohort assignment, retention matrix, RFM, LTV/activation, geographic |
 | Web build | `data-pipeline/05_build_web_json.py` | Pre-aggregates 36 MB of parquet into 276 KB of JSON (~38 KB gzipped) |
-| Dashboard | Next.js, Recharts | 6-page static export, no backend, served at `/cohorts` |
+| Dashboard | Shared Next.js application, Recharts | Six static pages at `/cohorts` within `../../apps/web`; cohort data requires no backend |
 | Verification | `data-pipeline/06_verify_parity.py` | Re-derives every figure from parquet and diffs against the published JSON |
 
 **Differentiation from Project 00**: Project 00 explores Olist's *funnel and conversion* through an
@@ -83,7 +83,7 @@ log-rank tests, chi-squared, logistic-regression odds ratios -- with the noteboo
 | Binned RFM scatter | 93,358 raw points | At that density the scatter is a solid cloud; a recency × frequency grid says the same thing in 120 marks. |
 | KM precomputed in the pipeline | Estimate in the browser | The estimator is a cumulative product over ordered event times — a poor thing to redo on every filter change for a curve that never varies. |
 | log-log confidence bounds | Plain Greenwood on S(t) | The plain form can stray outside [0, 1], which is not drawable for a probability. Matches `lifelines`' default, so the numbers are comparable. |
-| ≤3 series per chart, else facet | Recolour with a wider palette | The palette's 7 hues only pass validation on *adjacent* pairs; 3 of them are blues. Even Okabe-Ito clears all-pairs only with a warning, so the fix is structural. See `web/src/components/charts/Facets.tsx`. |
+| ≤3 series per chart, else facet | Recolour with a wider palette | The palette's 7 hues only pass validation on *adjacent* pairs; 3 of them are blues. Even Okabe-Ito clears all-pairs only with a warning, so the fix is structural. See `../../apps/web/src/features/cohorts/components/charts/Facets.tsx`. |
 | Retention charts start at month 1 | Include month 0 | Month 0 is 100% by construction; anchoring the axis there flattens a sub-1% range into the bottom pixel. |
 
 ## Results
@@ -138,6 +138,7 @@ Every chart has a "Ver datos" table view, and every card states the "so what?" u
 
 ```bash
 # 1. Install dependencies
+cd projects/02-ecommerce-cohort-analysis
 pip install -r requirements.txt
 
 # 2. Download Olist data (or copy from data/raw/ if already present)
@@ -155,8 +156,32 @@ cd ..
 python data-pipeline/05_build_web_json.py
 python data-pipeline/06_verify_parity.py     # non-zero exit on any mismatch
 
-# 5. Run the dashboard
-cd web && npm ci && npm run dev              # http://localhost:3052/cohorts
+# 5. From the repository root, run the shared frontend
+cd ../..
+npm ci --prefix apps/web
+npm run dev
+# http://localhost:3000/cohorts/
+```
+
+The frontend now lives in `apps/web/src/features/cohorts` and the shared
+`apps/web/src/app/cohorts` routes. Cohort retention and `/olist/` marketplace
+performance belong to the same e-commerce case study, with common navigation,
+light/dark themes, and English/Spanish preferences. English and light mode are
+the first-visit defaults; notebooks retain their original language.
+
+Static artifacts remain in this project's `web/public/cohorts/`, including data
+JSON and exported notebooks. The shared app stages those files for development
+and builds. The old frontend, Streamlit application, and obsolete container
+configuration have been archived outside the repository and removed. Research
+and public artifacts remain; hosting retirement and deployment are separate operations.
+
+To use the other API-backed analyses, run the consolidated backend in a separate
+terminal from the repository root. `/cohorts/` itself does not require it:
+
+```bash
+pip install -r backend/requirements.txt
+bash backend/dev.sh
+# http://localhost:8080
 ```
 
 ## Skills Demonstrated

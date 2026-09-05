@@ -1,10 +1,12 @@
 {
   "private": true,
   "name": "data-analyst-path",
-  "description": "Root package - Playwright e2e tests and the Cloudflare Pages toolchain. No dashboard dependencies belong here; each project under projects/ has its own package.json.",
+  "description": "Unified analytics portfolio: apps/web owns the frontend; root tooling builds and verifies the Cloudflare Pages deployment.",
   "scripts": {
+    "dev": "npm --prefix apps/web run dev",
     "build": "node scripts/build-hub.mjs",
     "build:fast": "node scripts/build-hub.mjs --no-install",
+    "typecheck:web": "npm --prefix apps/web run typecheck",
     "preview": "wrangler pages dev",
     "typecheck:functions": "tsc -p functions",
     "test:e2e": "playwright test --config=e2e/hub.config.ts",

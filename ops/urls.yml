@@ -5,24 +5,19 @@
 #
 # Branch -> environment mapping:
 #   main -> production (deployed + monitored)
-#   dev  -> preview    (Pages preview URL; API/Streamlit skip deploy)
+#   dev  -> preview    (Pages preview URL; API skips deploy)
 #
 # When a URL changes (custom domain, Cloud Run redeploy with a different service
 # name) update this file first, then let workflows pick it up.
 
 schema_version: 1
-updated: 2026-08-17
+updated: 2026-09-05
 
 services:
 
-  # The Next.js dashboards used to be six Vercel projects on six hostnames.
-  # They are now one Cloudflare Pages project: each app is built as a static
-  # export and merged into a single tree by scripts/build-hub.mjs, so every
-  # dashboard is a path on this one host. The sub_services below are what used
-  # to be separate top-level entries. Project 02 joined them at /cohorts once its
-  # Streamlit service was rebuilt as a static export.
+  # One Next.js frontend owns all eight analyses and shared navigation.
   - id: portfolio-hub
-    project: projects/00..06 (merged)
+    project: apps/web
     kind: cloudflare_pages
     pages_project: data-analyst-hub
     production_url: https://data-analyst.gonor.me
@@ -51,35 +46,9 @@ services:
       # The PostHog proxy. Blocked or broken, analytics goes silent with no
       # other symptom.
       - { id: ingest-proxy, path: /ingest/static/array.js }
-      # /cohorts is the only dashboard whose data ships inside the deployment
-      # rather than coming from the API, so it has a failure mode none of the
-      # others do: the page serves 200 with no numbers on it. The repo's global
-      # `*.json` ignore rule excluded these files at first, which is exactly how
-      # that happens.
+      # Static datasets must ship alongside the page, not only its HTML.
       - { id: cohorts-data, path: /cohorts/data/meta.json }
-
-  # No longer a dashboard. Project 02 was rebuilt as a static export inside the
-  # hub (see `cohorts` above), and this service now runs nginx and answers 308
-  # to https://data-analyst.gonor.me/cohorts/ for every path.
-  #
-  # It stays deployed rather than being deleted because this URL was linked from
-  # gonor.me, from the blog in two languages and from this repo's README for
-  # months; a deleted Cloud Run service answers 404, which destroys those links
-  # instead of forwarding them. The service name is unchanged for the same
-  # reason -- the hostname is derived from it.
-  - id: cohort-redirect
-    project: 02-ecommerce-cohort-analysis
-    kind: cloud_run
-    gcp_service: da-cohort-streamlit
-    region: us-central1
-    production_url: https://da-cohort-streamlit-451451662791.us-central1.run.app
-    # Still Streamlit's health path, which is deliberate on two counts: it is
-    # what Cloud Run's own probe already points at, and it is the one route the
-    # redirect config answers directly. Probing `/` here would prove less, not
-    # more -- health_check.py's urlopen follows redirects, so a `/` probe would
-    # report on the hub rather than on this service.
-    health_path: /_stcore/health
-    expected_status: [200]
+      - { id: airbnb-data, path: /data/airbnb/kpis.json }
 
   - id: portfolio-api
     project: backend

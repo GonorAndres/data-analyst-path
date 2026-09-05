@@ -34,7 +34,7 @@ Where are the bottlenecks in NYC's 311 service request pipeline, which agencies 
 - 5-dimension filtering: agency, complaint type, borough, channel, month
 
 ### Frontend (Next.js 14 + D3.js)
-- Bloomberg Terminal / Ops Center dark theme
+- Shared application in `../../apps/web`, with common light/dark themes and English/Spanish preferences
 - 6 custom D3 visualizations: Sankey flow, choropleth map, gauge charts, Pareto chart, heatmaps, seasonality grid
 - 7 dashboard tabs including embedded Jupyter notebooks ("Proceso Tecnico")
 
@@ -57,37 +57,50 @@ Where are the bottlenecks in NYC's 311 service request pipeline, which agencies 
 
 ### 1. Data Pipeline
 ```bash
-cd data-pipeline
+# From the repository root
+cd projects/06-operational-efficiency/data-pipeline
 python 01_download.py    # Downloads ~3.5M rows from NYC Open Data (~10 min)
 python 02_clean.py       # Cleans and deduplicates -> parquet
 python 03_enrich.py      # Adds resolution times, SLA flags, process stages
 ```
 
 ### 2. Backend
+
+From the repository root, in a separate terminal:
+
 ```bash
-cd backend
-uvicorn ops_backend.main:app --port 2056 --reload
-# Verify: curl http://localhost:2056/health
+pip install -r backend/requirements.txt
+bash backend/dev.sh
+# Verify: curl http://localhost:8080/ops/health
 ```
 
 ### 3. Notebooks (optional)
+
+Run from this project directory; `public/notebooks_html/` remains the
+project-owned artifact source for the shared application's staging step.
+
 ```bash
 # Execute and convert to HTML for dashboard embedding
 jupyter nbconvert --execute --to html --output-dir=public/notebooks_html notebooks/*.ipynb
 ```
 
 ### 4. Frontend
+
+From the repository root:
+
 ```bash
-npm install
+npm ci --prefix apps/web
 npm run dev
-# Open http://localhost:3056/operations
+# Open http://localhost:3000/operations/
 ```
 
-### Environment Variables
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPS_BACKEND_URL` | `http://localhost:2056` | Backend API URL (Next.js rewrite) |
-| `NEXT_PUBLIC_OPS_API_URL` | `/api/ops` | Client-side API base |
+Frontend components live in `apps/web/src/features/operations`. The shared shell
+owns navigation, theme tokens, and language preferences; English and light mode
+are the first-visit defaults. Browser requests use `/api/ops` through the shared
+development proxy, with no project-specific frontend environment setup. Legacy
+frontend source and configuration have been archived outside the repository and
+removed; backend, public artifacts, and research are preserved. Hosting retirement
+and publication are separate operations.
 
 ## Skills Demonstrated
 
@@ -96,5 +109,5 @@ npm run dev
 - Pareto analysis (80/20 rule) for operational prioritization
 - Custom D3.js data visualizations (not off-the-shelf chart libraries)
 - Full-stack development: Next.js + FastAPI + pandas pipeline
-- Bloomberg Terminal-inspired dark UI design
+- Consistent analytical UI with shared light/dark themes and bilingual navigation
 - Geographic analysis with choropleth mapping

@@ -31,7 +31,7 @@ This project applies actuarial reserving methods (chain-ladder, Bornhuetter-Ferg
 - **SQL** (PostgreSQL dialect): 5 analytical queries covering claims, loss ratios, triangles, and combined ratios
 - **Jupyter Notebooks**: 5 notebooks documenting the analytical narrative
 - **FastAPI**: Backend API serving processed data
-- **Next.js + Recharts**: Interactive dashboard with dark/light mode
+- **Next.js + Recharts**: Shared frontend in `../../apps/web`, with common light/dark themes and English/Spanish preferences
 
 ### Approach
 1. **Data ingestion**: Downloaded 6 CAS Schedule P CSVs, cleaned column naming inconsistencies (each Part uses different suffixes), selected 5 representative companies per LOB by premium volume.
@@ -48,7 +48,7 @@ This project applies actuarial reserving methods (chain-ladder, Bornhuetter-Ferg
 ## Results
 
 ### Interactive Dashboard
-The dashboard at `localhost:3051` provides:
+The dashboard at `http://localhost:3000/insurance/` provides:
 - KPI bar with earned premium, loss ratio, combined ratio, and IBNR estimate
 - Loss triangle heatmap with incurred/paid toggle and IBNR annotations
 - IBNR waterfall showing Paid + Case Reserve + IBNR = Ultimate
@@ -79,6 +79,7 @@ The dashboard at `localhost:3051` provides:
 
 ```bash
 # 1. Install Python dependencies
+cd projects/01-insurance-claims-dashboard
 pip install -r data-pipeline/requirements.txt
 
 # 2. Run the data pipeline
@@ -89,16 +90,30 @@ python3 03_generate_claims.py
 python3 04_compute_reserves.py
 
 # 3. Verify parquets (4 files in data/processed/)
+cd ..
 ls data/processed/
 
 # 4. Run Jupyter notebooks
 jupyter notebook notebooks/
 
-# 5. Start the backend API
-cd backend && python3 -m uvicorn insurance_backend.main:app --port 2051
-
-# 6. Start the frontend dashboard (in another terminal)
-npm install && PORT=3051 npm run dev
-
-# 7. Open http://localhost:3051
+# 5. From the repository root, start the consolidated backend
+cd ../..
+pip install -r backend/requirements.txt
+bash backend/dev.sh
+# API: http://localhost:8080/insurance/
 ```
+
+In another terminal, from the repository root:
+
+```bash
+npm ci --prefix apps/web
+npm run dev
+# Open http://localhost:3000/insurance/
+```
+
+Edit dashboard components in `apps/web/src/features/insurance`; the shared shell,
+theme tokens, and language preference belong to `apps/web`. English and light
+mode are the first-visit defaults. Browser requests use `/api/insurance`, which
+the shared development server forwards to the consolidated backend. Superseded
+frontend source and configuration have been archived outside the repository and
+removed; backend, public artifacts, and research remain here.

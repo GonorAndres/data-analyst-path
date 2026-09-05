@@ -1,17 +1,15 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe('Insurance Claims -- Deploy Gate', () => {
   test('loads at /insurance', async ({ page }) => {
     await page.goto('/insurance');
     await page.waitForLoadState('load');
-    await page.waitForTimeout(5000);
-    await expect(page.getByRole('heading', { name: /Reservas y Siniestralidad/i })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /Insurance|Claims|Reserves/i })).toBeVisible();
   });
 
   test('dashboard structure renders', async ({ page }) => {
     await page.goto('/insurance');
     await page.waitForLoadState('load');
-    await page.waitForTimeout(5000);
     await expect(page.getByRole('heading').first()).toBeVisible();
   });
 
@@ -26,7 +24,6 @@ test.describe('Insurance Claims -- Deploy Gate', () => {
     });
     await page.goto('/insurance');
     await page.waitForLoadState('load');
-    await page.waitForTimeout(5000);
     expect(errors).toHaveLength(0);
   });
 });

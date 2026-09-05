@@ -37,7 +37,7 @@ This project simulates the work a data analyst would do at a mid-market B2B SaaS
 
 - **Python** (pandas, numpy, scipy, statsmodels, fpdf2, plotly, kaleido): Data generation, KPI computation, anomaly detection, forecasting, PDF report generation
 - **FastAPI**: Backend API with 6 routers (overview, revenue, customers, forecast, anomalies, report)
-- **Next.js 14 + TypeScript + Tailwind CSS + Recharts**: Interactive dashboard with dark/light mode
+- **Next.js 14 + TypeScript + Tailwind CSS + Recharts**: Shared application in `../../apps/web`, with common light/dark themes and English/Spanish preferences
 - **Jinja2**: Bilingual report templates for executive summary and recommendations sections
 - **SWR + Framer Motion**: Data fetching with caching and animated transitions
 
@@ -65,7 +65,7 @@ This project simulates the work a data analyst would do at a mid-market B2B SaaS
 | Anomaly detection | Z-score + IQR dual method | Isolation Forest, DBSCAN | Statistical methods are transparent and explainable to executives; ML methods are overkill for monthly KPI data |
 | PDF generation | fpdf2 + plotly/kaleido charts | ReportLab, WeasyPrint, LaTeX | fpdf2 is lightweight with fine layout control; plotly integration gives publication-quality charts |
 | NLG commentary | Template-based f-string logic | LLM-generated, rule-based NLG | Templates are deterministic, auditable, and do not require API calls; appropriate for standardized reports |
-| Frontend framework | Next.js + Recharts | Streamlit, Dash | Full control over UI/UX, dark/light mode, bilingual support, and deployment to Vercel |
+| Frontend framework | Next.js + Recharts | Streamlit, Dash | Full control over UI/UX, shared light/dark themes, bilingual support, and static export through the repository's Cloudflare Pages pipeline |
 | Data source | Synthetic with seeded RNG | Public datasets | No public SaaS operational dataset exists with MRR, churn, NPS, CAC at row level |
 
 ## Results
@@ -153,31 +153,44 @@ python data-pipeline/02_compute_kpis.py
 
 ### Backend
 
+From the repository root, in a separate terminal:
+
 ```bash
-cd backend
-uvicorn kpi_backend.main:app --host 0.0.0.0 --port 8052
-# API available at http://localhost:8052
-# Health check: http://localhost:8052/health
+pip install -r backend/requirements.txt
+bash backend/dev.sh
+# API available at http://localhost:8080/kpi/
+# Health check: http://localhost:8080/kpi/health
 ```
 
 ### Frontend
 
+From the repository root:
+
 ```bash
-cd projects/04-executive-kpi-report
-npm install
+npm ci --prefix apps/web
 npm run dev
-# Dashboard at http://localhost:3052
+# Dashboard at http://localhost:3000/kpi/
 ```
+
+Frontend components live in `apps/web/src/features/kpi` and share the site's
+navigation, theme tokens, and language preference. English and light mode are
+the first-visit defaults. Browser API requests use `/api/kpi` through the shared
+development proxy. Legacy frontend source and configuration have been archived
+outside the repository and removed; backend, public artifacts, and research are
+preserved. Publication and hosting retirement are separate operations.
 
 ### Generate PDF Reports
 
 ```bash
 # Via API endpoint
-curl "http://localhost:8052/api/v1/report/generate?lang=en" -o report_en.pdf
-curl "http://localhost:8052/api/v1/report/generate?lang=es" -o report_es.pdf
+curl "http://localhost:8080/kpi/api/v1/report/generate?lang=en" -o report_en.pdf
+curl "http://localhost:8080/kpi/api/v1/report/generate?lang=es" -o report_es.pdf
 ```
 
 ### Convert Notebooks to HTML (for Technical tab)
+
+Run from this project directory. The project-owned `public/` artifacts are staged
+into the shared application during development and builds.
 
 ```bash
 jupyter nbconvert --to html --output-dir=public/notebooks_html notebooks/*.ipynb

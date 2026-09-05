@@ -41,7 +41,7 @@ OUT = HERE.parent / "web" / "public" / "cohorts" / "data"
 # copy is what lets the hero heading and dataset counts render in the static
 # export instead of appearing only after the client fetch resolves -- the page is
 # a portfolio piece, so it should say what it is before any JavaScript runs.
-SRC_OUT = HERE.parent / "web" / "src" / "data"
+SRC_OUT = HERE.parents[2] / "apps" / "web" / "src" / "features" / "cohorts" / "data"
 
 # English -> Spanish, matching the Streamlit app so the rebuild reads identically.
 SEGMENT_ES = {

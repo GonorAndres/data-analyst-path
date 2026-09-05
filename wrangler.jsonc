@@ -2,11 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "data-analyst-hub",
 
-  // `dist/` is produced by `node scripts/build-hub.mjs`, which builds the six
-  // Next.js dashboards as static exports and merges them into one tree. The
-  // apps already namespace themselves (project 01 at /insurance, 03 at /abtest,
-  // and so on), so the merge needs no basePath -- see the script's header for
-  // the collision rule that keeps it honest.
+  // `dist/` is the single apps/web static export, prepared by build-hub.mjs.
   "pages_build_output_dir": "dist",
 
   // Held one release behind the newest available date so the version of

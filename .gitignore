@@ -23,12 +23,12 @@ __pycache__/
 !tsconfig.json
 # Static JSON data for portfolio dashboards. These are build *inputs*, not
 # artifacts: the dashboards fetch them at runtime and CI never regenerates them
-# (the parquet they come from lives in GCS and is only pulled for the API and
-# Streamlit images). Left to the `*.json` rule above they are silently skipped by
+# (the parquet they come from lives in GCS and is pulled for the API).
+# Left to the `*.json` rule above they are silently skipped by
 # `git add`, the local build looks fine, and CI publishes a dashboard with no data.
 !projects/00-demo-aestehtics/public/data/**/*.json
 !projects/02-ecommerce-cohort-analysis/web/public/cohorts/data/*.json
-!projects/02-ecommerce-cohort-analysis/web/src/data/*.json
+!apps/web/src/features/cohorts/data/*.json
 
 # Power BI temp files
 *.pbix.tmp
@@ -56,16 +56,18 @@ credentials.json
 # Node / Next.js build artifacts
 node_modules/
 .next/
+.next-dev/
 next-env.d.ts
 tsconfig.tsbuildinfo
 
-# Static exports and the merged Cloudflare Pages tree. Each project emits out/
-# (projects 00 and 04 also ignore it locally); scripts/build-hub.mjs merges them
-# into dist/. Both are build products -- only the sources and the merge script
-# are committed.
+# Static exports and the Cloudflare Pages tree. The sole apps/web frontend
+# exports out/; scripts/build-hub.mjs stages dist/. Track sources, not outputs.
+# Ignore any accidentally regenerated legacy exports as well.
 projects/*/out/
 projects/*/*/out/
 /dist/
+/apps/web/out/
+/apps/web/public/
 .wrangler/
 
 # Playwright failure artifacts (screenshots, traces) -- written only when a spec
