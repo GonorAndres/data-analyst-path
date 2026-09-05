@@ -1,0 +1,20 @@
+{
+  "source": "https://data-analyst.gonor.me/api/insurance/api/v1/loss-triangle?year_start=1988&year_end=1997&type=paid&method=cl",
+  "capturedAt": "2026-09-05",
+  "basis": "paid",
+  "method": "cl",
+  "population": "All companies and lines returned by the deployed API; accident years 1988–1997",
+  "provenance": "Retained API output. Raw source triangles are not present locally for independent reproduction. Amounts retain the API's reported units; the narrative uses normalized percentages.",
+  "ibnr_by_year": [
+    {"accident_year":1988,"latest_lag":10,"latest_value":9595323,"cdf":1.0,"ultimate":9595323,"ibnr":0},
+    {"accident_year":1989,"latest_lag":9,"latest_value":10671113,"cdf":1.0027,"ultimate":10699925,"ibnr":28812},
+    {"accident_year":1990,"latest_lag":8,"latest_value":11553774,"cdf":1.0082,"ultimate":11648515,"ibnr":94741},
+    {"accident_year":1991,"latest_lag":7,"latest_value":11605469,"cdf":1.0162,"ultimate":11793478,"ibnr":188009},
+    {"accident_year":1992,"latest_lag":6,"latest_value":12261353,"cdf":1.0308,"ultimate":12639003,"ibnr":377650},
+    {"accident_year":1993,"latest_lag":5,"latest_value":12835961,"cdf":1.0583,"ultimate":13584298,"ibnr":748337},
+    {"accident_year":1994,"latest_lag":4,"latest_value":13033097,"cdf":1.1126,"ultimate":14500624,"ibnr":1467527},
+    {"accident_year":1995,"latest_lag":3,"latest_value":11978566,"cdf":1.2281,"ultimate":14710877,"ibnr":2732311},
+    {"accident_year":1996,"latest_lag":2,"latest_value":9780427,"cdf":1.4998,"ultimate":14668684,"ibnr":4888257},
+    {"accident_year":1997,"latest_lag":1,"latest_value":5533059,"cdf":2.7716,"ultimate":15335426,"ibnr":9802367}
+  ]
+}

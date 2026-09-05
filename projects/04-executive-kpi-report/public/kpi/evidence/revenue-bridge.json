@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "synthetic",
+  "period": "2025-12",
+  "reviewedAt": "2026-09-05",
+  "unit": "USD",
+  "population": "NovaCRM; all company segments",
+  "seed": 42,
+  "sources": [
+    "projects/04-executive-kpi-report/data-pipeline/01_generate_saas_data.py",
+    "projects/04-executive-kpi-report/data-pipeline/02_compute_kpis.py",
+    "projects/04-executive-kpi-report/backend/kpi_backend/analytics_engine.py"
+  ],
+  "method": "mrr_waterfall; starting + new + expansion - contraction - churned = ending",
+  "bridge": {
+    "starting_mrr": 952222.59,
+    "new": 8185.58,
+    "expansion": 34247.41,
+    "contraction": 3424.77,
+    "churned": 21538.42,
+    "ending_mrr": 969692.39
+  }
+}
