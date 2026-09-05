@@ -29,6 +29,9 @@ __pycache__/
 !projects/00-demo-aestehtics/public/data/**/*.json
 !projects/02-ecommerce-cohort-analysis/web/public/cohorts/data/*.json
 !apps/web/src/features/cohorts/data/*.json
+!projects/01-insurance-claims-dashboard/public/insurance/evidence/*.json
+!projects/04-executive-kpi-report/public/kpi/evidence/*.json
+!apps/web/src/lib/evidence-snapshots.json
 
 # Power BI temp files
 *.pbix.tmp
