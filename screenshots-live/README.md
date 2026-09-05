@@ -1,4 +1,21 @@
-# Live Dashboard Gallery
+# Presentation Gallery
+
+The `2026-09-*.png` images show the redesigned source in a **local Pages preview**, not a production deployment. Desktop views use 1440×1000; the insurance mobile view uses 390×844. API requests are deliberately unavailable, verifying that the case narratives and retained figures stand on their own.
+
+| Current view | Capture |
+|---|---|
+| Homepage | [Preview](2026-09-home.png) |
+| Insurance | [Desktop](2026-09-insurance.png) · [Mobile](2026-09-insurance-mobile.png) · [Dark](2026-09-insurance-dark.png) |
+| Olist marketplace / retention | [Marketplace](2026-09-olist.png) · [Retention](2026-09-cohorts.png) |
+| A/B experiments | [Preview](2026-09-abtest.png) |
+| Executive KPIs | [Preview](2026-09-kpi.png) |
+| Financial portfolio | [Preview](2026-09-portfolio.png) |
+| NYC 311 operations | [Preview](2026-09-operations.png) |
+| Airbnb CDMX | [Preview](2026-09-airbnb.png) |
+
+After building and starting a local preview on port 4174, run `CHROMIUM_EXECUTABLE_PATH=/bin/google-chrome node scripts/capture-presentation.mjs`. Override `PRESENTATION_ORIGIN` for another local port. The script never captures production services.
+
+## Historical production gallery
 
 Viewport screenshots (1440x900) of every deployed dashboard in this repo.
 Captured with Playwright MCP against the production URLs on 2026-04-12.

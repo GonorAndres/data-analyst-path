@@ -7802,7 +7802,7 @@ a.anchor-link {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="Automated-Executive-Report-Generation-Pipeline">Automated Executive Report Generation Pipeline<a class="anchor-link" href="#Automated-Executive-Report-Generation-Pipeline">¶</a></h1><p><strong>Project 04 -- Executive KPI Report</strong> | Notebook 5 of 5</p>
+<h1 id="Automated-Executive-Report-Generation-Pipeline">Automated Executive Report Generation Pipeline<a class="anchor-link" href="#Automated-Executive-Report-Generation-Pipeline">¶</a></h1><p><strong>Project 04 -- Executive KPI Report</strong> | Notebook 5 of 9</p>
 <h2 id="Purpose">Purpose<a class="anchor-link" href="#Purpose">¶</a></h2><p>This notebook walks through the <strong>end-to-end pipeline</strong> that transforms raw SaaS metrics into a polished, multi-section executive PDF report -- automatically. The pipeline combines:</p>
 <ol>
 <li><strong>Data loading and KPI computation</strong> (from notebooks 01--02)</li>
@@ -7812,7 +7812,7 @@ a.anchor-link {
 <li><strong>Chart rendering</strong> via plotly -&gt; PNG export</li>
 <li><strong>PDF assembly</strong> via fpdf2 (<code>report_generator.py</code>)</li>
 </ol>
-<h3 id="Why-Automate?">Why Automate?<a class="anchor-link" href="#Why-Automate?">¶</a></h3><p>Manual executive reports consume 4--8 hours per cycle for most data teams. This pipeline reduces that to <strong>under 30 seconds</strong>, while ensuring consistency, reproducibility, and zero copy-paste errors.</p>
+<h3 id="Why-Automate?">Why Automate?<a class="anchor-link" href="#Why-Automate?">¶</a></h3><p>Automation makes repeated calculations and narrative rules inspectable. Runtime depends on the environment; this project does not measure manual reporting time, savings or error elimination.</p>
 <h3 id="Architecture">Architecture<a class="anchor-link" href="#Architecture">¶</a></h3><pre><code>monthly_metrics.parquet ──┐
                           ├──&gt; KPI Computation ──&gt; Anomaly Detection ──&gt; Forecasting
 segment_metrics.parquet ──┘         │                    │                    │
@@ -7820,6 +7820,20 @@ segment_metrics.parquet ──┘         │                    │            
                             commentary.py ──────&gt; report_generator.py ──────&gt; PDF
                             (NLG templates)       (fpdf2 assembly)       (byte stream)
 </code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=68a627d2">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Publication-review-%E2%80%94-September-5,-2026">Publication review — September 5, 2026<a class="anchor-link" href="#Publication-review-%E2%80%94-September-5,-2026">¶</a></h2><p><strong>Synthetic scenario; unexecuted research walkthrough.</strong> This notebook has no saved execution outputs. It was reviewed and exported without executing its code; proposed evaluations and example formulas are not independently validated results. See the <a href="https://data-analyst.gonor.me/kpi/">current case study</a> and project README for separately reproduced findings.</p>
+<p><strong>Current definitions:</strong> the API/report anomaly scan uses all company segments over the selected months. Z-score displays the actual mean and sample-standard-deviation bounds; IQR displays the median and quartile fences. Both-method flags preserve both evidence records. These descriptive references differ from the pre-aggregation pipeline's trailing-six-month z-scores.</p>
+<p><strong>Report corrections:</strong> December 2025 NRR is 112.348% (stored ratio 1.12348), MRR growth is 1.8346%, and API/report health score is 73.5/100. Starting MRR plus net movements reconciles to ending MRR; the ending balance is not the starting balance. Targets and score scales are illustrative. Current nominal 95% forecast bands are residual-based approximations with unvalidated coverage. Historical standalone code examples can differ from the current API; regenerate retained PDFs with <code>backend/regenerate_reports.py</code>, not an exploratory payload.</p>
+<p><strong>Revisión:</strong> escenario sintético; celdas sin ejecutar. Las cifras actuales se verificaron por separado. Los límites de anomalía son referencias descriptivas, no pronósticos; las metas y ponderaciones son supuestos. El filtro de segmento no modifica los resultados agregados del informe.</p>
 </div>
 </div>
 </div>
@@ -7831,17 +7845,17 @@ segment_metrics.parquet ──┘         │                    │            
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-python"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">plotly.graph_objects</span> <span class="k">as</span> <span class="nn">go</span>
-<span class="kn">from</span> <span class="nn">plotly.subplots</span> <span class="kn">import</span> <span class="n">make_subplots</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.graph_objects</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">go</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">plotly.subplots</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_subplots</span>
 
 <span class="c1"># Add backend to path so we can import the report modules</span>
 <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="s2">"../backend"</span><span class="p">))</span>
 
-<span class="kn">from</span> <span class="nn">kpi_backend.analytics_engine</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kpi_backend.analytics_engine</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">detect_anomalies_zscore</span><span class="p">,</span>
     <span class="n">detect_anomalies_iqr</span><span class="p">,</span>
     <span class="n">exponential_smoothing_forecast</span><span class="p">,</span>
@@ -7849,13 +7863,13 @@ segment_metrics.parquet ──┘         │                    │            
     <span class="n">traffic_light_status</span><span class="p">,</span>
     <span class="n">mrr_waterfall</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">kpi_backend.commentary</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kpi_backend.commentary</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">generate_executive_summary</span><span class="p">,</span>
     <span class="n">generate_revenue_commentary</span><span class="p">,</span>
     <span class="n">generate_customer_commentary</span><span class="p">,</span>
     <span class="n">generate_anomaly_narrative</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">kpi_backend.report_generator</span> <span class="kn">import</span> <span class="n">generate_report</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kpi_backend.report_generator</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_report</span>
 
 <span class="c1"># Color palette</span>
 <span class="n">COLORS</span> <span class="o">=</span> <span class="p">{</span>
@@ -7886,7 +7900,7 @@ segment_metrics.parquet ──┘         │                    │            
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <h2 id="1.-Step-1:-Build-the-Metrics-Payload">1. Step 1: Build the Metrics Payload<a class="anchor-link" href="#1.-Step-1:-Build-the-Metrics-Payload">¶</a></h2><p>The report generator expects a structured <code>data</code> dict with specific keys. This step extracts the latest month's metrics and computes derived values (health score, traffic lights, MoM/YoY changes).</p>
-<p>This mirrors what the FastAPI <code>/report/generate</code> endpoint does in production (<code>backend/kpi_backend/routers/report.py</code>).</p>
+<p>This illustrates payload assembly. Use <code>backend/regenerate_reports.py</code> for the current endpoint's exact KPI definitions, targets and anomaly scan.</p>
 </div>
 </div>
 </div>
@@ -8046,30 +8060,14 @@ segment_metrics.parquet ──┘         │                    │            
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-python"><pre><span></span><span class="c1"># Run anomaly detection across key metrics</span>
-<span class="n">month_labels</span> <span class="o">=</span> <span class="n">monthly</span><span class="p">[</span><span class="s2">"month"</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">m</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%Y-%m"</span><span class="p">))</span>
-<span class="n">anomaly_metrics</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"mrr"</span><span class="p">,</span> <span class="s2">"logo_churn_rate"</span><span class="p">,</span> <span class="s2">"nps"</span><span class="p">,</span> <span class="s2">"nrr"</span><span class="p">,</span> <span class="s2">"cac"</span><span class="p">]</span>
+<div class="highlight hl-python"><pre><span></span><span class="c1"># Use the same 12-metric union scan as the current API and retained reports.</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kpi_backend.analytics_engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">scan_anomalies</span>
 
-<span class="n">all_anomalies</span> <span class="o">=</span> <span class="p">[]</span>
-<span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">anomaly_metrics</span><span class="p">:</span>
-    <span class="n">anoms</span> <span class="o">=</span> <span class="n">detect_anomalies_zscore</span><span class="p">(</span>
-        <span class="n">monthly</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span>
-        <span class="n">index_labels</span><span class="o">=</span><span class="n">month_labels</span><span class="p">,</span>
-        <span class="n">threshold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">anoms</span><span class="p">:</span>
-        <span class="n">a</span><span class="p">[</span><span class="s2">"metric"</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span>
-    <span class="n">all_anomalies</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">anoms</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Detected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_anomalies</span><span class="p">)</span><span class="si">}</span><span class="s2"> anomalies across </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">anomaly_metrics</span><span class="p">)</span><span class="si">}</span><span class="s2"> metrics:"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">"-"</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">all_anomalies</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">a</span><span class="p">[</span><span class="s1">'metric'</span><span class="p">]</span><span class="si">:</span><span class="s2">20s</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">a</span><span class="p">[</span><span class="s1">'month'</span><span class="p">]</span><span class="si">}</span><span class="s2">  z=</span><span class="si">{</span><span class="n">a</span><span class="p">[</span><span class="s1">'zscore'</span><span class="p">]</span><span class="si">:</span><span class="s2">+.2f</span><span class="si">}</span><span class="s2">  (</span><span class="si">{</span><span class="n">a</span><span class="p">[</span><span class="s1">'severity'</span><span class="p">]</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-
-<span class="c1"># Generate anomaly narrative</span>
+<span class="n">all_anomalies</span> <span class="o">=</span> <span class="n">scan_anomalies</span><span class="p">(</span><span class="n">monthly_kpis</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Detected </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_anomalies</span><span class="p">)</span><span class="si">}</span><span class="s2"> unique metric-month anomalies"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">anomaly</span> <span class="ow">in</span> <span class="n">all_anomalies</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">anomaly</span><span class="p">[</span><span class="s2">"metric"</span><span class="p">],</span> <span class="n">anomaly</span><span class="p">[</span><span class="s2">"month"</span><span class="p">],</span> <span class="n">anomaly</span><span class="p">[</span><span class="s2">"method"</span><span class="p">],</span> <span class="n">anomaly</span><span class="p">[</span><span class="s2">"evidence"</span><span class="p">])</span>
 <span class="n">anomaly_narrative</span> <span class="o">=</span> <span class="n">generate_anomaly_narrative</span><span class="p">(</span><span class="n">all_anomalies</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="s2">"en"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">ANOMALY NARRATIVE:"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">anomaly_narrative</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -8138,7 +8136,7 @@ segment_metrics.parquet ──┘         │                    │            
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5.-Step-5:-Chart-Export-(Plotly--%3E-Static-Images)">5. Step 5: Chart Export (Plotly -&gt; Static Images)<a class="anchor-link" href="#5.-Step-5:-Chart-Export-(Plotly--%3E-Static-Images)">¶</a></h2><p>Executive PDFs need static images, not interactive HTML. The pipeline renders plotly figures to PNG via <code>fig.write_image()</code> (using the kaleido engine when available, or falling back to orca).</p>
+<h2 id="5.-Step-5:-Chart-Export-(Plotly--%3E-Static-Images)">5. Step 5: Chart Export (Plotly -&gt; Static Images)<a class="anchor-link" href="#5.-Step-5:-Chart-Export-(Plotly--%3E-Static-Images)">¶</a></h2><p>Executive PDFs need static images, not interactive HTML. The pipeline renders plotly figures to PNG via <code>fig.write_image()</code> (using Kaleido with compatible Chrome; there is no implemented Orca fallback).</p>
 <p>The <code>report_generator.py</code> handles this via <code>_render_chart_png()</code>, which writes to a temp file and embeds it in the PDF.</p>
 <p>Let's demonstrate chart creation for the report -- the MRR waterfall and MRR trend with forecast.</p>
 </div>
@@ -8295,7 +8293,8 @@ segment_metrics.parquet ──┘         │                    │            
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-python"><pre><span></span><span class="c1"># Build KPI cards for the report table</span>
-<span class="c1"># Define KPI definitions matching the dashboard</span>
+<span class="c1"># Historical assembly example: targets below differ from the current API.</span>
+<span class="c1"># Do not use this payload to overwrite retained reports; run backend/regenerate_reports.py.</span>
 <span class="n">KPI_DEFS</span> <span class="o">=</span> <span class="p">[</span>
     <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="s2">"mrr"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"MRR"</span><span class="p">,</span> <span class="s2">"col"</span><span class="p">:</span> <span class="s2">"mrr"</span><span class="p">,</span> <span class="s2">"fmt"</span><span class="p">:</span> <span class="s2">"currency"</span><span class="p">,</span> <span class="s2">"target"</span><span class="p">:</span> <span class="mi">500_000</span><span class="p">,</span> <span class="s2">"hib"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"cat"</span><span class="p">:</span> <span class="s2">"Revenue"</span><span class="p">},</span>
     <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="s2">"arr"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"ARR"</span><span class="p">,</span> <span class="s2">"col"</span><span class="p">:</span> <span class="s2">"arr"</span><span class="p">,</span> <span class="s2">"fmt"</span><span class="p">:</span> <span class="s2">"currency"</span><span class="p">,</span> <span class="s2">"target"</span><span class="p">:</span> <span class="mi">6_000_000</span><span class="p">,</span> <span class="s2">"hib"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"cat"</span><span class="p">:</span> <span class="s2">"Revenue"</span><span class="p">},</span>
@@ -8307,11 +8306,11 @@ segment_metrics.parquet ──┘         │                    │            
     <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="s2">"rule_of_40"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"Rule of 40"</span><span class="p">,</span> <span class="s2">"col"</span><span class="p">:</span> <span class="s2">"rule_of_40"</span><span class="p">,</span> <span class="s2">"fmt"</span><span class="p">:</span> <span class="s2">"pct_pts"</span><span class="p">,</span> <span class="s2">"target"</span><span class="p">:</span> <span class="mi">40</span><span class="p">,</span> <span class="s2">"hib"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"cat"</span><span class="p">:</span> <span class="s2">"Health"</span><span class="p">},</span>
 <span class="p">]</span>
 
-<span class="k">def</span> <span class="nf">fmt_value</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">fmt</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fmt_value</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">fmt</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">fmt</span> <span class="o">==</span> <span class="s2">"currency"</span><span class="p">:</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">"$</span><span class="si">{</span><span class="n">val</span><span class="si">:</span><span class="s2">,.0f</span><span class="si">}</span><span class="s2">"</span>
     <span class="k">elif</span> <span class="n">fmt</span> <span class="o">==</span> <span class="s2">"pct"</span><span class="p">:</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">val</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%"</span> <span class="k">if</span> <span class="n">val</span> <span class="o">&lt;=</span> <span class="mi">2</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">val</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%"</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">val</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%"</span>
     <span class="k">elif</span> <span class="n">fmt</span> <span class="o">==</span> <span class="s2">"int"</span><span class="p">:</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">val</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span>
     <span class="k">elif</span> <span class="n">fmt</span> <span class="o">==</span> <span class="s2">"ratio"</span><span class="p">:</span>
@@ -8380,7 +8379,7 @@ segment_metrics.parquet ──┘         │                    │            
 <span class="p">}</span>
 
 <span class="c1"># Generate the PDF -- English version</span>
-<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 <span class="n">pdf_bytes_en</span> <span class="o">=</span> <span class="n">generate_report</span><span class="p">(</span><span class="n">report_data</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="s2">"en"</span><span class="p">)</span>
 <span class="n">elapsed_en</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
@@ -8390,9 +8389,10 @@ segment_metrics.parquet ──┘         │                    │            
 <span class="n">pdf_bytes_es</span> <span class="o">=</span> <span class="n">generate_report</span><span class="p">(</span><span class="n">report_data</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="s2">"es"</span><span class="p">)</span>
 <span class="n">elapsed_es</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
 
-<span class="c1"># Save locally for inspection</span>
+<span class="c1"># Save separately: exploratory payload uses historical targets.</span>
+<span class="c1"># Retained kpi_report_* artifacts must be built with backend/regenerate_reports.py.</span>
 <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">"../reports"</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">en_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"../reports/kpi_report_</span><span class="si">{</span><span class="n">period</span><span class="p">[</span><span class="s1">'end'</span><span class="p">]</span><span class="si">}</span><span class="s2">_en.pdf"</span>
+<span class="n">en_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"../reports/walkthrough_kpi_report_</span><span class="si">{</span><span class="n">period</span><span class="p">[</span><span class="s1">'end'</span><span class="p">]</span><span class="si">}</span><span class="s2">_en.pdf"</span>
 <span class="n">es_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"../reports/kpi_report_</span><span class="si">{</span><span class="n">period</span><span class="p">[</span><span class="s1">'end'</span><span class="p">]</span><span class="si">}</span><span class="s2">_es.pdf"</span>
 
 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">en_path</span><span class="p">,</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
@@ -8550,66 +8550,9 @@ segment_metrics.parquet ──┘         │                    │            
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="Summary">Summary<a class="anchor-link" href="#Summary">¶</a></h2><h3 id="Pipeline-Architecture">Pipeline Architecture<a class="anchor-link" href="#Pipeline-Architecture">¶</a></h3><p>The automated executive report generation pipeline consists of 6 stages:</p>
-<ol>
-<li><strong>Data Loading</strong> -- Read parquet files with 24 months of SaaS metrics</li>
-<li><strong>KPI Computation</strong> -- Derive health scores, traffic lights, MoM/YoY changes</li>
-<li><strong>Anomaly Detection</strong> -- Z-score analysis flagging unusual values</li>
-<li><strong>Forecasting</strong> -- Holt-Winters exponential smoothing with 95% confidence intervals</li>
-<li><strong>NLG Commentary</strong> -- Template-based bilingual narrative generation</li>
-<li><strong>PDF Assembly</strong> -- fpdf2-based document with charts, tables, and narrative</li>
-</ol>
-<h3 id="Key-Design-Decisions">Key Design Decisions<a class="anchor-link" href="#Key-Design-Decisions">¶</a></h3><table>
-<thead>
-<tr>
-<th>Decision</th>
-<th>Choice</th>
-<th>Rationale</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>PDF library</td>
-<td>fpdf2</td>
-<td>Pure Python, no system deps, fast</td>
-</tr>
-<tr>
-<td>NLG approach</td>
-<td>Template-based</td>
-<td>Deterministic, auditable, bilingual</td>
-</tr>
-<tr>
-<td>Chart rendering</td>
-<td>plotly -&gt; PNG (kaleido)</td>
-<td>Same library as dashboard</td>
-</tr>
-<tr>
-<td>Forecasting</td>
-<td>Holt-Winters</td>
-<td>Works with small samples (24 months)</td>
-</tr>
-<tr>
-<td>Anomaly detection</td>
-<td>Z-score (z=2.0)</td>
-<td>Simple, interpretable for executives</td>
-</tr>
-</tbody>
-</table>
-<h3 id="Production-Usage">Production Usage<a class="anchor-link" href="#Production-Usage">¶</a></h3><p>In production, the pipeline runs via the FastAPI endpoint <code>GET /report/generate</code>:</p>
-<ul>
-<li>Query parameters: <code>segment</code>, <code>start_month</code>, <code>end_month</code>, <code>lang</code>, <code>sections</code></li>
-<li>Returns: Streaming PDF download</li>
-<li>Latency: &lt;1 second for full report (without chart rendering)</li>
-</ul>
-<h3 id="Extending-the-Pipeline">Extending the Pipeline<a class="anchor-link" href="#Extending-the-Pipeline">¶</a></h3><p>To add a new section to the report:</p>
-<ol>
-<li>Add a commentary function in <code>commentary.py</code></li>
-<li>Add section rendering logic in <code>report_generator.py</code></li>
-<li>Include the section name in the <code>all_sections</code> list</li>
-<li>The FastAPI endpoint automatically picks it up</li>
-</ol>
-<hr/>
-<p><em>Report generator source: <code>backend/kpi_backend/report_generator.py</code> | Commentary: <code>backend/kpi_backend/commentary.py</code></em></p>
+<h2 id="Current-report-workflow">Current report workflow<a class="anchor-link" href="#Current-report-workflow">¶</a></h2><p>The canonical regeneration command is <code>backend/regenerate_reports.py</code> from this project (or the root-relative command in the README). It uses the same report endpoint as the API, including all 12 anomaly metrics and both detectors. The walkthrough below is an assembly example, not the source of the retained PDFs.</p>
+<p>Plain Python commentary generates bilingual text. Plotly/Kaleido supplies static images and needs a compatible Chrome installation. Rendering latency is environment-dependent; no reporting-time savings or zero-error guarantee is claimed.</p>
+<p>Company-wide monthly data feeds the PDF. Date filters apply; the accepted segment parameter does not change its population. Targets and health scores are illustrative. Read the September 2026 review note for unit and baseline corrections.</p>
 </div>
 </div>
 </div>

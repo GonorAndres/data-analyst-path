@@ -17,11 +17,11 @@ Which customer cohorts retain best, what first-purchase behaviors predict long-t
    **0.91x** as much (R$146 vs R$161), and their *first* order was 10% smaller than a
    one-and-done customer's. The high spenders are disproportionately the ones who never come back.
 
-2. **The barrier is entirely the second purchase**: 3.0% reach a 2nd order, but 8.1% of those reach a
+2. **The largest observed drop is before the second purchase**: 3.0% reach a 2nd order, but 8.1% of those reach a
    3rd and 20.6% of *those* reach a 4th. Conversion recovers sharply once someone returns once, so
-   there is one step to fix rather than a leaky funnel.
+   later-stage percentages have smaller, selected denominators; they do not establish one causal barrier to fix.
 
-3. **Repurchase decelerates but never stops**: the Kaplan-Meier curve loses 1.23pp in the first
+3. **Repurchase remains observable during follow-up**: the Kaplan-Meier curve loses 1.23pp in the first
    quarter and ~0.6pp in every quarter after, out to two years. This **corrects an earlier reading**
    of this same dataset, which called the return probability "practically nil" after six months; the
    curve does not support that. Median survival does not exist — S(t) plateaus near 95%. Among
@@ -41,8 +41,8 @@ Which customer cohorts retain best, what first-purchase behaviors predict long-t
    observation, not an identified effect — São Paulo differs from the north of Brazil in far more
    than logistics.
 
-7. **Voucher payment is the strongest positive activation signal** (OR 1.42, interval excluding 1).
-   Of 15 first-order features tested, 10 have a 95% interval that excludes no-effect.
+7. **Voucher payment is positively associated with repurchase** (adjusted OR 1.424; 95% CI 1.111–1.826).
+   This is an observational association in odds, not a causal probability multiplier. Multiple feature checks are exploratory.
 
 ## Data Source
 
@@ -70,6 +70,8 @@ Which customer cohorts retain best, what first-purchase behaviors predict long-t
 **Differentiation from Project 00**: Project 00 explores Olist's *funnel and conversion* through an
 editorial dashboard. This project is the statistical one -- confidence intervals, survival curves,
 log-rank tests, chi-squared, logistic-regression odds ratios -- with the notebooks published alongside.
+
+**Population reconciliation:** `/olist/` retains all order statuses; `/cohorts/` uses delivered orders only, with purchases from 2016-09-15 through 2018-08-29. Both use `customer_unique_id`, but their totals and cohort windows are not interchangeable. Payment totals include freight and are not platform commission or profit. The survival table has 92,523 eligible rows, a separate denominator. [Evidence ledger](../../docs/evidence-audit.md).
 
 ## Decisions & Trade-offs
 

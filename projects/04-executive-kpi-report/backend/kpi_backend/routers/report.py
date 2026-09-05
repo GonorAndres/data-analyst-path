@@ -9,7 +9,7 @@ import io
 from kpi_backend import data_loader
 from kpi_backend.analytics_engine import (
     compute_health_score,
-    detect_anomalies_zscore,
+    scan_anomalies,
     exponential_smoothing_forecast,
     mrr_waterfall,
     traffic_light_status,
@@ -88,7 +88,7 @@ def generate_pdf_report(
             "change_mom": round(mom, 4),
             "change_yoy": round(yoy, 4),
             "traffic_light": tl,
-            "target": defn["target"],
+            "target": _fmt_value(defn["target"], defn["fmt"]),
             "category": defn["cat"],
         })
 
@@ -96,22 +96,7 @@ def generate_pdf_report(
     wf = mrr_waterfall(last_row)
 
     # Anomalies
-    anomalies = []
-    if "month" in source.columns:
-        month_labels = source["month"].apply(
-            lambda m: m.strftime("%Y-%m") if hasattr(m, "strftime") else str(m)
-        )
-    else:
-        month_labels = None
-
-    for col in ["mrr", "logo_churn_rate", "nps", "nrr", "cac"]:
-        if col in source.columns:
-            anoms = detect_anomalies_zscore(
-                source[col].astype(float), index_labels=month_labels,
-            )
-            for a in anoms:
-                a["metric"] = col
-            anomalies.extend(anoms)
+    anomalies = scan_anomalies(source)
 
     # Forecast
     forecast_data = {}

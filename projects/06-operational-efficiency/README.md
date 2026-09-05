@@ -8,11 +8,11 @@ Where are the bottlenecks in NYC's 311 service request pipeline, which agencies 
 
 ## Key Findings
 
-1. **SLA Compliance**: Overall compliance rate calculated across all agencies with defined SLAs, with significant variance between agencies
-2. **Pareto Concentration**: A small fraction of complaint types generates ~80% of total volume -- targeting these yields outsized operational gains
-3. **Bottleneck Detection**: Specific agency + complaint type combinations show resolution times 3-5x the city median
-4. **Geographic Patterns**: Borough-level analysis reveals differential service quality across NYC's five boroughs
-5. **Temporal Patterns**: Clear day-of-week and hourly seasonality in request volume, with implications for staffing
+- Local processed data was unavailable in the 2026-09-05 audit. No volume, compliance percentage, or delay multiple is verified here.
+- **SLA denominator:** only records with both a closed date and due date can be classified. Missing due dates are unknown, not compliant.
+- **Resolution denominator:** elapsed time is available for closed requests. Open requests are censored; closed cases alone can hide a backlog.
+- **Flow interpretation:** Sankey links organize agency, complaint, and current status. They do not reconstruct timestamped transitions or measure time in an intermediate stage.
+- Agency and borough differences can reflect complaint mix and reporting practices; they do not establish a staffing intervention's effect.
 
 ## Data Source
 
@@ -102,9 +102,24 @@ frontend source and configuration have been archived outside the repository and
 removed; backend, public artifacts, and research are preserved. Hosting retirement
 and publication are separate operations.
 
+## Recommendations
+
+1. Publish eligible-case counts and missing-deadline coverage beside compliance rates.
+2. Compare similar complaint categories and include open-case age before prioritizing an agency.
+3. Evaluate staffing changes as measurable pilots; no savings or resolution improvement has been demonstrated.
+
+## Decisions & Trade-offs
+
+| Decision | Alternative | Reason |
+|---|---|---|
+| Treat unavailable deadlines as unknown | Count them as compliant | A missing deadline cannot establish compliance. |
+| Present status composition | Claim event-log process mining | Current status is not a transition history. |
+
+[Evidence ledger](../../docs/evidence-audit.md).
+
 ## Skills Demonstrated
 
-- Process mining and bottleneck identification (Sankey flow analysis)
+- Status-composition analysis and bottleneck investigation (Sankey visualization)
 - SLA compliance analysis with statistical testing (z-tests, Bonferroni correction)
 - Pareto analysis (80/20 rule) for operational prioritization
 - Custom D3.js data visualizations (not off-the-shelf chart libraries)

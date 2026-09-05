@@ -8,11 +8,11 @@ This project applies actuarial reserving methods (chain-ladder, Bornhuetter-Ferg
 
 ## Key Findings
 
-- **Private Passenger Auto** and **Product Liability** are the only profitable lines (combined ratio < 100%). Auto's high volume smooths volatility; product liability benefits from favorable reserve development.
-- **Medical Malpractice** shows the highest loss ratio (~280%) with extremely long development tails -- claims take 3-5x longer to report than auto claims, creating significant IBNR uncertainty.
-- **Paid loss development** factors range from 1.8x (auto, lag 1-2) to 6.1x (med mal, lag 1-2), demonstrating why actuaries need 10+ years of development data for long-tail lines.
-- **Chain-Ladder vs. Bornhuetter-Ferguson**: CL produces larger IBNR estimates for recent accident years where little data is available; BF moderates these projections with a-priori loss ratios -- a critical difference for regulatory reporting.
-- The portfolio's total IBNR (paid CL) is ~$20.4M across all LOBs, with Private Passenger Auto contributing 76% due to its volume.
+- **Two evidence types:** Schedule P triangles are regulatory aggregates; individual claim severity, frequency, and reporting-lag views use generated claims and do not describe actual policyholders.
+- Paid Chain-Ladder estimates **ultimate minus paid**, including outstanding case reserves as well as IBNR. Incurred Chain-Ladder estimates **ultimate minus reported incurred**. These quantities must not share an unexplained IBNR label.
+- Combined ratios add an **assumed 30% expense ratio**. Loss ratios below 100% alone do not establish underwriting profitability.
+- Chain-Ladder and Bornhuetter-Ferguson are alternative point estimates. Their difference is method sensitivity, not a confidence interval or evidence of reserve adequacy.
+- Local processed insurance parquet was unavailable in the 2026-09-05 audit. The case uses a separately identified API snapshot; earlier dollar totals and LOB rankings are withdrawn here pending independent reproduction and monetary-unit verification.
 
 ## Data Source
 
@@ -70,10 +70,19 @@ The dashboard at `http://localhost:3000/insurance/` provides:
 
 ## Recommendations
 
-1. **Re-evaluate Medical Malpractice and Workers' Comp pricing**: Both lines show combined ratios > 200%, suggesting systematic under-pricing or adverse selection.
-2. **Implement tail factors for long-tail lines**: Our 10-year development period may be insufficient for med mal and product liability.
-3. **Monitor paid-to-incurred ratio as an early warning**: When case reserves diverge significantly from historical patterns, it signals potential reserve inadequacy.
-4. **Quantify reserve uncertainty**: The CL and BF methods produce point estimates. A range of estimates (e.g., Mack's method) would better inform capital allocation decisions.
+1. Reproduce selected-company triangles at the stated valuation date and verify units before comparing reserve methods.
+2. Evaluate tail development, company mix, and the assumed 30% expense ratio before making pricing recommendations.
+3. Keep simulated claim-level illustrations separate from observed regulatory evidence.
+4. Assess uncertainty statistically; do not interpret the CL/BF gap as a confidence interval.
+
+## Decisions & Trade-offs
+
+| Decision | Alternative | Reason |
+|---|---|---|
+| Separate observed triangles and simulated claims | Blend them into one finding | The sources support different inferences. |
+| Identify method and expense assumptions | Publish unconditional profitability rankings | Historical selected-company aggregates do not establish current profitability. |
+
+[Evidence ledger](../../docs/evidence-audit.md).
 
 ## How to Reproduce
 

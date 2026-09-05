@@ -1,0 +1,18 @@
+[Unit]
+Description=Data analyst portfolio preview for exe.dev
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/repos/data-analyst-path
+Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment=WRANGLER_SEND_METRICS=false
+ExecStart=%h/.local/bin/npm run preview:vm
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+KillMode=control-group
+
+[Install]
+WantedBy=default.target

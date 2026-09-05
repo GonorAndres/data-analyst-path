@@ -1,5 +1,6 @@
 'use client'
 import { useProjectText } from '@/features/market/components/useProjectText'
+import { usePreferences } from '@/components/SitePreferences'
 
 interface ComparisonRow {
   accident_year: number
@@ -18,6 +19,7 @@ interface CLvsBFData {
 interface Props {
   data: CLvsBFData | undefined
   isLoading: boolean
+  basis: 'paid' | 'incurred'
 }
 
 function formatAmount(v: number): string {
@@ -26,8 +28,10 @@ function formatAmount(v: number): string {
   return `$${v.toFixed(0)}`
 }
 
-export function CLvsBFTable({ data, isLoading }: Props) {
+export function CLvsBFTable({ data, isLoading, basis }: Props) {
   const tx = useProjectText()
+  const { t } = usePreferences()
+  const residualLabel = basis === 'paid' ? t('Projected unpaid', 'Pendiente proyectado') : t('IBNR estimate', 'IBNR estimado')
   if (isLoading || !data) {
     return <div className="animate-pulse bg-surface rounded" style={{ height: 200 }} />
   }
@@ -40,8 +44,16 @@ export function CLvsBFTable({ data, isLoading }: Props) {
     )
   }
 
-  const totalCL = data.comparison.reduce((s, r) => s + r.cl_ibnr, 0)
-  const totalBF = data.comparison.reduce((s, r) => s + r.bf_ibnr, 0)
+  // Use the same observed baseline even when an older API returns paid BF
+  // residuals alongside incurred CL values.
+  const comparison = data.comparison.map(row => {
+    const observed = row.cl_ultimate - row.cl_ibnr
+    const bfResidual = row.bf_ultimate - observed
+    const difference = bfResidual - row.cl_ibnr
+    return { ...row, bf_ibnr: bfResidual, difference, pct_diff: row.cl_ibnr === 0 ? 0 : difference / row.cl_ibnr * 100 }
+  })
+  const totalCL = comparison.reduce((s, r) => s + r.cl_ibnr, 0)
+  const totalBF = comparison.reduce((s, r) => s + r.bf_ibnr, 0)
   const totalDiff = totalBF - totalCL
   const totalPct = totalCL !== 0 ? (totalDiff / totalCL * 100) : 0
 
@@ -51,14 +63,14 @@ export function CLvsBFTable({ data, isLoading }: Props) {
         <thead>
           <tr className="border-b border-border">
             <th className="text-left py-2 pr-4 text-muted font-medium">{tx("Ano")}</th>
-            <th className="text-right py-2 px-4 text-muted font-medium">IBNR (CL)</th>
-            <th className="text-right py-2 px-4 text-muted font-medium">IBNR (BF)</th>
+            <th className="text-right py-2 px-4 text-muted font-medium">{residualLabel} (CL)</th>
+            <th className="text-right py-2 px-4 text-muted font-medium">{residualLabel} (BF)</th>
             <th className="text-right py-2 px-4 text-muted font-medium">{tx("Diferencia")}</th>
             <th className="text-right py-2 pl-4 text-muted font-medium">{tx("% Dif")}</th>
           </tr>
         </thead>
         <tbody>
-          {data.comparison.map(row => (
+          {comparison.map(row => (
             <tr key={row.accident_year} className="border-b border-border/50">
               <td className="py-1.5 pr-4 tabular-nums">{row.accident_year}</td>
               <td className="py-1.5 px-4 text-right tabular-nums">{formatAmount(row.cl_ibnr)}</td>
@@ -67,7 +79,7 @@ export function CLvsBFTable({ data, isLoading }: Props) {
                 {row.difference > 0 ? '+' : ''}{formatAmount(row.difference)}
               </td>
               <td className={`py-1.5 pl-4 text-right tabular-nums ${row.pct_diff > 0 ? 'text-[var(--ratio-loss)]' : row.pct_diff < 0 ? 'text-[var(--ratio-profitable)]' : ''}`}>
-                {row.pct_diff > 0 ? '+' : ''}{row.pct_diff.toFixed(1)}%
+                {row.cl_ibnr === 0 ? '—' : `${row.pct_diff > 0 ? '+' : ''}${row.pct_diff.toFixed(1)}%`}
               </td>
             </tr>
           ))}
@@ -81,7 +93,7 @@ export function CLvsBFTable({ data, isLoading }: Props) {
               {totalDiff > 0 ? '+' : ''}{formatAmount(totalDiff)}
             </td>
             <td className={`py-2 pl-4 text-right tabular-nums ${totalPct > 0 ? 'text-[var(--ratio-loss)]' : totalPct < 0 ? 'text-[var(--ratio-profitable)]' : ''}`}>
-              {totalPct > 0 ? '+' : ''}{totalPct.toFixed(1)}%
+              {totalCL === 0 ? '—' : `${totalPct > 0 ? '+' : ''}${totalPct.toFixed(1)}%`}
             </td>
           </tr>
         </tfoot>

@@ -26,14 +26,14 @@ def generate_executive_summary(metrics: Dict, lang: str = "en") -> str:
     """
     health = metrics.get("health_score", 0)
     mrr = metrics.get("mrr", 0)
-    mrr_growth = metrics.get("mrr_growth_rate", 0)
+    mrr_growth = metrics.get("mrr_growth_rate", metrics.get("mom_change_mrr", 0))
     nrr = metrics.get("nrr", metrics.get("net_revenue_retention", 0))
     churn = metrics.get("logo_churn_rate", 0)
     nps = metrics.get("nps", 0)
 
     mrr_fmt = _fmt_currency(mrr)
     mrr_g_pct = _fmt_pct(mrr_growth)
-    nrr_pct = _fmt_pct(nrr) if nrr <= 2 else f"{nrr:.0f}%"
+    nrr_pct = _fmt_pct(nrr)
     churn_pct = _fmt_pct(churn)
 
     # Determine overall tone
@@ -52,8 +52,8 @@ def generate_executive_summary(metrics: Dict, lang: str = "en") -> str:
         mrr_dir_en = f"MRR grew {mrr_g_pct} month-over-month to {mrr_fmt}, signaling healthy top-line momentum."
         mrr_dir_es = f"El MRR crecio {mrr_g_pct} mes a mes hasta {mrr_fmt}, indicando un impulso positivo en ingresos."
     elif mrr_growth >= 0:
-        mrr_dir_en = f"MRR reached {mrr_fmt} with {mrr_g_pct} growth, indicating a stable but slowing trajectory."
-        mrr_dir_es = f"El MRR alcanzo {mrr_fmt} con crecimiento de {mrr_g_pct}, indicando estabilidad pero desaceleracion."
+        mrr_dir_en = f"MRR reached {mrr_fmt} with {mrr_g_pct} month-over-month growth."
+        mrr_dir_es = f"El MRR alcanzo {mrr_fmt} con crecimiento mensual de {mrr_g_pct}."
     else:
         mrr_dir_en = f"MRR declined {mrr_g_pct} to {mrr_fmt}, requiring immediate attention."
         mrr_dir_es = f"El MRR disminuyo {mrr_g_pct} a {mrr_fmt}, lo cual requiere atencion inmediata."
@@ -183,7 +183,7 @@ def generate_revenue_commentary(data: Dict, lang: str = "en") -> str:
 
     mrr_fmt = _fmt_currency(mrr)
     arr_fmt = _fmt_currency(arr)
-    nrr_pct = _fmt_pct(nrr) if nrr <= 2 else f"{nrr:.0f}%"
+    nrr_pct = _fmt_pct(nrr)
 
     net_expansion = expansion - contraction - churned
     net_dir = "positive" if net_expansion > 0 else "negative"
@@ -280,11 +280,5 @@ def _fmt_currency(value: float) -> str:
 
 
 def _fmt_pct(value: float) -> str:
-    """Format a decimal ratio as a percentage string.
-
-    Values <= 1 are treated as ratios (e.g. 0.032 -> '3.2%').
-    Values > 1 are treated as already-percentage (e.g. 45 -> '45.0%').
-    """
-    if abs(value) <= 1:
-        return f"{value * 100:.1f}%"
-    return f"{value:.1f}%"
+    """Format a decimal rate; ratios above one remain rates (NRR 1.12 = 112%)."""
+    return f"{value * 100:.1f}%"

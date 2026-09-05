@@ -21,6 +21,8 @@ export function useSection(defaultSection: string, validSections: readonly strin
   const select = useCallback((next: string) => {
     if (!validSections.includes(next)) return
     const url = new URL(window.location.href)
+    // Legacy section bookmarks must stay in exploration when selecting its default tab.
+    url.searchParams.set('view', 'explore')
     if (next === defaultSection) url.searchParams.delete('section')
     else url.searchParams.set('section', next)
     if (url.href === window.location.href) return

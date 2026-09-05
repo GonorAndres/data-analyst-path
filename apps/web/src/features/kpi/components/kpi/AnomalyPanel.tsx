@@ -66,7 +66,7 @@ function AnomalyTimeline({ anomalies }: { anomalies: AnomalyItem[] }) {
       <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
         <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} type="category" allowDuplicatedCategory={false} />
-        <YAxis dataKey="z_score" name="Z-Score" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} label={{ value: 'Z-Score', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'var(--chart-tick)' }} />
+        <YAxis dataKey="z_score" name="|z|" tick={{ fontSize: 11, fill: 'var(--chart-tick)' }} label={{ value: '|z|', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'var(--chart-tick)' }} />
         <ZAxis dataKey="z_score" range={[50, 400]} />
         <Tooltip
           contentStyle={{
@@ -91,6 +91,7 @@ type SortField = 'metric' | 'month' | 'z_score' | 'severity'
 type SortDir = 'asc' | 'desc'
 
 function AnomalyTable({ anomalies, t }: { anomalies: AnomalyItem[]; t: (k: any) => string }) {
+  const { language } = useLanguage()
   const [sortField, setSortField] = useState<SortField>('z_score')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -136,7 +137,7 @@ function AnomalyTable({ anomalies, t }: { anomalies: AnomalyItem[]; t: (k: any) 
             <SortHeader field="metric" label={t('anomaly.col_metric')} />
             <SortHeader field="month" label={t('anomaly.col_month')} />
             <th className="text-right py-2 px-3 text-[var(--fg-muted)] text-xs font-semibold">{t('anomaly.col_value')}</th>
-            <th className="text-right py-2 px-3 text-[var(--fg-muted)] text-xs font-semibold">{t('anomaly.col_expected')}</th>
+            <th className="text-right py-2 px-3 text-[var(--fg-muted)] text-xs font-semibold">{language === 'es' ? 'Referencia y límites' : 'Baseline and bounds'}</th>
             <SortHeader field="z_score" label={t('anomaly.col_zscore')} />
             <SortHeader field="severity" label={t('anomaly.col_severity')} />
           </tr>
@@ -147,7 +148,15 @@ function AnomalyTable({ anomalies, t }: { anomalies: AnomalyItem[]; t: (k: any) 
               <td className="py-2 px-3 text-[var(--fg-primary)] font-medium">{metricLabel(a.metric, t)}</td>
               <td className="py-2 px-3 text-[var(--fg-secondary)]">{a.month}</td>
               <td className="text-right py-2 px-3 tabular-nums">{a.value.toLocaleString()}</td>
-              <td className="text-right py-2 px-3 tabular-nums text-[var(--fg-muted)]">{a.expected.toLocaleString()}</td>
+              <td className="text-right py-2 px-3 tabular-nums text-[var(--fg-muted)]">
+                {a.evidence?.length ? a.evidence.map((e) => (
+                  <div key={e.method} className="whitespace-nowrap">
+                    <span className="font-medium">{e.method === 'zscore' ? 'Z-score' : 'IQR'}</span>
+                    {' · '}{e.baseline_kind === 'mean' ? (language === 'es' ? 'media' : 'mean') : (language === 'es' ? 'mediana' : 'median')}: {e.expected.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                    <div className="text-xs">[{e.lower_bound.toLocaleString(undefined, { maximumFractionDigits: 4 })}, {e.upper_bound.toLocaleString(undefined, { maximumFractionDigits: 4 })}]</div>
+                  </div>
+                )) : a.expected.toLocaleString()}
+              </td>
               <td className="text-right py-2 px-3 tabular-nums font-medium">{a.z_score.toFixed(2)}</td>
               <td className="py-2 px-3">
                 <StatusBadge status={a.severity} label={t(`anomaly.${a.severity}`)} size="sm" />
@@ -162,7 +171,7 @@ function AnomalyTable({ anomalies, t }: { anomalies: AnomalyItem[]; t: (k: any) 
 
 export function AnomalyPanel() {
   const { queryString } = useKPIFilters()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { data, isLoading, error } = useAnomalies(queryString)
 
   const a = data as AnomalyResponse | undefined
@@ -173,6 +182,11 @@ export function AnomalyPanel() {
 
   return (
     <div className="space-y-6">
+      <p className="text-sm text-[var(--fg-secondary)] leading-relaxed">
+        {language === 'es'
+          ? 'Demostración con datos sintéticos. Se comparan todos los segmentos durante los meses seleccionados; el filtro de segmento no modifica estas alertas. Z-score usa la media y la desviación estándar muestral; IQR usa la mediana y límites Q1 − 1.5 × IQR y Q3 + 1.5 × IQR. Son referencias descriptivas, no pronósticos ni metas. La gráfica muestra |z|; los casos IQR pueden tener |z| menor que 2.'
+          : 'Synthetic-data demonstration. Alerts compare all segments over the selected months; the segment filter does not change these alerts. Z-score uses the mean and sample standard deviation; IQR uses the median and Q1 − 1.5 × IQR / Q3 + 1.5 × IQR bounds. These are descriptive baselines, not forecasts or targets. The chart shows |z|; IQR outliers may have |z| below 2.'}
+      </p>
       {/* Commentary */}
       {a.commentary && (
         <div className="glass-card p-5">

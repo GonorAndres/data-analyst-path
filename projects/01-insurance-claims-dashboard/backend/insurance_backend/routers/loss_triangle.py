@@ -1,7 +1,7 @@
 from typing import Optional
 
 import numpy as np
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from insurance_backend import data_loader
 from insurance_backend.filters import apply_filters
@@ -23,6 +23,10 @@ def loss_triangle(
     The triangle is built as-of 1997 (only DevelopmentYear <= 1997).
     Aggregates across companies unless a specific company GRCODE is given.
     """
+    if method == "bf" and company is not None:
+        raise HTTPException(422, "Bornhuetter-Ferguson estimates are available only across companies.")
+    if method == "bf" and data_loader.ibnr_results.empty:
+        raise HTTPException(422, "Bornhuetter-Ferguson estimates are unavailable for this dataset.")
     df = apply_filters(data_loader.triangles, lob, company, year_start, year_end)
 
     if df.empty:
@@ -141,8 +145,14 @@ def loss_triangle(
         for entry in ibnr_by_year:
             ay = entry["accident_year"]
             if ay in bf_map:
-                entry["ibnr"] = bf_map[ay][0]
                 entry["ultimate"] = bf_map[ay][1]
+                # BF ultimates are fitted on paid development. Express their
+                # residual against the selected observed basis, never combine
+                # a paid reserve with incurred observations.
+                entry["ibnr"] = entry["ultimate"] - entry["latest_value"]
+            else:
+                entry["ultimate"] = None
+                entry["ibnr"] = None
 
     return {
         "accident_years": [int(y) for y in accident_years],
@@ -166,6 +176,8 @@ def cl_vs_bf(
     type: Optional[str] = Query("paid", description="incurred or paid"),
 ):
     """Return per-year comparison of Chain-Ladder vs Bornhuetter-Ferguson estimates."""
+    if company is not None:
+        raise HTTPException(422, "Method comparisons are available only across companies.")
     if data_loader.ibnr_results.empty:
         return {"comparison": []}
 
@@ -204,9 +216,10 @@ def cl_vs_bf(
     comparison = []
     for _, row in agg.iterrows():
         cl_ibnr = int(row[cl_ibnr_col])
-        bf_ibnr = int(row["ibnr_bf"])
         cl_ultimate = int(row[cl_ult_col])
         bf_ultimate = int(row["ultimate_bf"])
+        observed = cl_ultimate - cl_ibnr
+        bf_ibnr = bf_ultimate - observed
         difference = bf_ibnr - cl_ibnr
         pct_diff = round(difference / cl_ibnr * 100, 2) if cl_ibnr != 0 else 0.0
         comparison.append({

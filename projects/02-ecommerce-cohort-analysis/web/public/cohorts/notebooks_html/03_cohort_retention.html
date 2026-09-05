@@ -3,7 +3,7 @@
 <html lang="en">
 <head><meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>03_cohort_retention</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>Notebook</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 <style type="text/css">
     pre { line-height: 125%; }
 td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
@@ -7802,6 +7802,9 @@ a.anchor-link {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<blockquote>
+<p>Revision 2026-09-05: 96,478 pedidos entregados, 93,358 clientes; /olist conserva otros estados. Los 2,801 repetidores tienen ingreso total medio R$308.53 frente a R$160.73, pero media del AOV de cada cliente R$145.85 frente a R$160.73: no gastan mas por pedido. Voucher OR=1.424 (IC 95% 1.111–1.826) es asociacion en odds, no efecto causal. Celdas futuras sin seguimiento son censuradas, no cero.</p>
+</blockquote>
 <h1 id="03----An%C3%A1lisis-de-Cohortes-y-Retenci%C3%B3n">03 -- Análisis de Cohortes y Retención<a class="anchor-link" href="#03----An%C3%A1lisis-de-Cohortes-y-Retenci%C3%B3n">¶</a></h1><p><strong>Pregunta de negocio:</strong> Cuales cohortes retienen mejor, y que patrones geograficos/conductuales predicen la retención?</p>
 <p><strong>Contexto critico:</strong> Solo ~3% de los clientes de Olist son compradores recurrentes. Esto hace que la retención sea extremadamente baja en terminos absolutos. El análisis se enfoca en <em>que diferencia a ese 3%</em> del resto, usando matrices de retención, curvas de supervivencia (Kaplan-Meier) y pruebas estadísticas para identificar los factores que predicen la recompra.</p>
 <hr/>
@@ -7816,22 +7819,22 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In [1]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
-<span class="kn">import</span> <span class="nn">matplotlib.ticker</span> <span class="k">as</span> <span class="nn">mtick</span>
-<span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="nn">sns</span>
-<span class="kn">import</span> <span class="nn">plotly.express</span> <span class="k">as</span> <span class="nn">px</span>
-<span class="kn">import</span> <span class="nn">plotly.graph_objects</span> <span class="k">as</span> <span class="nn">go</span>
-<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">stats</span>
-<span class="kn">from</span> <span class="nn">lifelines</span> <span class="kn">import</span> <span class="n">KaplanMeierFitter</span>
-<span class="kn">from</span> <span class="nn">lifelines.statistics</span> <span class="kn">import</span> <span class="n">logrank_test</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.ticker</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mtick</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">seaborn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sns</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.express</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">px</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.graph_objects</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">go</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lifelines</span><span class="w"> </span><span class="kn">import</span> <span class="n">KaplanMeierFitter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lifelines.statistics</span><span class="w"> </span><span class="kn">import</span> <span class="n">logrank_test</span>
 
 <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s1">'../../../scripts/utils'</span><span class="p">)))</span>
-<span class="kn">from</span> <span class="nn">theme</span> <span class="kn">import</span> <span class="n">apply_plotly_theme</span><span class="p">,</span> <span class="n">apply_seaborn_theme</span><span class="p">,</span> <span class="n">COLORS</span><span class="p">,</span> <span class="n">SEQUENTIAL</span><span class="p">,</span> <span class="n">CATEGORICAL</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">theme</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_plotly_theme</span><span class="p">,</span> <span class="n">apply_seaborn_theme</span><span class="p">,</span> <span class="n">COLORS</span><span class="p">,</span> <span class="n">SEQUENTIAL</span><span class="p">,</span> <span class="n">CATEGORICAL</span>
 
 <span class="n">apply_seaborn_theme</span><span class="p">()</span>
 <span class="n">pd</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s1">'display.max_columns'</span><span class="p">,</span> <span class="mi">40</span><span class="p">)</span>
@@ -18963,7 +18966,7 @@ SC                         3444                92            2.67
 <span class="n">review_df</span> <span class="o">=</span> <span class="n">customers</span><span class="p">[</span><span class="n">customers</span><span class="p">[</span><span class="s1">'first_order_review'</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 <span class="n">review_df</span><span class="p">[</span><span class="s1">'first_order_review'</span><span class="p">]</span> <span class="o">=</span> <span class="n">review_df</span><span class="p">[</span><span class="s1">'first_order_review'</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">wilson_ci</span><span class="p">(</span><span class="n">successes</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mf">1.96</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">wilson_ci</span><span class="p">(</span><span class="n">successes</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mf">1.96</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Wilson score interval for binomial proportion."""</span>
     <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>

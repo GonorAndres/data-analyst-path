@@ -65,6 +65,11 @@ def detect_anomalies_zscore(
                 "value": round(float(series.iloc[i]), 4),
                 "zscore": round(float(z), 4),
                 "severity": anomaly_severity(z),
+                "method": "zscore",
+                "expected": float(mean),
+                "baseline_kind": "mean",
+                "lower_bound": float(mean - threshold * std),
+                "upper_bound": float(mean + threshold * std),
             })
     return anomalies
 
@@ -91,9 +96,6 @@ def detect_anomalies_iqr(
     q3 = series.quantile(0.75)
     iqr = q3 - q1
 
-    if iqr == 0:
-        return []
-
     lower_fence = q1 - multiplier * iqr
     upper_fence = q3 + multiplier * iqr
 
@@ -114,8 +116,58 @@ def detect_anomalies_iqr(
                 "value": round(float(val), 4),
                 "zscore": round(float(approx_z), 4),
                 "severity": anomaly_severity(approx_z),
+                "method": "iqr",
+                "expected": float(series.median()),
+                "baseline_kind": "median",
+                "lower_bound": float(lower_fence),
+                "upper_bound": float(upper_fence),
             })
     return anomalies
+
+
+ANOMALY_METRICS = [
+    "mrr", "arr", "nrr", "logo_churn_rate", "revenue_churn_rate",
+    "nps", "ltv_cac_ratio", "rule_of_40", "gross_margin",
+    "dau_mau_ratio", "cac", "payback_months",
+]
+
+
+def scan_anomalies(source: pd.DataFrame, method: str = "both", threshold: float = 2.0) -> List[Dict]:
+    """Scan one filtered monthly population; retain evidence from each detector.
+
+    The legacy expected field is the mean when z-score flags the point,
+    otherwise the median. Evidence retains both baselines and fences when
+    both methods flag the same observation. These are descriptive baselines,
+    not forecasts or business targets.
+    """
+    labels = source["month"].apply(
+        lambda m: m.strftime("%Y-%m") if hasattr(m, "strftime") else str(m)
+    ) if "month" in source.columns else None
+    unique = {}
+    ranks = {"critical": 3, "warning": 2, "info": 1}
+    for metric in ANOMALY_METRICS:
+        if metric not in source.columns:
+            continue
+        series = source[metric].astype(float)
+        detections = []
+        if method in ("zscore", "both"):
+            detections.extend(detect_anomalies_zscore(series, labels, threshold))
+        if method in ("iqr", "both"):
+            detections.extend(detect_anomalies_iqr(series, labels))
+        for detection in detections:
+            key = (metric, detection["month"])
+            evidence = {k: detection[k] for k in (
+                "method", "expected", "baseline_kind", "lower_bound", "upper_bound",
+            )}
+            if key not in unique:
+                unique[key] = {**detection, "metric": metric, "evidence": [evidence]}
+            else:
+                existing = unique[key]
+                existing["evidence"].append(evidence)
+                existing["method"] = "both"
+                if ranks[detection["severity"]] > ranks[existing["severity"]]:
+                    existing["severity"] = detection["severity"]
+    return sorted(unique.values(), key=lambda a: (-ranks[a["severity"]], -abs(a["zscore"])))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -237,7 +289,7 @@ def compute_health_score(row: Dict) -> float:
     score = 0.0
 
     # MRR growth (20%) -- target 3% MoM, 0 at -2%, 100 at 8%
-    mrr_growth = float(row.get("mrr_growth_rate", 0))
+    mrr_growth = float(row.get("mrr_growth_rate", row.get("mom_change_mrr", 0)))
     mrr_pts = _scale(mrr_growth, lower=-0.02, upper=0.08)
     score += mrr_pts * 20
 
@@ -360,11 +412,11 @@ def mrr_waterfall(row: Dict) -> Dict:
         Dict with starting_mrr, new, expansion, contraction, churned,
         ending_mrr.
     """
-    starting = float(row.get("starting_mrr", row.get("mrr", 0)))
     new = float(row.get("new_mrr", 0))
     expansion = float(row.get("expansion_mrr", 0))
     contraction = float(row.get("contraction_mrr", 0))
     churned = float(row.get("churned_mrr", 0))
+    starting = float(row.get("starting_mrr", float(row.get("mrr", 0)) - new - expansion + contraction + churned))
     ending = starting + new + expansion - contraction - churned
 
     return {

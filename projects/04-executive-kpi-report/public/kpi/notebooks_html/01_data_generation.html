@@ -7796,16 +7796,16 @@ a.anchor-link {
 <!-- End of mermaid configuration --></head>
 <body class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
 <main>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=44b9bd24">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=8b7e8210">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="Synthetic-SaaS-Data-Generation-for-NovaCRM">Synthetic SaaS Data Generation for NovaCRM<a class="anchor-link" href="#Synthetic-SaaS-Data-Generation-for-NovaCRM">¶</a></h1><p><strong>Project 04 -- Executive KPI Report</strong> | Notebook 1 of 5</p>
+<h1 id="Synthetic-SaaS-Data-Generation-for-NovaCRM">Synthetic SaaS Data Generation for NovaCRM<a class="anchor-link" href="#Synthetic-SaaS-Data-Generation-for-NovaCRM">¶</a></h1><p><strong>Project 04 -- Executive KPI Report</strong> | Notebook 1 of 9</p>
 <h2 id="Purpose">Purpose<a class="anchor-link" href="#Purpose">¶</a></h2><p>This notebook documents the methodology behind generating 24 months of realistic synthetic SaaS data for NovaCRM, a mid-market B2B SaaS company in the $5M--$12M ARR range. Rather than using real company data (which carries privacy and NDA constraints), we engineer synthetic data that:</p>
 <ol>
-<li><strong>Follows real SaaS distributions</strong> -- growth rates, churn curves, and NPS distributions match industry benchmarks from OpenView Partners and SaaStr.</li>
+<li><strong>Uses explicit scenario assumptions</strong> -- growth, churn and NPS parameters are inspectable simulator inputs, without external calibration.</li>
 <li><strong>Includes injected events</strong> -- a Q3 2024 pricing-change churn spike and a Q2 2025 product launch bump, creating the kind of anomalies executives actually ask about.</li>
 <li><strong>Is fully reproducible</strong> -- seeded with <code>np.random.default_rng(42)</code>.</li>
 </ol>
@@ -7818,7 +7818,21 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=9ff98d3c">
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=16413ac5">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Publication-review-%E2%80%94-September-5,-2026">Publication review — September 5, 2026<a class="anchor-link" href="#Publication-review-%E2%80%94-September-5,-2026">¶</a></h2><p><strong>Synthetic scenario; unexecuted research walkthrough.</strong> This notebook has no saved execution outputs. It was reviewed and exported without executing its code; proposed evaluations and example formulas are not independently validated results. See the <a href="https://data-analyst.gonor.me/kpi/">current case study</a> and project README for separately reproduced findings.</p>
+<p><strong>Current definitions:</strong> the API/report anomaly scan uses all company segments over the selected months. Z-score displays the actual mean and sample-standard-deviation bounds; IQR displays the median and quartile fences. Both-method flags preserve both evidence records. These descriptive references differ from the pre-aggregation pipeline's trailing-six-month z-scores.</p>
+<p><strong>Report corrections:</strong> December 2025 NRR is 112.348% (stored ratio 1.12348), MRR growth is 1.8346%, and API/report health score is 73.5/100. Starting MRR plus net movements reconciles to ending MRR; the ending balance is not the starting balance. Targets and score scales are illustrative. Current nominal 95% forecast bands are residual-based approximations with unvalidated coverage. Historical standalone code examples can differ from the current API; regenerate retained PDFs with <code>backend/regenerate_reports.py</code>, not an exploratory payload.</p>
+<p><strong>Revisión:</strong> escenario sintético; celdas sin ejecutar. Las cifras actuales se verificaron por separado. Los límites de anomalía son referencias descriptivas, no pronósticos; las metas y ponderaciones son supuestos. El filtro de segmento no modifica los resultados agregados del informe.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=6a3e1b87">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7826,11 +7840,11 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-python"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">plotly.express</span> <span class="k">as</span> <span class="nn">px</span>
-<span class="kn">import</span> <span class="nn">plotly.graph_objects</span> <span class="k">as</span> <span class="nn">go</span>
-<span class="kn">from</span> <span class="nn">plotly.subplots</span> <span class="kn">import</span> <span class="n">make_subplots</span>
+<div class="highlight hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.express</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">px</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.graph_objects</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">go</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">plotly.subplots</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_subplots</span>
 
 <span class="c1"># NovaCRM dashboard color palette</span>
 <span class="n">COLORS</span> <span class="o">=</span> <span class="p">{</span>
@@ -7860,7 +7874,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=1712a9fa">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=47da61ff">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7903,11 +7917,11 @@ a.anchor-link {
 </tr>
 </tbody>
 </table>
-<h3 id="Growth-Model">Growth Model<a class="anchor-link" href="#Growth-Model">¶</a></h3><p>Growth decelerates naturally from ~4% MoM early in 2024 to ~1.5% MoM by end of 2025, following the well-documented SaaS S-curve.</p>
+<h3 id="Growth-Model">Growth Model<a class="anchor-link" href="#Growth-Model">¶</a></h3><p>The generator configures decelerating growth and seasonal adjustments. These are assumptions, not evidence of a universal SaaS growth curve.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=d18708e1">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=050c8e64">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7946,7 +7960,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=3e447edf">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=5f92813e">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7963,7 +7977,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=ba81ef0a">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=e37a3c38">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8030,7 +8044,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=19c35cf3">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=904a853b">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8053,7 +8067,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=bec039bc">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=05e181ec">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8130,71 +8144,17 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=772fda91">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=782bb63c">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="4.-Validation-Against-SaaS-Industry-Benchmarks">4. Validation Against SaaS Industry Benchmarks<a class="anchor-link" href="#4.-Validation-Against-SaaS-Industry-Benchmarks">¶</a></h2><p>We compare the generated data against published benchmarks to ensure realism:</p>
-<table>
-<thead>
-<tr>
-<th>Metric</th>
-<th>NovaCRM (Generated)</th>
-<th>Benchmark Range</th>
-<th>Source</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MRR Growth (MoM)</td>
-<td>1.5%--4.0%</td>
-<td>1%--5%</td>
-<td>SaaStr Series A medians</td>
-</tr>
-<tr>
-<td>Logo Churn (monthly)</td>
-<td>2.0%--4.5%</td>
-<td>2%--5%</td>
-<td>OpenView 2024</td>
-</tr>
-<tr>
-<td>NRR (annualized)</td>
-<td>96%--115%</td>
-<td>100%--130%</td>
-<td>Bessemer Cloud Index</td>
-</tr>
-<tr>
-<td>NPS</td>
-<td>32--55</td>
-<td>30--60</td>
-<td>SaaS NPS benchmarks</td>
-</tr>
-<tr>
-<td>LTV:CAC</td>
-<td>3x--7x</td>
-<td>3x--5x (good)</td>
-<td>a16z SaaS metrics</td>
-</tr>
-<tr>
-<td>DAU/MAU</td>
-<td>0.28--0.38</td>
-<td>0.25--0.40</td>
-<td>Mixpanel benchmarks</td>
-</tr>
-<tr>
-<td>Gross Margin</td>
-<td>74%--86%</td>
-<td>70%--85%</td>
-<td>KeyBanc SaaS Survey</td>
-</tr>
-</tbody>
-</table>
+<h2 id="4.-Scenario-assumptions-and-external-validity">4. Scenario assumptions and external validity<a class="anchor-link" href="#4.-Scenario-assumptions-and-external-validity">¶</a></h2><p>The generator parameters are illustrative. Earlier benchmark ranges in this walkthrough were not tied to precise source definitions or a calibration procedure and have been removed. Review the generated distributions before applying the simulator to a business question; matching a plausible range does not validate joint behavior or representativeness.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=ff2cf8d1">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=88248d8b">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8247,7 +8207,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=688ff0e7">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=46bbee60">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8298,7 +8258,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=26c9f389">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=d5609dfd">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8339,7 +8299,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=015c60af">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=8c4c5f1b">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8387,22 +8347,13 @@ a.anchor-link {
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=d19a878f">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=0d6f3a45">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="Summary">Summary<a class="anchor-link" href="#Summary">¶</a></h2><p>The synthetic data generation pipeline produces realistic SaaS metrics that:</p>
-<ol>
-<li><strong>Match industry benchmarks</strong> across all key dimensions (MRR growth, churn, NPS, unit economics)</li>
-<li><strong>Include natural seasonality</strong> that mirrors real B2B buying cycles</li>
-<li><strong>Contain two deliberate business events</strong> that test the anomaly detection system</li>
-<li><strong>Differentiate across three segments</strong> with economically coherent profiles</li>
-</ol>
-<p>The data flows into notebook 02 (EDA) for deeper exploration and notebook 03 (anomaly detection) for automated alerting.</p>
-<hr/>
-<p><em>Data generated by <code>data-pipeline/01_generate_saas_data.py</code> with seed <code>np.random.default_rng(42)</code>.</em></p>
+<h2 id="Summary">Summary<a class="anchor-link" href="#Summary">¶</a></h2><p>This seed-42 simulator creates 24 monthly and 72 segment-month observations with configured seasonal patterns, segment differences and two constructed events. It supports reproducible demonstrations, not evidence about real SaaS businesses. January 2024 observed MRR is $439,758.43; the $420,000 initial balance is a generator input before that observation.</p>
 </div>
 </div>
 </div>

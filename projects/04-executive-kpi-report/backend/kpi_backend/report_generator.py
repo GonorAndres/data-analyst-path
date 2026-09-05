@@ -140,7 +140,8 @@ class _KPIReport(FPDF if FPDF else object):  # type: ignore[misc]
         self.set_font("Helvetica", "I", 8)
         self.set_text_color(150, 150, 150)
         page_label = f"Pagina {self.page_no()}/{{nb}}" if self.lang == "es" else f"Page {self.page_no()}/{{nb}}"
-        self.cell(0, 10, page_label, align="C")
+        disclosure = "Datos sinteticos - demostracion" if self.lang == "es" else "Synthetic data - demonstration"
+        self.cell(0, 10, f"{disclosure} | {page_label}", align="C")
 
     def section_title(self, title: str):
         self.set_font("Helvetica", "B", 14)
@@ -156,7 +157,7 @@ class _KPIReport(FPDF if FPDF else object):  # type: ignore[misc]
     def body_text(self, text: str):
         self.set_font("Helvetica", "", 10)
         self.set_text_color(50, 50, 50)
-        self.multi_cell(0, 6, text)
+        self.multi_cell(0, 6, text, new_x="LMARGIN", new_y="NEXT")
         self.ln(2)
 
     def kpi_table(self, kpis: List[Dict]):
@@ -250,6 +251,11 @@ def generate_report(
             pdf.set_font("Helvetica", "", 16)
             pdf.set_text_color(100, 100, 100)
             pdf.cell(0, 10, "NovaCRM", align="C", new_x="LMARGIN", new_y="NEXT")
+            pdf.body_text(
+                "Demostracion con datos sinteticos. Empresa ficticia; no representa resultados reales."
+                if lang == "es" else
+                "Synthetic-data demonstration. Fictional company; these are not observed business results."
+            )
             pdf.ln(4)
             period = data.get("period", {})
             period_str = f"{period.get('start', '')} - {period.get('end', '')}"
@@ -286,6 +292,11 @@ def generate_report(
             sec_title = "Tablero de KPIs" if lang == "es" else "KPI Dashboard"
             pdf.section_title(sec_title)
             kpis = data.get("kpis", [])
+            pdf.body_text(
+                "Valores del ultimo mes seleccionado. Metas y puntaje de salud: supuestos ilustrativos, no benchmarks validados. Fuente: datos sinteticos NovaCRM, semilla 42."
+                if lang == "es" else
+                "Values for the last selected month. Targets and health score are illustrative assumptions, not validated benchmarks. Source: synthetic NovaCRM data, seed 42."
+            )
             if kpis:
                 pdf.kpi_table(kpis)
 
@@ -307,6 +318,11 @@ def generate_report(
                     if path:
                         temp_files.append(path)
                         pdf.image(path, x=10, w=190)
+                pdf.body_text(
+                    "Conciliacion de MRR (USD): saldo inicial + nuevo + expansion - contraccion - bajas = saldo final. Fuente: datos sinteticos NovaCRM; ultimo mes seleccionado."
+                    if lang == "es" else
+                    "MRR bridge (USD): starting balance + new + expansion - contraction - churn = ending balance. Source: synthetic NovaCRM data; last selected month."
+                )
 
         # ── Customer Health ─────────────────────────────────────────
         if "customer_health" in active_sections:
@@ -326,6 +342,11 @@ def generate_report(
                 pdf.section_title(sec_title)
                 anom_text = generate_anomaly_narrative(anomalies, lang=lang)
                 pdf.body_text(anom_text)
+                pdf.body_text(
+                    "Todos los segmentos; meses seleccionados. Z-score: media y limites +/-2 desviaciones estandar muestrales. IQR: mediana y limites Q1-1.5*IQR / Q3+1.5*IQR. Son referencias descriptivas, no pronosticos. La severidad usa |z| para ambos metodos."
+                    if lang == "es" else
+                    "All segments; selected months. Z-score: mean and bounds +/-2 sample standard deviations. IQR: median and Q1-1.5*IQR / Q3+1.5*IQR bounds. These are descriptive baselines, not forecasts. Severity uses |z| for both methods."
+                )
 
                 # Table of anomalies
                 pdf.set_font("Helvetica", "B", 9)
@@ -363,6 +384,14 @@ def generate_report(
                             pdf.set_text_color(50, 50, 50)
                             pdf.set_font("Helvetica", "", 8)
                     pdf.ln()
+
+                for a in anomalies[:15]:
+                    for evidence in a.get("evidence", []):
+                        pdf.body_text(
+                            f"{a['metric']} / {a['month']} / {evidence['method']}: "
+                            f"{evidence['baseline_kind']} = {evidence['expected']:,.4f}; "
+                            f"[{evidence['lower_bound']:,.4f}, {evidence['upper_bound']:,.4f}]"
+                        )
 
         # ── Forecast ────────────────────────────────────────────────
         if "forecast" in active_sections:

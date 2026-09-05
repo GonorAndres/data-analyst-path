@@ -12,11 +12,11 @@ This project builds a full-stack analytics dashboard that tracks a 6-ETF portfol
 
 ## Key Findings
 
-- **Diversification works**: The portfolio spans 6 asset classes (US equity, international equity, emerging markets, fixed income, real estate, commodities) and consistently shows a diversification ratio above 1.0, confirming that cross-asset correlation reduction lowers realized volatility below the weighted sum of individual volatilities.
-- **VaR methods diverge in the tails**: Parametric, historical, and Monte Carlo VaR at 95% confidence produce meaningfully different estimates -- the parametric (Gaussian) assumption underestimates tail risk relative to historical VaR when return distributions exhibit negative skewness and excess kurtosis.
-- **Efficient frontier reveals reallocation opportunity**: The max-Sharpe optimal portfolio typically concentrates weight away from the current equal-ish allocation, suggesting that rebalancing toward the optimization output could improve the risk-adjusted return without increasing overall risk.
-- **Monte Carlo probability cones quantify uncertainty**: GBM simulations (up to 5,000 paths over 1-5 year horizons) show the full range of outcomes, giving investors a probability-weighted view rather than a single point estimate.
-- **Fixed income and gold act as portfolio stabilizers**: BND and GLD consistently show low or negative correlation with equity positions (VOO, VXUS, VWO), validating their role as hedging instruments during equity drawdowns.
+- This is historical analysis and a model-based scenario demonstration. No local price cache was available in the 2026-09-05 audit; period-specific returns and risk figures are unverified here.
+- Diversification compares portfolio volatility with weighted standalone volatility for the selected sample; it does not guarantee protection in every drawdown.
+- VaR depends on the period and method. A 95% VaR is a quantile, not a maximum possible loss.
+- Maximum-Sharpe weights optimize in-sample estimates. They require out-of-sample evaluation before claiming an improvement.
+- GBM percentiles describe simulated outcomes under estimated constant parameters. They are conditional scenarios, not promises of future returns.
 
 ## Data Source
 
@@ -103,15 +103,16 @@ All analytical endpoints accept a `period` query parameter (`1y`, `2y`, `3y`, `5
 | 4-hour parquet cache | No cache / longer TTL | Balances data freshness (markets move) against yfinance rate limits and API response time |
 | scipy.optimize SLSQP | cvxpy / manual gradient descent | SLSQP handles equality + bound constraints natively; convergence improved with well-chosen initial guesses (equal weights) |
 | Simple returns for portfolio math | Log returns everywhere | Weighted simple returns are additive across assets; log returns are not, making them incorrect for multi-asset portfolio aggregation |
-| Risk-free rate at 4.5% (hardcoded) | Dynamic T-bill fetch | Avoids an additional API dependency; 4.5% reflects the current short-term rate environment |
+| Risk-free rate at 4.5% (hardcoded) | Dynamic T-bill fetch | Fixed analytical assumption; it is not a verified current market rate. |
 
 ## Recommendations
 
-1. **Rebalance toward the max-Sharpe allocation**: The efficient frontier consistently identifies weight concentrations that improve Sharpe ratio relative to the current equal-ish split -- implement quarterly rebalancing to capture this.
-2. **Monitor correlation regime shifts**: Rolling 60-day correlations between equity and fixed income are not constant. When BND-VOO correlation spikes toward +1 during stress events, the diversification benefit evaporates -- consider adding explicit tail-risk hedges.
-3. **Extend to correlated multi-asset Monte Carlo**: Simulating individual asset paths with a Cholesky-decomposed covariance matrix would produce more realistic joint scenarios, especially for stress testing.
-4. **Add transaction cost modeling**: The frictionless assumption inflates the benefit of frequent rebalancing. Adding realistic bid-ask spreads and commission estimates would give more actionable optimization output.
-5. **Implement Black-Litterman**: Incorporate subjective market views (e.g., "emerging markets will outperform by 2% next year") into the optimization framework to produce more stable and forward-looking allocations.
+1. Compare allocations over held-out periods and stress windows.
+2. Include turnover, transaction costs, taxes, and rebalancing rules in implementable comparisons.
+3. Report the exact price window and test sensitivity to the assumed 4.5% risk-free rate.
+4. Present Monte Carlo output as conditional scenarios alongside historical drawdowns.
+
+[Evidence ledger](../../docs/evidence-audit.md).
 
 ## How to Reproduce
 

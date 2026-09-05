@@ -16,6 +16,8 @@ Airbnb reads its public JSON during export. Cohorts loads only the JSON files re
 
 ## Navigation and presentation
 
+- Analysis roots now open a visual case narrative. `?view=explore` opens the dashboard and `?view=methods` opens research. Existing `?section=` bookmarks imply exploration, including when switching back to its default tab. Nested research/cohort URLs remain available. See [presentation maintenance](presentation.md).
+- Typed bilingual case content and reproducible retained evidence snapshots back the narrative. Shared `AnalysisFigure` wrappers align domain charts. The static narrative does not request analytics APIs; measured evidence and synthetic/conceptual examples are explicitly distinguished.
 - Global project navigation and home links are available from every page; the mobile menu supports keyboard dismissal and focus restoration.
 - Existing cohort subroutes remain canonical. Former state-only dashboard tabs use `?section=`; invalid values fall back to the project default. Back, forward, and reload preserve the selected section.
 - English and light are the first-visit defaults. `analyst-locale` and `analyst-theme` persist preferences; prior `theme`/`kpi-theme` values are read during migration. Storage failures do not prevent interaction.

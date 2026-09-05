@@ -2,6 +2,7 @@
 import { useProjectText } from '@/features/market/components/useProjectText'
 import { hasSeries } from '@/features/market/components/hasSeries'
 import { useState } from 'react'
+import { usePreferences } from '@/components/SitePreferences'
 import { InsuranceFilterProvider, useInsuranceFilter } from '@/features/insurance/context/InsuranceFilterContext'
 import { InsuranceFilterBar } from '@/features/insurance/components/insurance/InsuranceFilterBar'
 import { LossTriangleHeatmap } from '@/features/insurance/components/insurance/LossTriangleHeatmap'
@@ -51,6 +52,7 @@ function combinedRatioColor(ratio: number): string {
 
 function InsuranceDashboardInner() {
   const tx = useProjectText()
+  const { t } = usePreferences()
   const filters = useInsuranceFilter()
   const filterValues = {
     lob: filters.lob,
@@ -60,7 +62,8 @@ function InsuranceDashboardInner() {
   }
 
   const [triangleBasis, setTriangleBasis] = useState<'incurred' | 'paid'>('incurred')
-  const [reserveMethod, setReserveMethod] = useState<'cl' | 'bf'>('cl')
+  const [selectedMethod, setReserveMethod] = useState<'cl' | 'bf'>('cl')
+  const reserveMethod = filters.company ? 'cl' : selectedMethod
 
   const { data: kpis, isLoading: kpisLoading, error: kpisError } = useInsuranceKPIs(filterValues)
   const { data: triangleData, isLoading: triangleLoading, error: triangleError } = useLossTriangle(filterValues, triangleBasis, reserveMethod)
@@ -71,10 +74,15 @@ function InsuranceDashboardInner() {
   const { data: claimDistData, isLoading: claimDistLoading, error: claimDistError } = useClaimDistribution(filterValues)
 
   const anyLoading = kpisLoading || triangleLoading || clvsbfLoading || freqSevLoading || lossRatioLoading || combinedLoading || claimDistLoading
-  const anyError = !!(kpisError || triangleError || clvsbfError || freqSevError || lossRatioError || combinedError || claimDistError)
+  const anyError = !!(kpisError || triangleError || (!filters.company && clvsbfError) || freqSevError || lossRatioError || combinedError || claimDistError)
   const allLoaded = !!(kpis && triangleData && freqSevData && lossRatioData && combinedData && claimDistData)
 
   const kpiData = kpis as KPIData | undefined
+  const reserveRows = (triangleData as { ibnr_by_year?: { ultimate: number | null; latest_value: number | null }[] } | undefined)?.ibnr_by_year
+  const reserveTotal = !triangleError && !triangleLoading && reserveRows?.length && reserveRows.every(row => row.ultimate != null && row.latest_value != null)
+    ? reserveRows.reduce((sum, row) => sum + row.ultimate! - row.latest_value!, 0)
+    : undefined
+  const reserveLabel = triangleBasis === 'paid' ? t('Projected unpaid', 'Pendiente proyectado') : t('IBNR estimate', 'IBNR estimado')
 
   return (
     <div className="min-h-screen bg-paper text-ink">
@@ -104,42 +112,10 @@ function InsuranceDashboardInner() {
           />
         </section>
 
-        {/* Como leer este dashboard */}
-        <section className="py-6 border-b border-border">
-          <details>
-            <summary className="font-sans text-xs tracking-widest uppercase text-muted cursor-pointer">
-              {tx("Como leer este dashboard")}</summary>
-            <div className="font-sans text-sm text-muted mt-4 space-y-4">
-              <div>
-                <p className="font-semibold mb-1">{tx("Secciones del dashboard")}</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>{tx("Triangulo de desarrollo")}</strong> {" " + tx("-- Matriz de perdidas acumuladas por ano de accidente (filas) y lag de desarrollo (columnas). El heatmap muestra la magnitud; las celdas proyectadas incluyen la anotacion de IBNR.")}</li>
-                  <li><strong>{tx("Waterfall de IBNR")}</strong> {" " + tx("-- Descompone el ultimate en tres componentes: perdidas pagadas + reserva de caso + IBNR = ultimate proyectado.")}</li>
-                  <li><strong>{tx("Frecuencia y severidad")}</strong> {" " + tx("-- Grafico de doble eje que muestra conteo de siniestros (frecuencia) y costo promedio por siniestro (severidad) por ano de accidente.")}</li>
-                  <li><strong>{tx("Loss ratio por LOB")}</strong> {" " + tx("-- Ratio de perdidas incurridas sobre prima devengada para cada linea de negocio, con toggle entre reportado y ultimate.")}</li>
-                  <li><strong>Combined ratio</strong> {" " + tx("-- Tendencia del ratio combinado (loss ratio + expense ratio) como area apilada. Debajo de 100% indica rentabilidad.")}</li>
-                  <li><strong>{tx("Distribucion de severidad")}</strong> {" " + tx("-- Histograma de montos de siniestros individuales y analisis de rezago de reporte.")}</li>
-                </ul>
-              </div>
-              <div>
-                <p className="font-semibold mb-1">{tx("Filtros")}</p>
-                <p>{tx("Usa los filtros de") + " "}<strong>{tx("linea de negocio (LOB)")}</strong>, <strong>{tx("compania")}</strong> {" " + tx("y") + " "}<strong>{tx("rango de anos de accidente")}</strong> {" " + tx("para segmentar el analisis. Los KPIs y graficos se actualizan dinamicamente.")}</p>
-              </div>
-              <div>
-                <p className="font-semibold mb-1">{tx("Definiciones clave")}</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>Loss Ratio</strong> {" " + tx("= Perdidas Incurridas / Prima Devengada. Debajo de 100% indica suscripcion rentable.")}</li>
-                  <li><strong>Combined Ratio</strong> {" " + tx("= Loss Ratio + Expense Ratio. Debajo de 100% indica rentabilidad operativa total.")}</li>
-                  <li><strong>IBNR</strong> {" " + tx("= Incurred But Not Reported. Reserva para siniestros que ya ocurrieron pero aun no se han reportado o desarrollado completamente.")}</li>
-                </ul>
-              </div>
-              <div>
-                <p className="font-semibold mb-1">Chain-Ladder vs Bornhuetter-Ferguson</p>
-                <p><strong>Chain-Ladder (CL)</strong> {" " + tx("proyecta perdidas ultimates multiplicando los valores observados por factores de desarrollo historicos. Es puramente basado en datos.")}</p>
-                <p><strong>Bornhuetter-Ferguson (BF)</strong> {" " + tx("modera la proyeccion combinando los factores de desarrollo con un loss ratio a-priori esperado. Es mas estable para anos de accidente recientes donde hay pocos datos observados.")}</p>
-              </div>
-            </div>
-          </details>
+        <section className="py-6 border-b border-border space-y-3 text-sm text-muted">
+          <p>{t('Observed evidence: Schedule P development triangles. Claim counts, severity and reporting lags below use synthetic claims; their company filter does not apply.', 'Evidencia observada: triángulos Schedule P. Conteos, severidad y rezagos usan siniestros sintéticos; el filtro de compañía no se aplica a ellos.')}</p>
+          <p>{t('Paid ultimate minus observed paid is projected unpaid loss, including case reserves. Incurred ultimate minus reported incurred is estimated IBNR. A loss ratio below 100% alone does not establish underwriting profitability; combined ratios add assumed expenses of 30%.', 'Ultimate pagado menos pagado observado es pérdida pendiente proyectada, incluidas reservas de caso. Ultimate incurrido menos incurrido reportado es IBNR estimado. Un loss ratio menor al 100% no basta para demostrar rentabilidad; el ratio combinado suma gastos supuestos del 30%.')}</p>
+          <p>{t('Bornhuetter–Ferguson ultimates use paid development and an assumed 65% expected loss ratio. Their difference from Chain-Ladder measures method sensitivity, not a confidence interval. BF and method comparisons are available only across companies.', 'Los ultimates Bornhuetter–Ferguson usan desarrollo pagado y un loss ratio esperado supuesto del 65%. Su diferencia frente a Chain-Ladder mide sensibilidad al método, no un intervalo de confianza. BF y la comparación de métodos solo están disponibles entre todas las compañías.')}</p>
         </section>
 
         {/* KPI Bar */}
@@ -165,7 +141,7 @@ function InsuranceDashboardInner() {
             </div>
             <div className="md:px-8">
               <KPICard
-                label="Combined ratio"
+                label={t('Combined ratio · assumes 30% expenses', 'Ratio combinado · gastos supuestos del 30%')}
                 value={!kpisError && !kpisLoading && kpiData ? (kpiData.avg_loss_ratio + 0.30) * 100 : undefined}
                 suffix="%"
                 decimals={1}
@@ -175,8 +151,8 @@ function InsuranceDashboardInner() {
             </div>
             <div className="md:pl-8">
               <KPICard
-                label={`IBNR (${reserveMethod.toUpperCase()})`}
-                value={kpisError || kpisLoading ? undefined : reserveMethod === 'cl' ? kpiData?.total_ibnr_cl_paid : kpiData?.total_ibnr_bf}
+                label={`${reserveLabel} (${reserveMethod.toUpperCase()} · ${triangleBasis === 'paid' ? t('paid', 'pagado') : t('incurred', 'incurrido')})`}
+                value={reserveTotal}
                 prefix="$"
                 delay={0.3}
               />
@@ -191,41 +167,41 @@ function InsuranceDashboardInner() {
         <ChartContainer
           title={tx("Triángulo de desarrollo")}
           loading={triangleLoading} error={triangleError} empty={!hasSeries(triangleData, 'accident_years')}
-          subtitle={tx("Pérdidas acumuladas por año de accidente y período de desarrollo. IBNR estimado por diferencia entre último desarrollo observado y factor ultimate.")}
-          insight={tx("Los años de accidente más recientes muestran mayor incertidumbre en sus estimaciones IBNR debido a menos períodos de desarrollo observados. Los años más maduros (1988-1990) están prácticamente desarrollados al 100%.")}
+          subtitle={t("Cumulative observed losses by accident year and development lag. The final column is projected ultimate minus the latest observed value.", "Pérdidas acumuladas por año y lag. La columna final es ultimate proyectado menos el último valor observado.")}
+          insight={t("Follow one row across development, then compare its observed value with the selected method’s ultimate. Less observed development means greater dependence on assumptions.", "Sigue una fila a través del desarrollo y compara lo observado con el ultimate del método elegido. Menos desarrollo observado implica mayor dependencia de supuestos.")}
         >
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <LossTriangleHeatmap data={triangleData as any} isLoading={triangleLoading} viewMode={triangleBasis} onViewModeChange={setTriangleBasis} reserveMethod={reserveMethod} onReserveMethodChange={setReserveMethod} />
+          <LossTriangleHeatmap data={triangleData as any} isLoading={triangleLoading} viewMode={triangleBasis} onViewModeChange={setTriangleBasis} reserveMethod={reserveMethod} onReserveMethodChange={setReserveMethod} bfAvailable={!filters.company} />
         </ChartContainer>
 
         {/* CL vs BF Comparison Table */}
         <ChartContainer
           title="Chain-Ladder vs Bornhuetter-Ferguson"
-          loading={clvsbfLoading} error={clvsbfError} empty={!hasSeries(clvsbfData, 'comparison')}
-          subtitle={tx("Comparación de estimaciones IBNR por año de accidente entre ambos métodos actuariales.")}
-          insight={tx("BF tiende a moderar las estimaciones en años recientes donde CL puede ser volátil por falta de datos observados. Diferencias grandes sugieren que la elección de método impacta materialmente la reserva.")}
+          loading={!filters.company && clvsbfLoading} error={!filters.company && clvsbfError} empty={!filters.company && !hasSeries(clvsbfData, 'comparison')}
+          subtitle={t("Precomputed estimates summed across selected lines; the triangle above instead fits CL to pooled observations. Compare residual losses on a common observed basis. BF ultimates use paid development.", "Estimaciones precalculadas sumadas por líneas; el triángulo anterior ajusta CL a observaciones agrupadas. Compara residuales con la misma base observada. BF usa desarrollo pagado.")}
+          insight={t("Read the difference as sensitivity to method and assumptions. Either estimate may be higher; neither proves reserve adequacy.", "Lee la diferencia como sensibilidad al método y sus supuestos. Cualquiera puede ser mayor; ninguno demuestra suficiencia de reservas.")}
         >
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <CLvsBFTable data={clvsbfData as any} isLoading={clvsbfLoading} />
+          {filters.company ? <p className="text-sm text-muted">{t('Select all companies to compare methods. Company-specific BF estimates are unavailable.', 'Selecciona todas las compañías para comparar métodos. No hay estimaciones BF por compañía.')}</p> : <CLvsBFTable data={clvsbfData as any} isLoading={clvsbfLoading} basis={triangleBasis} />}
         </ChartContainer>
 
         {/* IBNR Waterfall */}
         <ChartContainer
           title={tx("Composición del ultimate")}
           loading={triangleLoading} error={triangleError} empty={!hasSeries(triangleData, 'ibnr_by_year')}
-          subtitle={tx("Descomposición de la pérdida última por año de accidente: observado + IBNR = Ultimate.")}
-          insight={tx("La proporción de IBNR aumenta significativamente en los años de accidente recientes, reflejando la mayor incertidumbre inherente a siniestros aún no reportados. En años maduros, el componente IBNR es mínimo.")}
+          subtitle={t("Observed loss plus projected residual equals ultimate. On the paid basis, the residual includes case reserves.", "Pérdida observada más residual proyectado igual a ultimate. En base pagada, el residual incluye reservas de caso.")}
+          insight={t("Compare the observed and projected portions for the selected years. A negative residual indicates projected release; the chart does not quantify uncertainty.", "Compara lo observado y proyectado en los años elegidos. Un residual negativo indica liberación proyectada; el gráfico no cuantifica incertidumbre.")}
         >
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <IBNRWaterfall data={triangleData as any} isLoading={triangleLoading} />
+          <IBNRWaterfall data={triangleData as any} isLoading={triangleLoading} basis={triangleBasis} />
         </ChartContainer>
 
         {/* Frequency-Severity Chart */}
         <ChartContainer
           title={tx("Frecuencia y severidad")}
           loading={freqSevLoading} error={freqSevError} empty={!hasSeries(freqSevData, 'by_year')}
-          subtitle={tx("Tendencia de frecuencia de siniestros (# siniestros / exposicion) y severidad promedio (costo promedio por siniestro) a lo largo del tiempo.")}
-          insight={tx("Una frecuencia decreciente con severidad creciente sugiere que hay menos siniestros pero de mayor costo unitario -- un patrón común en líneas de responsabilidad civil donde las demandas son menos frecuentes pero los montos de liquidación aumentan con la inflación judicial.")}
+          subtitle={t("Synthetic claims · claim count and average claim cost by year. Counts are not exposure-adjusted frequency. Company selection does not apply.", "Siniestros sintéticos · conteo y costo medio por año. El conteo no es frecuencia ajustada por exposición. No se aplica el filtro de compañía.")}
+          insight={t("Compare count and average cost separately. These generated patterns explain the measures, not observed inflation or policyholder behavior.", "Compara conteo y costo medio por separado. Estos patrones generados explican medidas, no inflación observada ni conducta de asegurados.")}
         >
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <FrequencySeverityChart data={freqSevData as any} isLoading={freqSevLoading} />
@@ -235,8 +211,8 @@ function InsuranceDashboardInner() {
         <ChartContainer
           title={tx("Loss ratio por línea de negocio")}
           loading={lossRatioLoading} error={lossRatioError} empty={!hasSeries(lossRatioData, 'by_lob')}
-          subtitle={tx("Ratio de pérdida (pérdidas incurridas / primas devengadas) promedio por línea de negocio. La línea de referencia en 100% marca el punto de equilibrio técnico.")}
-          insight={tx("Medical Malpractice y Product Liability consistentemente muestran los loss ratios más altos, reflejando la naturaleza long-tail de estas líneas donde el desarrollo de siniestros se extiende por múltiples años.")}
+          subtitle={t("Incurred losses divided by earned premium. The 100% reference covers losses only; expenses are excluded.", "Pérdidas incurridas entre prima devengada. La referencia del 100% cubre solo pérdidas; excluye gastos.")}
+          insight={t("Compare reported and projected loss ratios for the selected population. Investigate development and company mix before interpreting a ranking.", "Compara ratios reportados y proyectados de la población elegida. Investiga desarrollo y mezcla de compañías antes de interpretar el ranking.")}
         >
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <LossRatioByLOB data={lossRatioData as any} isLoading={lossRatioLoading} />
@@ -246,8 +222,8 @@ function InsuranceDashboardInner() {
         <ChartContainer
           title={tx("Tendencia del combined ratio")}
           loading={combinedLoading} error={combinedError} empty={!hasSeries(combinedData, 'by_year')}
-          subtitle={tx("Loss ratio + expense ratio = combined ratio. Por debajo de 100% indica rentabilidad técnica; por encima indica pérdida técnica.")}
-          insight={tx("El combined ratio fluctúa alrededor del 100%, indicando que la industria opera cerca del punto de equilibrio técnico. Los años con combined ratio superior al 100% dependen de ingresos de inversión para ser rentables.")}
+          subtitle={t("Combined ratio = loss ratio + assumed 30% expenses. Below 100% indicates underwriting profit under this expense assumption.", "Ratio combinado = loss ratio + gastos supuestos del 30%. Menos del 100% indica beneficio de suscripción bajo ese supuesto.")}
+          insight={t("Check which selected years cross 100% and test another expense assumption before drawing profitability conclusions.", "Revisa qué años elegidos cruzan el 100% y prueba otro supuesto de gastos antes de concluir rentabilidad.")}
         >
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <CombinedRatioTrend data={combinedData as any} isLoading={combinedLoading} />
@@ -257,8 +233,8 @@ function InsuranceDashboardInner() {
         <ChartContainer
           title={tx("Distribución de severidad")}
           loading={claimDistLoading} error={claimDistError} empty={!hasSeries(claimDistData, 'severity_histogram')}
-          subtitle={tx("Histograma de la severidad de siniestros (escala logarítmica) y resumen del rezago de reporte por línea de negocio.")}
-          insight={tx("La distribución de severidad es fuertemente sesgada a la derecha -- la mayoría de los siniestros son de bajo monto, pero una cola larga de siniestros catastróficos concentra una proporción desproporcionada de las pérdidas totales.")}
+          subtitle={t("Synthetic claims · severity distribution and reporting lag by line of business. Company selection does not apply.", "Siniestros sintéticos · distribución de severidad y rezago por línea. No se aplica el filtro de compañía.")}
+          insight={t("Inspect the distribution’s tail and compare reporting lags. These features follow generation assumptions and are not observed company claims.", "Examina la cola y compara rezagos. Estas características siguen supuestos de generación; no son siniestros observados de compañías.")}
         >
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <ClaimDistribution data={claimDistData as any} isLoading={claimDistLoading} />

@@ -3,11 +3,14 @@
   "name": "data-analyst-path",
   "description": "Unified analytics portfolio: apps/web owns the frontend; root tooling builds and verifies the Cloudflare Pages deployment.",
   "scripts": {
+    "evidence:build": "node scripts/build-evidence-snapshots.mjs",
+    "evidence:check": "node scripts/build-evidence-snapshots.mjs --check",
     "dev": "npm --prefix apps/web run dev",
     "build": "node scripts/build-hub.mjs",
     "build:fast": "node scripts/build-hub.mjs --no-install",
     "typecheck:web": "npm --prefix apps/web run typecheck",
     "preview": "wrangler pages dev",
+    "preview:vm": "wrangler pages dev --ip 0.0.0.0 --port 3000 --inspector-port 9231",
     "typecheck:functions": "tsc -p functions",
     "test:e2e": "playwright test --config=e2e/hub.config.ts",
     "deploy": "wrangler pages deploy dist --project-name=data-analyst-hub"

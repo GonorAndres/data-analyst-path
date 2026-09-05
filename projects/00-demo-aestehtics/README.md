@@ -2,15 +2,15 @@
 
 ## Business Question
 
-How are Mexico City's short-term rental market structured — and what does pricing, geographic concentration, and host behavior tell us about where demand is strongest and supply is thinning?
+How is Mexico City's short-term rental supply distributed, and which price and host-concentration patterns deserve further investigation?
 
 ## Key Findings
 
 - **Cuauhtémoc dominates supply**: 46% of all listings (12,514) sit in a single borough — Roma Norte, Condesa, and Centro Histórico drive the cluster
 - **Entire home/apt commands premium pricing**: 71% of listings; price distribution peaks at MXN 1,000–1,500/night vs. MXN 500 for private rooms
 - **Enterprise hosts control 40% of supply from 7% of hosts**: Blueground (221 listings), Mr. W (164), and Clau (156) are the top operators — this is a professional market, not casual hosting
-- **Outer boroughs show pricing opportunity**: Tlalpan and Cuajimalpa average MXN 2,493 and MXN 2,151 respectively — despite far fewer listings, suggesting undersupplied premium inventory
-- **Low availability signals strong demand**: Median availability of 16 days/month; 87% of listings have review scores above 4.5
+- **Asking prices differ by borough**: Higher averages in smaller markets require checks for property mix and outliers before inferring a pricing opportunity.
+- **Availability is not occupancy**: The published snapshot has median 30-day availability of 16 days. Unavailable dates may be booked or blocked by hosts; this does not measure realized demand.
 
 ## Data Source
 
@@ -38,7 +38,7 @@ How are Mexico City's short-term rental market structured — and what does pric
 
 ## Recommendations
 
-1. **Target Tlalpan/Cuajimalpa for growth campaigns**: High avg price (MXN 2,493/2,151) with low listing counts — new hosts here face less competition with premium pricing room
+1. **Investigate borough price differences**: Compare similar room types and capacity, inspect missing prices and outliers, and obtain booking evidence before recommending growth campaigns.
 2. **Monitor enterprise host concentration**: Top 5 hosts control ~800 listings — platform dependency risk if any large operator delists
 3. **Expand availability analysis**: Calendar data (22MB) not fully utilized — analyzing booking lead times and seasonal patterns would surface demand forecasting opportunities
 
@@ -85,6 +85,15 @@ first-visit defaults are English and light mode. Pipeline outputs remain in this
 project's `public/data/airbnb/` and are staged into the shared application.
 Legacy frontend source and configuration have been archived outside the repository
 and removed. Public artifacts and research remain here; do not recreate a separate frontend.
+
+## Decisions & Trade-offs
+
+| Decision | Alternative | Reason |
+|---|---|---|
+| Describe asking prices and advertised supply | Infer booked revenue or occupancy | Listing availability includes host blocks and is not a booking ledger. |
+| Keep Olist marketplace and cohort populations explicit | Compare their totals as interchangeable | Marketplace ETL retains all order statuses; cohorts include delivered orders only. |
+
+The Airbnb JSON is a historical artifact, updated 2026-03-02; that update date is not the collection date. The stated March 2025 collection date has not been independently reverified against raw files. [Evidence ledger](../../docs/evidence-audit.md).
 
 ## Tech Stack
 
