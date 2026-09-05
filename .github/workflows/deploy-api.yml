@@ -172,7 +172,10 @@ jobs:
             --format='value(status.url)')
           echo "Deployed to: $URL"
           for i in 1 2 3 4 5 6; do
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL/health")
+            # curl can exit non-zero while Cloud Run is still waking the new
+            # revision. Preserve the HTTP code (or 000) so the retry loop can
+            # handle that transient cold-start failure instead of aborting.
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL/health" || true)
             if [ "$HTTP" = "200" ]; then
               echo "PASS: /health -> 200 (attempt $i)"
               break
@@ -186,7 +189,7 @@ jobs:
           fi
           FAIL=0
           for SVC in insurance olist abtest kpi ops portfolio; do
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL/$SVC/health")
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL/$SVC/health" || true)
             if [ "$HTTP" = "200" ]; then
               echo "PASS: $SVC/health -> 200"
             else
